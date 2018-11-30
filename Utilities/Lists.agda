@@ -4,11 +4,13 @@
 
 module Utilities.Lists where
 
-open import Data.List using (List; map; sum)
-open import Data.Nat using (ℕ)
+open import Level                 using (0ℓ)
+open import Category.Functor      using (RawFunctor)
+open import Data.List             using (List; map; sum)
+open import Data.List.Categorical using (functor)
+open import Data.Nat              using (ℕ)
 
-_<$>_ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → (A → B) → List A → List B
-_<$>_ = map
+open RawFunctor {0ℓ} functor public
 
 sumValues : ∀ {A : Set} → (A → ℕ) → List A → ℕ
 sumValues f xs = sum (f <$> xs)
