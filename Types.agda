@@ -2,11 +2,10 @@
 -- Basic UTxO datatypes
 ------------------------------------------------------------------------
 
-module Types where
-
 open import Data.Nat    using (ℕ; _≟_)
 open import Data.Bool   using (Bool)
 open import Data.String using (String)
+open import Data.List   using (List)
 open import Level       using (Level)
 
 open import Relation.Nullary                      using (yes; no)
@@ -15,25 +14,17 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import Data.String.Unsafe using () renaming (_≟_ to _≟ₛ_)
 
+open import Utilities.Lists
+open import Basic
+
+module Types (addresses : List Address) where
+
 ------------------------------------------------------------------------
 -- Basic types.
-
-Address : Set
-Address = ℕ
 
 infix 9 _♯
 postulate
   _♯ : ∀ {ℓ : Level} {A : Set ℓ} → A → Address
-
-Value : Set
-Value = ℕ
-
-Id : Set
-Id = ℕ
-
-record State : Set where
-  field
-    height : ℕ
 
 Script : Set
 Script = String
@@ -43,12 +34,14 @@ postulate
   ⟦_⟧ᵣ : Script → (∀ {R : Set} → State → R)
 
 record TxOutput : Set where
+  constructor $_at_
   field
-    address : Address
     value   : Value
+    address : Index addresses
 open TxOutput public
 
 record TxOutputRef : Set where
+  constructor _indexed-at_
   field
     id    : Id
     index : ℕ

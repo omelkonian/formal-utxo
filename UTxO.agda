@@ -1,28 +1,29 @@
-module UTxO where
-
 open import Level    using (0ℓ)
 open import Function using (_∘_; _∋_; flip)
 
-open import Data.Empty   using (⊥)
-open import Data.Bool    using (T)
-open import Data.Product using (proj₁)
-open import Data.Nat     using (ℕ; zero; suc; _+_; _<_; _≟_)
-open import Data.List    using (List; []; _∷_; length; upTo)
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; is-just)
-  renaming (map to mapMaybe)
+open import Data.Empty    using (⊥)
+open import Data.Bool     using (T)
+open import Data.Product  using (proj₁)
+open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
+open import Data.Fin      using (Fin; toℕ; fromℕ≤)
+open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; upTo; sum)
+open import Data.List.Any using (Any)
 
 open import Relation.Nullary                      using (yes; no)
-open import Relation.Binary                       using (Rel)
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Binary                       using (Rel; Setoid)
+open import Relation.Binary.PropositionalEquality using (_≡_; setoid)
 
 open import Category.Functor       using (RawFunctor)
-open import Data.Maybe.Categorical renaming (functor to maybeFunctor)
 open import Data.List.Categorical  renaming (functor to listFunctor)
-open RawFunctor {0ℓ} maybeFunctor renaming (_<$>_ to _<$>ₘ_)
-open RawFunctor {0ℓ} listFunctor  renaming (_<$>_ to _<$>ₗ_)
+open RawFunctor {0ℓ} listFunctor  using (_<$>_)
 
-open import Utilities.Lists using (Σ-sum-syntax)
-open import Types
+open import Utilities.Lists
+open import Basic
+
+module UTxO (addresses : List Address) where
+-- externally define Ledger′ : [Addr] → Set where open ....
+
+open import Types addresses public
 
 ------------------------------------------------------------------------
 -- Transactions.
@@ -47,7 +48,7 @@ module _ where
   open SETₒ
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (mkOutputRef <$>ₗ indices (outputs tx))
+  unspentOutputsTx tx = fromList (mkOutputRef <$> indices (outputs tx))
     where
       mkOutputRef : ℕ → TxOutputRef
       mkOutputRef index = record { id = tx ♯; index = index }
@@ -56,7 +57,7 @@ module _ where
       indices xs = upTo (length xs)
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  spentOutputsTx tx = fromList (outputRef <$>ₗ txInputs tx)
+  spentOutputsTx tx = fromList (outputRef <$> txInputs tx)
 
   unspentOutputs : Ledger → Set⟨TxOutputRef⟩
   unspentOutputs []         = ∅
@@ -66,59 +67,69 @@ module _ where
 ------------------------------------------------------------------------
 -- Tx utilities.
 
-lookupTx : Ledger → TxOutputRef → Maybe Tx
-lookupTx (t ∷ ts) out with t ♯ ≟ id out
-... | yes _ = just t
-... | no  _ = lookupTx ts out
-lookupTx [] _ = nothing
+open import Data.List.Membership.Setoid (setoid Tx) using (find)
 
-lookupOutput : Ledger → TxOutputRef → Maybe TxOutput
-lookupOutput l out with outputs <$>ₘ (lookupTx l out)
-... | nothing = nothing
-... | just xs = lookupOutputTx (index out) xs
-  where
-    lookupOutputTx : ℕ → List TxOutput → Maybe TxOutput
-    lookupOutputTx zero    (o ∷ os) = just o
-    lookupOutputTx (suc i) (_ ∷ os) = lookupOutputTx i os
-    lookupOutputTx _       []       = nothing
+lookupTx : (l : Ledger)
+         → (out : TxOutputRef)
+         → Any (λ tx → tx ♯ ≡ id out) l
+         → Tx
+lookupTx l out ∃tx≡id = proj₁ (find ∃tx≡id)
 
-lookupValue : Ledger → TxInput → Maybe Value
-lookupValue l input = mapMaybe value (lookupOutput l (outputRef input))
+lookupOutput : (l : Ledger)
+             → (out : TxOutputRef)
+             → (∃tx≡id : Any (λ tx → tx ♯ ≡ id out) l)
+             → index out < length (outputs (lookupTx l out ∃tx≡id))
+             → TxOutput
+lookupOutput l out ∃tx≡id index≤len =
+  outputs (lookupTx l out ∃tx≡id) ‼ (fromℕ≤ {index out} index≤len)
+
+lookupValue : (l : Ledger)
+            → (input : TxInput)
+            → (∃tx≡id : Any (λ tx → tx ♯ ≡ id (outputRef input)) l)
+            → index (outputRef input) <
+                length (outputs (lookupTx l (outputRef input) ∃tx≡id))
+            → Value
+lookupValue l input ∃tx≡id index≤len =
+  value (lookupOutput l (outputRef input) ∃tx≡id index≤len)
 
 ------------------------------------------------------------------------
 -- Properties.
 
 module _ where
 
-  open SETᵢ
+  open SETᵢ hiding (mapWith∈)
   open SETₒ using () renaming (_∈_ to _∈ₒ_)
+  open import Data.List.Membership.Setoid (setoid TxInput) using (mapWith∈)
 
   record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
 
     field
 
-      lookupValueSucceeds :
-        ∀[ i ∈ inputs tx ]
-          T (is-just (lookupValue l i))
+      validTxRefs :
+        ∀ i → i ∈ inputs tx →
+          Any (λ tx → tx ♯ ≡ id (outputRef i)) l
 
-      lookupOutputSucceeds :
-        ∀[ i ∈ inputs tx ]
-          T (is-just (lookupOutput l (outputRef i)))
+      validOutputIndices :
+        ∀ i → (i∈inputs : i ∈ inputs tx) →
+          index (outputRef i) <
+            length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈inputs)))
 
-      hasValidReferences  :
-        ∀[ i ∈ inputs tx ]
+      validOutputRefs :
+        ∀ i → i ∈ inputs tx →
           outputRef i ∈ₒ unspentOutputs l
 
-      preservesValues     :
-        forge tx + Σ[ fromMaybe 0 ∘ lookupValue l ∈ txInputs tx ]
+      preservesValues :
+        forge tx + sum (mapWith∈ (txInputs tx) λ {i} i∈inputs →
+                         lookupValue l i (validTxRefs i i∈inputs)
+                                         (validOutputIndices i i∈inputs))
           ≡
         fee tx + Σ[ value ∈ outputs tx ]
 
-      noDoubleSpending    :
-        ∣ inputs tx ∣ ≡ length (outputRef <$>ₗ txInputs tx)
+      noDoubleSpending :
+        ∣ inputs tx ∣ ≡ length (outputRef <$> txInputs tx)
 
-      allInputsValidate   : {R : Set} {_≈_ : Rel State 0ℓ} →
-        ∀[ i ∈ inputs tx ]
+      allInputsValidate : {R : Set} {_≈_ : Rel State 0ℓ} →
+        ∀ i → i ∈ inputs tx →
           ∀ (stᵣ stᵥ : State) →
             stᵣ ≈ stᵥ →
               let redeemed  = ⟦ redeemer i ⟧ᵣ stᵣ
@@ -126,7 +137,23 @@ module _ where
               in  T validated
 
       validateValidHashes :
-        ∀[ i ∈ inputs tx ]
-          (address <$>ₘ (lookupOutput l (outputRef i)))
+        ∀ i → (i∈inputs : i ∈ inputs tx) →
+          toℕ (address (lookupOutput l (outputRef i)
+                                     (validTxRefs i i∈inputs)
+                                     (validOutputIndices i i∈inputs)))
             ≡
-          just ((validator i) ♯)
+          (validator i) ♯
+
+∙_∶-_ : (t : Tx)
+      → .(IsValidTx t [])
+      → Ledger
+∙ t ∶- _ = [ t ]
+
+infixl 5 _⊕_∶-_
+_⊕_∶-_ : (l : Ledger)
+       → (t : Tx)
+       → .(IsValidTx t l)
+       → Ledger
+l ⊕ t ∶- _ = l ∷ʳ t
+
+-- T0D0 prove weakening
