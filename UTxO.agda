@@ -21,7 +21,6 @@ open import Utilities.Lists
 open import Basic
 
 module UTxO (addresses : List Address) where
--- externally define Ledger′ : [Addr] → Set where open ....
 
 open import Types addresses public
 
@@ -144,6 +143,7 @@ module _ where
             ≡
           (validator i) ♯
 
+-- List notation for constructing valid ledgers.
 ∙_∶-_ : (t : Tx)
       → .(IsValidTx t [])
       → Ledger
@@ -155,5 +155,3 @@ _⊕_∶-_ : (l : Ledger)
        → .(IsValidTx t l)
        → Ledger
 l ⊕ t ∶- _ = l ∷ʳ t
-
--- T0D0 prove weakening
