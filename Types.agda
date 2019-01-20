@@ -6,7 +6,8 @@ open import Data.Nat    using (ℕ; _≟_)
 open import Data.Bool   using (Bool)
 open import Data.String using (String)
 open import Data.List   using (List)
-open import Level       using (Level)
+open import Level       using (Level; 0ℓ)
+  renaming (suc to lsuc)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -22,16 +23,10 @@ module Types (addresses : List Address) where
 ------------------------------------------------------------------------
 -- Basic types.
 
+-- T0D0 postulate that # is injective
 infix 9 _♯
 postulate
   _♯ : ∀ {ℓ : Level} {A : Set ℓ} → A → Address
-
-Script : Set
-Script = String
-
-postulate
-  ⟦_⟧ᵥ : Script → (∀ {R : Set} → State → R → Bool)
-  ⟦_⟧ᵣ : Script → (∀ {R : Set} → State → R)
 
 record TxOutput : Set where
   constructor $_at_
@@ -47,11 +42,13 @@ record TxOutputRef : Set where
     index : ℕ
 open TxOutputRef public
 
-record TxInput : Set where
+record TxInput : Set₁ where
   field
     outputRef : TxOutputRef
-    validator : Script
-    redeemer  : Script
+
+    R         : Set
+    redeemer  : State → R
+    validator : State → R → Bool
 open TxInput public
 
 ------------------------------------------------------------------------
@@ -72,6 +69,7 @@ Set⟨TxOutputRef⟩ : Set
 Set⟨TxOutputRef⟩ = Set'
   where open SETₒ
 
+{- T0D0
 -- Sets of transaction inputs
 _≟ᵢ_ : Decidable {A = TxInput} _≡_
 x ≟ᵢ y with outputRef x ≟ₒ outputRef y
@@ -87,3 +85,4 @@ module SETᵢ = SET {A = TxInput} _≟ᵢ_
 Set⟨TxInput⟩ : Set
 Set⟨TxInput⟩ = Set'
   where open SETᵢ
+-}
