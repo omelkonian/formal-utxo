@@ -6,7 +6,7 @@ open import Data.Bool     using (T)
 open import Data.Product  using (proj₁)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
-open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; upTo; sum; map)
+open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
 open import Data.List.Any using (Any)
 
 open import Relation.Nullary                      using (yes; no)
@@ -17,14 +17,19 @@ open import Category.Functor       using (RawFunctor)
 open import Data.List.Categorical  renaming (functor to listFunctor)
 
 open import Utilities.Lists
-open import Basic
+open import Types
 
 module UTxO (addresses : List Address) where
 
-open import Types addresses public
-
 ------------------------------------------------------------------------
 -- Transactions.
+
+record TxOutput : Set where
+  constructor $_at_
+  field
+    value   : Value
+    address : Index addresses
+open TxOutput public
 
 record Tx : Set₁ where
 
@@ -43,13 +48,10 @@ module _ where
   open SETₒ
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (map mkOutputRef (indices (outputs tx)))
+  unspentOutputsTx tx = fromList (map (mkOutputRef (tx ♯)) (indices (outputs tx)))
     where
-      mkOutputRef : ℕ → TxOutputRef
-      mkOutputRef index = record { id = tx ♯; index = index }
-
-      indices : ∀ {A : Set} → List A → List ℕ
-      indices xs = upTo (length xs)
+      mkOutputRef : ℕ → ℕ → TxOutputRef
+      mkOutputRef tx♯ index = record { id = tx♯; index = index }
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
   spentOutputsTx tx = fromList (map outputRef (inputs tx))
@@ -107,7 +109,6 @@ module _ where
         ∀ i → i ∈ inputs tx →
           Any (λ tx → tx ♯ ≡ id (outputRef i)) l
 
-
       validOutputIndices :
         ∀ i → (i∈inputs : i ∈ inputs tx) →
           index (outputRef i) <
@@ -125,12 +126,11 @@ module _ where
         fee tx + Σ[ value ∈ outputs tx ]
 
       noDoubleSpending :
-        length (inputs tx) ≡ length (map outputRef (inputs tx))
+        T (SETₒ.noDuplicates (map outputRef (inputs tx)))
 
       allInputsValidate : {_≈_ : Rel State 0ℓ} →
         ∀ i → i ∈ inputs tx →
-          ∀ (stᵣ stᵥ : State) →
-            stᵣ ≈ stᵥ →
+          ∀ (stᵣ stᵥ : State) → stᵣ ≈ stᵥ →
               T (validator i stᵥ (redeemer i stᵣ))
 
       validateValidHashes :

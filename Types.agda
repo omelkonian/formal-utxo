@@ -1,39 +1,41 @@
 ------------------------------------------------------------------------
--- Basic UTxO datatypes
+-- Basic UTxO types.
 ------------------------------------------------------------------------
+module Types where
 
-open import Data.Nat    using (ℕ; _≟_)
-open import Data.Bool   using (Bool)
-open import Data.String using (String)
-open import Data.List   using (List)
 open import Level       using (Level; 0ℓ)
-  renaming (suc to lsuc)
+open import Data.Bool   using (Bool)
+
+open import Data.Nat using (ℕ; _≟_)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import Data.String.Unsafe using () renaming (_≟_ to _≟ₛ_)
-
-open import Utilities.Lists
-open import Basic
-
-module Types (addresses : List Address) where
-
 ------------------------------------------------------------------------
 -- Basic types.
 
--- T0D0 postulate that # is injective
+Address : Set
+Address = ℕ
+
+Id : Set
+Id = ℕ
+
+Value : Set
+Value = ℕ
+
+$ : ℕ → Value
+$ v = v
+
+record State : Set where
+  field
+    height : ℕ
+open State
+
 infix 9 _♯
 postulate
-  _♯ : ∀ {ℓ : Level} {A : Set ℓ} → A → Address
-
-record TxOutput : Set where
-  constructor $_at_
-  field
-    value   : Value
-    address : Index addresses
-open TxOutput public
+  _♯ : ∀ {ℓ} {A : Set ℓ} → A → Address
+  ♯-injective : ∀ {ℓ} {x y : Set ℓ} → x ♯ ≡ y ♯ → x ≡ y
 
 record TxOutputRef : Set where
   constructor _indexed-at_
