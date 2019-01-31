@@ -48,10 +48,7 @@ module _ where
   open SETₒ
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (map (mkOutputRef (tx ♯)) (indices (outputs tx)))
-    where
-      mkOutputRef : ℕ → ℕ → TxOutputRef
-      mkOutputRef tx♯ index = record { id = tx♯; index = index }
+  unspentOutputsTx tx = fromList (map ((tx ♯) indexed-at_) (indices (outputs tx)))
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
   spentOutputsTx tx = fromList (map outputRef (inputs tx))
@@ -98,7 +95,7 @@ module _ where
   import Data.List.Membership.Setoid as SetoidMembership
   open SetoidMembership (setoid TxInput) public hiding (mapWith∈)
 
-  open SETₒ using () renaming (_∈_ to _∈ₒ_)
+  open SETₒ using () renaming (_∈′_ to _∈ₒ_)
   open import Data.List.Membership.Setoid (setoid TxInput) using (mapWith∈)
 
   record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
@@ -126,7 +123,7 @@ module _ where
         fee tx + Σ[ value ∈ outputs tx ]
 
       noDoubleSpending :
-        T (SETₒ.noDuplicates (map outputRef (inputs tx)))
+        SETₒ.noDuplicates (map outputRef (inputs tx))
 
       allInputsValidate : {_≈_ : Rel State 0ℓ} →
         ∀ i → i ∈ inputs tx →
@@ -141,6 +138,8 @@ module _ where
             ≡
           (validator i) ♯
 
+  open IsValidTx public
+
 -- List notation for constructing valid ledgers.
 ∙_∶-_ : (t : Tx)
       → .(IsValidTx t [])
@@ -152,4 +151,4 @@ _⊕_∶-_ : (l : Ledger)
        → (t : Tx)
        → .(IsValidTx t l)
        → Ledger
-l ⊕ t ∶- _ = l ∷ʳ t
+l ⊕ t ∶- _ = t ∷ l -- ∷ʳ t

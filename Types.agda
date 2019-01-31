@@ -35,7 +35,7 @@ open State
 infix 9 _♯
 postulate
   _♯ : ∀ {ℓ} {A : Set ℓ} → A → Address
-  ♯-injective : ∀ {ℓ} {x y : Set ℓ} → x ♯ ≡ y ♯ → x ≡ y
+  ♯-injective : ∀ {ℓ} {A : Set ℓ} {x y : A} → x ♯ ≡ y ♯ → x ≡ y
 
 record TxOutputRef : Set where
   constructor _indexed-at_
