@@ -30,7 +30,7 @@ $ v = v
 record State : Set where
   field
     height : ℕ
-open State
+open State public
 
 infix 9 _♯
 postulate
@@ -50,7 +50,12 @@ record TxInput : Set₁ where
 
     R         : Set
     redeemer  : State → R
-    validator : State → R → Bool
+    D         : Set
+    validator : State -- ^ current blockchain state
+              → Value -- ^ output value
+              → R     -- ^ intermediate type used by the redeemer script
+              → D     -- ^ intermediate type used by the data script
+              → Bool
 open TxInput public
 
 ------------------------------------------------------------------------

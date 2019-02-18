@@ -39,14 +39,14 @@ IsValidTx′ : (as : List Address) → Tx′ as → Ledger′ as → Set₁
 IsValidTx′ as t l = IsValidTx t l
   where open import UTxO as
 
-TxOutput′ : List Address → Set
+TxOutput′ : List Address → Set₁
 TxOutput′ as = TxOutput
   where open import UTxO as
 
 weakenTxOutput : ∀ {as bs} → Prefix as bs → TxOutput′ as → TxOutput′ bs
 weakenTxOutput {as} {bs} pr
-    record { value = v ; address = addr }
-  = $ v at inject≤ addr (prefix-length pr)
+    record { value = v ; dataScript = ds ; address = addr }
+  = record { value = v ; dataScript = ds ; address = inject≤ addr (prefix-length pr) }
   where open import UTxO bs
 
 weakenTx : ∀ {as bs} → Prefix as bs → Tx′ as → Tx′ bs
@@ -66,29 +66,31 @@ weakenLedger pr = map (weakenTx pr)
 
 weakening : ∀ {as bs : List Address} {tx : Tx′ as} {l : Ledger′ as}
 
-          → (pr : Prefix as bs)
+          → (pr : Prefix as bs) -- T0D0 generalize to subset
           → IsValidTx′ as tx l
             -------------------------------------------------------
           → IsValidTx′ bs (weakenTx pr tx) (weakenLedger pr l)
 
 weakening {as} {bs} {tx} {l} pr
     record
-      { validTxRefs         = vtx
-      ; validOutputIndices  = voi
-      ; validOutputRefs     = vor
-      ; preservesValues     = pv
-      ; noDoubleSpending    = nds
-      ; allInputsValidate   = aiv
-      ; validateValidHashes = vvh
+      { validTxRefs          = vtx
+      ; validOutputIndices   = voi
+      ; validOutputRefs      = vor
+      ; validDataScriptTypes = vds
+      ; preservesValues      = pv
+      ; noDoubleSpending     = nds
+      ; allInputsValidate    = aiv
+      ; validateValidHashes  = vvh
       }
   = record
-      { validTxRefs         = weakenValidTxRefs vtx
-      ; validOutputIndices  = weakenValidOutputIndices vtx voi
-      ; validOutputRefs     = weakenValidOutputRefs vor
-      ; preservesValues     = weakenPreservesValues vtx voi pv
-      ; noDoubleSpending    = weakenNoDoubleSpending nds
-      ; allInputsValidate   = weakenAllInputsValidate aiv
-      ; validateValidHashes = weakenValidateValidHashes vtx voi vvh
+      { validTxRefs          = weakenValidTxRefs vtx
+      ; validOutputIndices   = weakenValidOutputIndices vtx voi
+      ; validOutputRefs      = weakenValidOutputRefs vor
+      ; validDataScriptTypes = weakenValidDataScriptTypes vtx voi vds
+      ; preservesValues      = weakenPreservesValues vtx voi pv
+      ; noDoubleSpending     = weakenNoDoubleSpending nds
+      ; allInputsValidate    = weakenAllInputsValidate vtx voi vds aiv
+      ; validateValidHashes  = weakenValidateValidHashes vtx voi vvh
       }
   where
     open import UTxO as
@@ -107,6 +109,8 @@ weakening {as} {bs} {tx} {l} pr
       renaming (find to find′)
     open SetoidMembership (setoid U₀.Tx) using ()
       renaming (find to find₀)
+
+    open import Data.List.Membership.Setoid (setoid TxInput) using (_∈_; mapWith∈)
 
     open SETₒ using () renaming (_∈_ to _∈ₒ_)
 
@@ -217,8 +221,8 @@ weakening {as} {bs} {tx} {l} pr
 
     weakenValidOutputRefs :
         (validOutputRefs₀ :
-          ∀ i → i ∈ⁱ U₀.inputs tx → outputRef i ∈ₒ U₀.unspentOutputs l)
-        → ∀ i → i ∈ⁱ inputs tx′ → outputRef i ∈ₒ unspentOutputs l′
+          ∀ i → i ∈ⁱ U₀.inputs tx → outputRef i SETₒ.∈′ U₀.unspentOutputs l)
+        → ∀ i → i ∈ⁱ inputs tx′ → outputRef i SETₒ.∈′ unspentOutputs l′
     weakenValidOutputRefs v₀ i i∈
       rewrite weakenUnspentOutputs {l}
             = v₀ i i∈
@@ -398,24 +402,97 @@ weakening {as} {bs} {tx} {l} pr
 
     ------------------------------------------------------------------------------------
 
+    weakenValidDataScriptTypes :
+        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
+          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
+      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
+          index (outputRef i) <
+            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
+      → (validDataScriptTypes₀ :
+          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
+            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
+      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+          D i ≡ Data (lookupOutput l′ (outputRef i)
+                     (weakenValidTxRefs validTxRefs₀ i i∈)
+                     (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈))
+    weakenValidDataScriptTypes v₀ v₁ v₂ i i∈
+      rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
+            = v₂ i i∈
+
+    weakenValidDataScriptTypes′ :
+        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
+          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
+      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
+          index (outputRef i) <
+            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
+      → (validDataScriptTypes₀ :
+          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
+            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
+      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+          D i ≡ Data (weakenTxOutput pr
+                     (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
+    weakenValidDataScriptTypes′ v₀ v₁ v₂ i i∈ = v₂ i i∈
+
+    ------------------------------------------------------------------------------------
+
     weakenNoDoubleSpending :
       (noDoubleSpending₀ :
-        T (SETₒ.noDuplicates (map outputRef (U₀.inputs tx))))
-      → T (SETₒ.noDuplicates (map outputRef (inputs tx′)))
+        SETₒ.noDuplicates (map outputRef (U₀.inputs tx)))
+      → SETₒ.noDuplicates (map outputRef (inputs tx′))
     weakenNoDoubleSpending v₀ = v₀
 
     ------------------------------------------------------------------------------------
 
-    weakenAllInputsValidate : {_≈_ : Rel State 0ℓ}
-      (allInputsValidate₀ :
-        ∀ i → i ∈ⁱ U₀.inputs tx →
-          ∀ (stᵣ stᵥ : State) → stᵣ ≈ stᵥ →
-              T (validator i stᵥ (redeemer i stᵣ))
-      )
-      → ∀ i → i ∈ⁱ inputs tx′ →
-           ∀ (stᵣ stᵥ : State) → stᵣ ≈ stᵥ →
-               T (validator i stᵥ (redeemer i stᵣ))
-    weakenAllInputsValidate v₀ = v₀
+    value≡ : ∀ {o} → value (weakenTxOutput pr o) ≡ U₀.value o
+    value≡ = refl
+
+    dataScript≡ : ∀ {o} → dataScript (weakenTxOutput pr o) ≡ U₀.dataScript o
+    dataScript≡ = refl
+
+    weakenRunValidation : ∀ {o : U₀.TxOutput} {i : TxInput} {st : State}
+                            {v : D i ≡ U₀.Data o}
+                            {v′ : D i ≡ Data (weakenTxOutput pr o)}
+      → U₀.runValidation i o v st
+          ≡
+        runValidation i (weakenTxOutput pr o) v′ st
+    weakenRunValidation {o} {_} {_} {refl} {refl}
+      rewrite value≡ {o}
+            | dataScript≡ {o}
+            = refl
+
+    weakenAllInputsValidate :
+        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
+           Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
+      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
+          index (outputRef i) <
+            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
+      → (validDataScriptTypes₀ :
+          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
+            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
+      → (allInputsValidate₀ :
+          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
+            let
+              out : U₀.TxOutput
+              out = U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)
+            in
+              ∀ (st : State) →
+                T (U₀.runValidation i out (validDataScriptTypes₀ i i∈) st))
+      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+          let
+            out : TxOutput
+            out = lookupOutput l′ (outputRef i) (weakenValidTxRefs validTxRefs₀ i i∈)
+                                                (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈)
+          in
+            ∀ (st : State) →
+              T (runValidation i out (weakenValidDataScriptTypes validTxRefs₀ validOutputIndices₀
+                                                                 validDataScriptTypes₀ i i∈) st)
+    weakenAllInputsValidate v₀ v₁ v₂ v₃ i i∈ st
+      rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
+            | sym (weakenRunValidation {U₀.lookupOutput l (outputRef i) (v₀ i i∈) (v₁ i i∈)}
+                                       {i} {st}
+                                       {v = v₂ i i∈}
+                                       {v′ = weakenValidDataScriptTypes′ v₀ v₁ v₂ i i∈})
+            = v₃ i i∈ st
 
     ------------------------------------------------------------------------------------
 

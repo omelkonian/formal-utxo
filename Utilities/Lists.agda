@@ -21,22 +21,22 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; sym)
 ------------------------------------------------------------------------
 -- Sums.
 
-Σ-sum-syntax : ∀ {A : Set} → (A → ℕ) → List A → ℕ
+Σ-sum-syntax : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → List A → ℕ
 Σ-sum-syntax f xs = sum (map f xs)
 syntax Σ-sum-syntax f xs = Σ[ f ∈ xs ]
 
 ------------------------------------------------------------------------
 -- Indexed operations.
 
-Index : ∀ {A : Set} → (xs : List A) → Set
+Index : ∀ {ℓ} {A : Set ℓ} → (xs : List A) → Set
 Index xs = Fin (length xs)
 
 infix 3 _‼_
-_‼_ : ∀ {A : Set} → (vs : List A) → Index vs → A
+_‼_ : ∀ {ℓ} {A : Set ℓ} → (vs : List A) → Index vs → A
 _‼_ = lookup
 
 infix 3 _⁉_
-_⁉_ : ∀ {A : Set} → (vs : List A) → ℕ → Maybe A
+_⁉_ : ∀ {ℓ} {A : Set ℓ} → (vs : List A) → ℕ → Maybe A
 []       ⁉ _     = nothing
 (x ∷ xs) ⁉ zero  = just x
 (x ∷ xs) ⁉ suc n = xs ⁉ n
@@ -58,7 +58,7 @@ _at_⟨_⟩remove_ : ∀ {A : Set} → (vs : List A) → Index vs → A → Inde
 (_ ∷ vs) at fsuc x ⟨ xv ⟩remove fzero  = vs at x ⟨ xv ⟩
 (v ∷ vs) at fsuc x ⟨ xv ⟩remove fsuc y = v ∷ vs at x ⟨ xv ⟩remove y
 
-indices : ∀ {A : Set} → List A → List ℕ
+indices : ∀ {ℓ} {A : Set ℓ} → List A → List ℕ
 indices xs = upTo (length xs)
 
 cast : ∀ {m n} → .(_ : m ≡ n) → Fin m → Fin n
@@ -77,47 +77,37 @@ toℕ-cast : ∀ {n m} {fm : Fin m}
 toℕ-cast {_} {_} {fzero}   refl = refl
 toℕ-cast {_} {_} {fsuc fm} refl = cong suc (toℕ-cast refl)
 
-‼-suc : ∀ {A} {x : A} {xs : List A} {i : Index xs}
+‼-suc : ∀ {ℓ} {A : Set ℓ} {x : A} {xs : List A} {i : Index xs}
   → (x ∷ xs ‼ fsuc i)
   ≡ (xs ‼ i)
 ‼-suc = refl
 
-‼-map : ∀ {A B} {f : A → B} {xs : List A} {i : Index xs}
+‼-map : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} {f : A → B} {xs : List A} {i : Index xs}
   → (map f xs ‼ cast (sym (length-map f xs)) i)
   ≡ f (xs ‼ i)
-‼-map {A} {B} {f} {[]} {()}
-‼-map {A} {B} {f} {x ∷ xs} {fzero} = refl
-‼-map {A} {B} {f} {x ∷ xs} {fsuc i}
-  rewrite ‼-suc {A} {x} {xs} {i}
-        = ‼-map {A} {B} {f} {xs} {i}
+‼-map {_} {_} {A} {B} {f} {[]} {()}
+‼-map {_} {_} {A} {B} {f} {x ∷ xs} {fzero} = refl
+‼-map {_} {_} {A} {B} {f} {x ∷ xs} {fsuc i}
+  rewrite ‼-suc {_} {A} {x} {xs} {i}
+        = ‼-map {_} {_} {A} {B} {f} {xs} {i}
 
-‼→⁉ : ∀ {A} {xs : List A} {ix : Index xs}
+‼→⁉ : ∀ {ℓ} {A : Set ℓ} {xs : List A} {ix : Index xs}
     → just (xs ‼ ix) ≡ (xs ⁉ toℕ ix)
-‼→⁉ {_} {[]}     {()}
-‼→⁉ {_} {x ∷ xs} {fzero}   = refl
-‼→⁉ {A} {x ∷ xs} {fsuc ix} = ‼→⁉ {A} {xs} {ix}
+‼→⁉ {_} {_} {[]}     {()}
+‼→⁉ {_} {_} {x ∷ xs} {fzero}   = refl
+‼→⁉ {_} {A} {x ∷ xs} {fsuc ix} = ‼→⁉ {_} {A} {xs} {ix}
 
-⁉→‼ : ∀ {A} {xs ys : List A} {ix : Index xs}
+⁉→‼ : ∀ {ℓ} {A : Set ℓ} {xs ys : List A} {ix : Index xs}
     → (len≡ : length xs ≡ length ys)
     → (xs ⁉ toℕ ix) ≡ (ys ⁉ toℕ ix)
     → (xs ‼ ix) ≡ (ys ‼ cast len≡ ix)
-⁉→‼ {A} {[]}     {[]}      {ix}      len≡ eq   = refl
-⁉→‼ {A} {[]}     {x ∷ ys}  {ix}      () eq
-⁉→‼ {A} {x ∷ xs} {[]}      {ix}      () eq
-⁉→‼ {A} {x ∷ xs} {.x ∷ ys} {fzero}   len≡ refl = refl
-⁉→‼ {A} {x ∷ xs} {y ∷ ys}  {fsuc ix} len≡ eq
-  rewrite ‼-suc {A} {x} {xs} {ix}
-        = ⁉→‼ {A} {xs} {ys} {ix} (suc-injective len≡) eq
-
--- ‼-≡ : ∀ {A} {l r : List A} {iₗ : Index l} {iᵣ : Index r}
---     → l ≡ r
---     → toℕ iₗ ≡ toℕ iᵣ
---     → (Maybe A ∋ just (l ‼ iₗ)) ≡ (Maybe A ∋ just (r ‼ iᵣ))
--- ‼-≡ {A} {l} {r} {il} {ir} refl to≡
---   rewrite -- just-injective {x = l ‼ il} {y = r ‼ ir}
---           ‼→⁉ {A} {l} {il}
---         | ‼→⁉ {A} {r} {ir}
---         = {!!}
+⁉→‼ {_} {A} {[]}     {[]}      {ix}      len≡ eq   = refl
+⁉→‼ {_} {A} {[]}     {x ∷ ys}  {ix}      () eq
+⁉→‼ {_} {A} {x ∷ xs} {[]}      {ix}      () eq
+⁉→‼ {_} {A} {x ∷ xs} {.x ∷ ys} {fzero}   len≡ refl = refl
+⁉→‼ {_} {A} {x ∷ xs} {y ∷ ys}  {fsuc ix} len≡ eq
+  rewrite ‼-suc {_} {A} {x} {xs} {ix}
+        = ⁉→‼ {_} {A} {xs} {ys} {ix} (suc-injective len≡) eq
 
 ------------------------------------------------------------------------
 -- Prefix relation.

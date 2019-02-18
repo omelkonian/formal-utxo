@@ -1,8 +1,9 @@
 open import Level    using (0ℓ)
 open import Function using (_∘_; _∋_; flip)
 
-open import Data.Empty    using (⊥)
-open import Data.Bool     using (T)
+open import Data.Empty    using (⊥; ⊥-elim)
+open import Data.Unit     using (⊤; tt)
+open import Data.Bool     using (Bool; T)
 open import Data.Product  using (proj₁)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
@@ -11,7 +12,7 @@ open import Data.List.Any using (Any)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Rel; Setoid)
-open import Relation.Binary.PropositionalEquality using (_≡_; setoid)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; setoid)
 
 open import Category.Functor       using (RawFunctor)
 open import Data.List.Categorical  renaming (functor to listFunctor)
@@ -24,12 +25,18 @@ module UTxO (addresses : List Address) where
 ------------------------------------------------------------------------
 -- Transactions.
 
-record TxOutput : Set where
-  constructor $_at_
+record TxOutput : Set₁ where
   field
     value   : Value
     address : Index addresses
+
+    Data       : Set
+    dataScript : State → Data
+
 open TxOutput public
+
+runValidation : (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
+runValidation i o refl st = validator i st (value o) (redeemer i st) (dataScript o st)
 
 record Tx : Set₁ where
 
@@ -91,12 +98,7 @@ lookupValue l input ∃tx≡id index≤len =
 
 module _ where
 
-  -- open SETᵢ hiding (mapWith∈)
-  import Data.List.Membership.Setoid as SetoidMembership
-  open SetoidMembership (setoid TxInput) public hiding (mapWith∈)
-
-  open SETₒ using () renaming (_∈′_ to _∈ₒ_)
-  open import Data.List.Membership.Setoid (setoid TxInput) using (mapWith∈)
+  open import Data.List.Membership.Setoid (setoid TxInput) using (_∈_; mapWith∈)
 
   record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
 
@@ -104,39 +106,48 @@ module _ where
 
       validTxRefs :
         ∀ i → i ∈ inputs tx →
-          Any (λ tx → tx ♯ ≡ id (outputRef i)) l
+          Any (λ t → t ♯ ≡ id (outputRef i)) l
 
       validOutputIndices :
-        ∀ i → (i∈inputs : i ∈ inputs tx) →
+        ∀ i → (i∈ : i ∈ inputs tx) →
           index (outputRef i) <
-            length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈inputs)))
+            length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈)))
 
       validOutputRefs :
         ∀ i → i ∈ inputs tx →
-          outputRef i ∈ₒ unspentOutputs l
+          outputRef i SETₒ.∈′ unspentOutputs l
+
+      validDataScriptTypes :
+        ∀ i → (i∈ : i ∈ inputs tx) →
+          D i ≡ Data (lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈))
+
+      -------------------------------------------------------------------------------
 
       preservesValues :
-        forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈inputs →
-                         lookupValue l i (validTxRefs i i∈inputs)
-                                         (validOutputIndices i i∈inputs))
+        forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
+                         lookupValue l i (validTxRefs i i∈) (validOutputIndices i i∈))
           ≡
         fee tx + Σ[ value ∈ outputs tx ]
 
       noDoubleSpending :
         SETₒ.noDuplicates (map outputRef (inputs tx))
 
-      allInputsValidate : {_≈_ : Rel State 0ℓ} →
-        ∀ i → i ∈ inputs tx →
-          ∀ (stᵣ stᵥ : State) → stᵣ ≈ stᵥ →
-              T (validator i stᵥ (redeemer i stᵣ))
+      allInputsValidate : -- {_≈_ : Rel State 0ℓ} →
+        ∀ i → (i∈ : i ∈ inputs tx) →
+          let
+            out : TxOutput
+            out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+          in
+            ∀ (st : State) →
+              T (runValidation i out (validDataScriptTypes i i∈) st)
 
       validateValidHashes :
-        ∀ i → (i∈inputs : i ∈ inputs tx) →
-          toℕ (address (lookupOutput l (outputRef i)
-                                     (validTxRefs i i∈inputs)
-                                     (validOutputIndices i i∈inputs)))
-            ≡
-          (validator i) ♯
+        ∀ i → (i∈ : i ∈ inputs tx) →
+          let
+            out : TxOutput
+            out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+          in
+            toℕ (address out) ≡ (validator i) ♯
 
   open IsValidTx public
 
@@ -151,4 +162,40 @@ _⊕_∶-_ : (l : Ledger)
        → (t : Tx)
        → .(IsValidTx t l)
        → Ledger
-l ⊕ t ∶- _ = t ∷ l -- ∷ʳ t
+l ⊕ t ∶- _ = t ∷ l
+
+
+-- Decidable procedure for IsValidTx.
+{-
+
+open import Data.List.All using (all)
+open import Data.List.Any using (any)
+
+isValidTx? : ∀ (tx : Tx) (l : Ledger) → Set
+isValidTx? tx l
+  with all (λ i → any (λ t → t ♯  ≟ id (outputRef i)) l)
+           (inputs tx)
+... | no _ = ⊥
+... | yes v₁
+  with all (λ i → {!!}) (inputs tx)
+... | no _ = ⊥
+... | yes v₂
+  with all (λ i → outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)) (inputs tx)
+... | no _ = ⊥
+... | yes v₃
+  with ?
+... | no _ = ⊥
+... | yes v₄
+  with ???
+... | no _ = ⊥
+... | yes v₅
+  with all (λ i → impossible?) (inputs tx)
+... | no _ = ⊥
+... | yes v₆
+  with ???
+... | no _ = ⊥
+... | yes v₇ = ⊤
+
+
+-- sound-isValidTx : ∀ {l t} {p : isValidTx? t l} → IsValidTx t l
+-}

@@ -9,7 +9,7 @@ open import Function      using (case_of_)
 open import Data.Unit     using (⊤; tt)
 open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Product  using (_,_)
-open import Data.Bool     using (Bool; true; false)
+open import Data.Bool     using (Bool; true; false; T)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_; s≤s; z≤n)
 open import Data.Nat.Properties using (≤-refl)
 open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; _++_; length; upTo; sum; map)
@@ -33,6 +33,7 @@ module Examples where
   addresses = 1 ∷ 2 ∷ 3 ∷ []
 
   open import UTxO addresses
+  open import Data.List.Membership.Setoid (setoid TxInput) using (_∈_)
 
   1ᶠ : Fin 3
   1ᶠ = sucᶠ 0ᶠ
@@ -44,14 +45,23 @@ module Examples where
   dummyRedeemer : State → ℕ
   dummyRedeemer = λ _ → 0
 
-  dummyValidator : State → ℕ → Bool
-  dummyValidator = λ _ _ → true
+  dummyValidator : State → Value → ℕ → ℕ → Bool
+  dummyValidator = λ _ _ _ _ → true
 
   withScripts : TxOutputRef → TxInput
   withScripts tin = record { outputRef = tin
                            ; redeemer  = dummyRedeemer
                            ; validator = dummyValidator
                            }
+
+  dummyDataScript : State → ℕ
+  dummyDataScript = λ _ → 0
+
+  $_at_ : Value → Index addresses → TxOutput
+  $ v at addr = record { value      = v
+                       ; address    = addr
+                       ; dataScript = dummyDataScript
+                       }
 
   postulate
     validator♯ : ∀ {i : Index addresses} → toℕ i ≡ dummyValidator ♯
@@ -126,66 +136,68 @@ module Examples where
   ex-ledger : Ledger
   ex-ledger =
     ∙ t₁ ∶- record
-              { validTxRefs         = λ i ()
-              ; validOutputIndices  = λ i ()
-              ; validOutputRefs     = λ i ()
-              ; preservesValues     = refl
-              ; noDoubleSpending    = tt
-              ; allInputsValidate   = λ i ()
-              ; validateValidHashes = λ i ()
+              { validTxRefs          = λ i ()
+              ; validOutputIndices   = λ i ()
+              ; validOutputRefs      = λ i ()
+              ; validDataScriptTypes = λ i ()
+              ; preservesValues      = refl
+              ; noDoubleSpending     = tt
+              ; allInputsValidate    = λ i ()
+              ; validateValidHashes  = λ i ()
               }
     ⊕ t₂ ∶- record
-              { validTxRefs         = v₀
-              ; validOutputIndices  = v₁
-              ; validOutputRefs     = v₂
-              ; preservesValues     = refl
-              ; noDoubleSpending    = tt
-              ; allInputsValidate   = λ{ i (here refl) _ _ _ → tt ; i (there ()) }
-              ; validateValidHashes = λ{ i (here refl) → validator♯ ; i (there ()) }
+              { validTxRefs          = v₀
+              ; validOutputIndices   = v₁
+              ; validOutputRefs      = v₂
+              ; validDataScriptTypes = v₃
+              ; preservesValues      = refl
+              ; noDoubleSpending     = tt
+              ; allInputsValidate    = v₄
+              ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
               }
     ⊕ t₃ ∶- record
-              { validTxRefs         = v₀′
-              ; validOutputIndices  = v₁′
-              ; validOutputRefs     = v₂′
-              ; preservesValues     = refl
-              ; noDoubleSpending    = tt
-              ; allInputsValidate   = λ{ i (here refl) _ _ _ → tt ; i (there ()) }
-              ; validateValidHashes = λ{ i (here refl) → validator♯ ; i (there ()) }
+              { validTxRefs          = v₀′
+              ; validOutputIndices   = v₁′
+              ; validOutputRefs      = v₂′
+              ; validDataScriptTypes = v₃′
+              ; preservesValues      = refl
+              ; noDoubleSpending     = tt
+              ; allInputsValidate    = v₄′
+              ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
               }
     ⊕ t₄ ∶- record
-              { validTxRefs         = v₀″
-              ; validOutputIndices  = v₁″
-              ; validOutputRefs     = v₂″
-              ; preservesValues     = refl
-              ; noDoubleSpending    = tt
-              ; allInputsValidate   = λ{ i (here refl) _ _ _ → tt ; i (there ()) }
-              ; validateValidHashes = λ{ i (here refl) → validator♯ ; i (there ()) }
+              { validTxRefs          = v₀″
+              ; validOutputIndices   = v₁″
+              ; validOutputRefs      = v₂″
+              ; validDataScriptTypes = v₃″
+              ; preservesValues      = refl
+              ; noDoubleSpending     = tt
+              ; allInputsValidate    = v₄″
+              ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
               }
     ⊕ t₅ ∶- record
-              { validTxRefs         = v₀‴
-              ; validOutputIndices  = v₁‴
-              ; validOutputRefs     = v₂‴
-              ; preservesValues     = refl
-              ; noDoubleSpending    = nodup-20-40
-              ; allInputsValidate   = λ{ i (here refl) _ _ _ → tt
-                                       ; i (there (here refl)) _ _ _ → tt
-                                       ; i (there (there ()))}
-              ; validateValidHashes = λ{ i (here refl) → validator♯
-                                       ; i (there (here refl)) → validator♯
-                                       ; i (there (there ())) }
+              { validTxRefs          = v₀‴
+              ; validOutputIndices   = v₁‴
+              ; validOutputRefs      = v₂‴
+              ; validDataScriptTypes = v₃‴
+              ; preservesValues      = refl
+              ; noDoubleSpending     = nodup-20-40
+              ; allInputsValidate    = v₄‴
+              ; validateValidHashes  = λ{ i (here refl) → validator♯
+                                        ; i (there (here refl)) → validator♯
+                                        ; i (there (there ())) }
               }
     ⊕ t₆ ∶- record
-              { validTxRefs         = v₀⁗
-              ; validOutputIndices  = v₁⁗
-              ; validOutputRefs     = v₂⁗
-              ; preservesValues     = refl
-              ; noDoubleSpending    = nodup-50-51
-              ; allInputsValidate   = λ{ i (here refl) _ _ _ → tt
-                                       ; i (there (here refl)) _ _ _ → tt
-                                       ; i (there (there ()))}
-              ; validateValidHashes = λ{ i (here refl) → validator♯
-                                       ; i (there (here refl)) → validator♯
-                                       ; i (there (there ())) }
+              { validTxRefs          = v₀⁗
+              ; validOutputIndices   = v₁⁗
+              ; validOutputRefs      = v₂⁗
+              ; validDataScriptTypes = v₃⁗
+              ; preservesValues      = refl
+              ; noDoubleSpending     = nodup-50-51
+              ; allInputsValidate    = v₄⁗
+              ; validateValidHashes  = λ{ i (here refl) → validator♯
+                                        ; i (there (here refl)) → validator♯
+                                        ; i (there (there ())) }
               }
 
     where
@@ -198,7 +210,7 @@ module Examples where
       l₁ : Ledger
       l₁ = t₁ ∷ []
 
-      v₀ : ∀ i → i ∈ [ withScripts out₁₀ ] → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₁
+      v₀ : ∀ i → i ∈ inputs t₂ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₁
       v₀ i (here refl) = here refl
       v₀ i (there ())
 
@@ -211,6 +223,16 @@ module Examples where
       v₂ : ∀ i → i ∈ inputs t₂ → outputRef i ∈ₒ unspentOutputs l₁
       v₂ i (here refl) = here refl
       v₂ i (there ())
+
+      v₃ : ∀ i → (i∈ : i ∈ inputs t₂) →
+        D i ≡ Data (lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈))
+      v₃ i (here refl) = refl
+      v₃ i (there ())
+
+      v₄ : ∀ i → (i∈ : i ∈ inputs t₂) → (st : State) →
+        T (runValidation i (lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈)) (v₃ i i∈) st)
+      v₄ .(withScripts out₁₀) (here refl) _ = tt
+      v₄ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -244,6 +266,16 @@ module Examples where
       v₂′ : ∀ i → i ∈ inputs t₃ → outputRef i ∈ₒ unspentOutputs l₂
       v₂′ .(withScripts out₂₁) (here refl) rewrite utxo-l₂ = there (here refl)
       v₂′ i (there ())
+
+      v₃′ : ∀ i → (i∈ : i ∈ inputs t₃) →
+        D i ≡ Data (lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈))
+      v₃′ i (here refl) = refl
+      v₃′ i (there ())
+
+      v₄′ : ∀ i → (i∈ : i ∈ inputs t₃) → (st : State) →
+        T (runValidation i (lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈)) (v₃′ i i∈) st)
+      v₄′ .(withScripts out₂₁) (here refl) _ = tt
+      v₄′ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -281,6 +313,16 @@ module Examples where
       v₂″ : ∀ i → i ∈ inputs t₄ → outputRef i ∈ₒ unspentOutputs l₃
       v₂″ .(withScripts out₃₀) (here refl) rewrite utxo-l₃ = there (here refl)
       v₂″ i (there ())
+
+      v₃″ : ∀ i → (i∈ : i ∈ inputs t₄) →
+        D i ≡ Data (lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈))
+      v₃″ i (here refl) = refl
+      v₃″ i (there ())
+
+      v₄″ : ∀ i → (i∈ : i ∈ inputs t₄) → (st : State) →
+        T (runValidation i (lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈)) (v₃″ i i∈) st)
+      v₄″ .(withScripts out₃₀) (here refl) _ = tt
+      v₄″ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -324,6 +366,18 @@ module Examples where
       v₂‴ .(withScripts out₂₀) (here refl)         rewrite utxo-l₄ = here refl
       v₂‴ .(withScripts out₄₀) (there (here refl)) rewrite utxo-l₄ = there (here refl)
       v₂‴ i (there (there ()))
+
+      v₃‴ : ∀ i → (i∈ : i ∈ inputs t₅) →
+        D i ≡ Data (lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈))
+      v₃‴ i (here refl)         = refl
+      v₃‴ i (there (here refl)) = refl
+      v₃‴ i (there (there ()))
+
+      v₄‴ : ∀ i → (i∈ : i ∈ inputs t₅) → (st : State) →
+        T (runValidation i (lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈)) (v₃‴ i i∈) st)
+      v₄‴ .(withScripts out₂₀) (here refl)         _ = tt
+      v₄‴ .(withScripts out₄₀) (there (here refl)) _ = tt
+      v₄‴ i (there (there ()))
 
       ----------------------------------------------------------------------------------
 
@@ -372,4 +426,15 @@ module Examples where
       v₂⁗ .(withScripts out₅₁) (there (here refl)) rewrite utxo-l₅ = there (here refl)
       v₂⁗ i (there (there ()))
 
+      v₃⁗ : ∀ i → (i∈ : i ∈ inputs t₆) →
+        D i ≡ Data (lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈))
+      v₃⁗ i (here refl)         = refl
+      v₃⁗ i (there (here refl)) = refl
+      v₃⁗ i (there (there ()))
+
+      v₄⁗ : ∀ i → (i∈ : i ∈ inputs t₆) → (st : State) →
+        T (runValidation i (lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈)) (v₃⁗ i i∈) st)
+      v₄⁗ .(withScripts out₅₀) (here refl)         _ = tt
+      v₄⁗ .(withScripts out₅₁) (there (here refl)) _ = tt
+      v₄⁗ i (there (there ()))
       ----------------------------------------------------------------------------------
