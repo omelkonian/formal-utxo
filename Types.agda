@@ -12,6 +12,8 @@ open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
+open import Data.TYPE using (𝕌; el)
+
 ------------------------------------------------------------------------
 -- Basic types.
 
@@ -44,17 +46,17 @@ record TxOutputRef : Set where
     index : ℕ
 open TxOutputRef public
 
-record TxInput : Set₁ where
+record TxInput : Set where
   field
     outputRef : TxOutputRef
 
-    R         : Set
-    redeemer  : State → R
-    D         : Set
+    R         : 𝕌
+    redeemer  : State → el R
+    D         : 𝕌
     validator : State -- ^ current blockchain state
               → Value -- ^ output value
-              → R     -- ^ intermediate type used by the redeemer script
-              → D     -- ^ intermediate type used by the data script
+              → el R  -- ^ intermediate type used by the redeemer script
+              → el D  -- ^ intermediate type used by the data script
               → Bool
 open TxInput public
 

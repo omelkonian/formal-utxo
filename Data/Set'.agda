@@ -45,7 +45,7 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
   ------------------------------------------------------------------------
   -- Subset relation.
 
-  open import Data.List.Relation.Subset.Propositional {A = A} using (_⊆_) public
+  open import Data.List.Relation.Binary.Subset.Propositional {A = A} using (_⊆_) public
 
   _⊆?_ : List A → List A → Set
   []       ⊆? _  = ⊤
@@ -72,6 +72,12 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
   noDuplicates (x ∷ xs) with x ∈? xs
   ... | yes _ = ⊥
   ... | no  _ = noDuplicates xs
+
+  noDuplicates? : (xs : List A) → Dec (noDuplicates xs)
+  noDuplicates? [] = yes tt
+  noDuplicates? (x ∷ xs) with x ∈? xs
+  ... | yes _ = no λ z → z
+  ... | no ¬p = noDuplicates? xs
 
   record Set' : Set where
     constructor ⟨_⟩∶-_

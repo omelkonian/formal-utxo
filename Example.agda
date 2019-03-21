@@ -133,7 +133,7 @@ module Examples where
   out₆₀ : TxOutputRef
   out₆₀ = (t₆ ♯) indexed-at 0
 
-  ex-ledger : Ledger
+  ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ [])
   ex-ledger =
     ∙ t₁ ∶- record
               { validTxRefs          = λ i ()
@@ -437,4 +437,3 @@ module Examples where
       v₄⁗ .(withScripts out₅₀) (here refl)         _ = tt
       v₄⁗ .(withScripts out₅₁) (there (here refl)) _ = tt
       v₄⁗ i (there (there ()))
-      ----------------------------------------------------------------------------------
