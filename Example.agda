@@ -21,7 +21,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; setoid; r
 
 open import Relation.Nullary           using (¬_; yes; no)
 open import Relation.Nullary.Negation  using (¬?)
-open import Relation.Nullary.Decidable using (True; False; fromWitnessFalse)
+open import Relation.Nullary.Decidable using (True; False; toWitness)
 
 open import Utilities.Lists
 open import Types
@@ -33,7 +33,7 @@ module Examples where
   addresses = 1 ∷ 2 ∷ 3 ∷ []
 
   open import UTxO addresses
-  open import Data.List.Membership.Setoid (setoid TxInput) using (_∈_)
+  open import DecisionProcedure addresses
 
   1ᶠ : Fin 3
   1ᶠ = sucᶠ 0ᶠ
@@ -136,13 +136,13 @@ module Examples where
   ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ [])
   ex-ledger =
     ∙ t₁ ∶- record
-              { validTxRefs          = λ i ()
-              ; validOutputIndices   = λ i ()
-              ; validOutputRefs      = λ i ()
-              ; validDataScriptTypes = λ i ()
+              { validTxRefs          = v₀₀
+              ; validOutputIndices   = v₀₁
+              ; validOutputRefs      = v₀₂
+              ; validDataScriptTypes = v₀₃
               ; preservesValues      = refl
               ; noDoubleSpending     = tt
-              ; allInputsValidate    = λ i ()
+              ; allInputsValidate    = v₀₄
               ; validateValidHashes  = λ i ()
               }
     ⊕ t₂ ∶- record
@@ -202,8 +202,33 @@ module Examples where
 
     where
 
-      open SETₒ renaming (_∈_ to _∈ᵒ_; _∈′_ to _∈ₒ_)
-      open import Data.List.Membership.Setoid (setoid TxInput) using (mapWith∈)
+      open SETₒ using (_∈?_; from↔to; list; noDuplicates; noDuplicates?)
+        renaming (_∈′_ to _∈ₒ_)
+      open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
+
+      ----------------------------------------------------------------------------------
+
+      l₀ : Ledger
+      l₀ = []
+
+      v₀₀ : ∀ i → i ∈ inputs t₁ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₀
+      v₀₀ = toWitness {Q = validTxRefs? t₁ l₀} tt
+
+      v₀₁ : ∀ i → (i∈ : i ∈ inputs t₁) →
+             index (outputRef i) <
+               length (outputs (lookupTx l₀ (outputRef i) (v₀₀ i i∈)))
+      v₀₁ = toWitness {Q = validOutputIndices? t₁ l₀ v₀₀} tt
+
+      v₀₂ : ∀ i → i ∈ inputs t₁ → outputRef i ∈ₒ unspentOutputs l₀
+      v₀₂ = toWitness {Q = validOutputRefs? t₁ l₀} tt
+
+      v₀₃ : ∀ i → (i∈ : i ∈ inputs t₁) →
+        D i ≡ Data (lookupOutput l₀ (outputRef i) (v₀₀ i i∈) (v₀₁ i i∈))
+      v₀₃ = toWitness {Q = validDataScriptTypes? t₁ l₀ v₀₀ v₀₁} tt
+
+      v₀₄ : ∀ i → (i∈ : i ∈ inputs t₁) → (st : State) →
+        T (runValidation i (lookupOutput l₀ (outputRef i) (v₀₀ i i∈) (v₀₁ i i∈)) (v₀₃ i i∈) st)
+      v₀₄ i i∈ st = (toWitness {Q = allInputsValidate? t₁ l₀ v₀₀ v₀₁ v₀₃ st} tt) i i∈
 
       ----------------------------------------------------------------------------------
 
@@ -211,28 +236,33 @@ module Examples where
       l₁ = t₁ ∷ []
 
       v₀ : ∀ i → i ∈ inputs t₂ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₁
+      -- v₀ = toWitness {Q = validTxRefs? t₂ l₁} tt
       v₀ i (here refl) = here refl
       v₀ i (there ())
 
       v₁ : ∀ i → (i∈ : i ∈ inputs t₂) →
              index (outputRef i) <
                length (outputs (lookupTx l₁ (outputRef i) (v₀ i i∈)))
-      v₁ .(withScripts out₁₀) (here refl) = s≤s z≤n
-      v₁ i (there ())
+      v₁ = toWitness {Q = validOutputIndices? t₂ l₁ v₀} tt
+      -- v₁ .(withScripts out₁₀) (here refl) = s≤s z≤n
+      -- v₁ i (there ())
 
       v₂ : ∀ i → i ∈ inputs t₂ → outputRef i ∈ₒ unspentOutputs l₁
+      -- v₂ = toWitness {Q = validOutputRefs? t₂ l₁} tt
       v₂ i (here refl) = here refl
       v₂ i (there ())
 
       v₃ : ∀ i → (i∈ : i ∈ inputs t₂) →
         D i ≡ Data (lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈))
-      v₃ i (here refl) = refl
-      v₃ i (there ())
+      v₃ = toWitness {Q = validDataScriptTypes? t₂ l₁ v₀ v₁} tt
+      -- v₃ i (here refl) = refl
+      -- v₃ i (there ())
 
       v₄ : ∀ i → (i∈ : i ∈ inputs t₂) → (st : State) →
         T (runValidation i (lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈)) (v₃ i i∈) st)
-      v₄ .(withScripts out₁₀) (here refl) _ = tt
-      v₄ i (there ())
+      v₄ i i∈ st = (toWitness {Q = allInputsValidate? t₂ l₁ v₀ v₁ v₃ st} tt) i i∈
+      -- v₄ .(withScripts out₁₀) (here refl) _ = tt
+      -- v₄ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -240,14 +270,16 @@ module Examples where
       l₂ = t₂ ∷ t₁ ∷ []
 
       v₀′ : ∀ i → i ∈ inputs t₃ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₂
+      -- v₀′ = toWitness {Q = validTxRefs? t₃ l₂} tt
       v₀′ i (here refl) = here refl
       v₀′ i (there ())
 
       v₁′ : ∀ i → (i∈ : i ∈ inputs t₃) →
              index (outputRef i) <
                length (outputs (lookupTx l₂ (outputRef i) (v₀′ i i∈)))
-      v₁′ .(withScripts out₂₁) (here refl) = s≤s ≤-refl
-      v₁′ i (there ())
+      v₁′ = toWitness {Q = validOutputIndices? t₃ l₂ v₀′} tt
+      -- v₁′ .(withScripts out₂₁) (here refl) = s≤s ≤-refl
+      -- v₁′ i (there ())
 
       nodup-20-21 : noDuplicates (out₂₀ ∷ out₂₁ ∷ [])
       nodup-20-21 with out₂₀ ∈? out₂₁ ∷ []
@@ -264,18 +296,21 @@ module Examples where
       ... | yes p rewrite utxo-t₂ = refl
 
       v₂′ : ∀ i → i ∈ inputs t₃ → outputRef i ∈ₒ unspentOutputs l₂
+      -- v₂′ = toWitness {Q = validOutputRefs? t₃ l₂} tt
       v₂′ .(withScripts out₂₁) (here refl) rewrite utxo-l₂ = there (here refl)
       v₂′ i (there ())
 
       v₃′ : ∀ i → (i∈ : i ∈ inputs t₃) →
         D i ≡ Data (lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈))
-      v₃′ i (here refl) = refl
-      v₃′ i (there ())
+      v₃′ = toWitness {Q = validDataScriptTypes? t₃ l₂ v₀′ v₁′} tt
+      -- v₃′ i (here refl) = refl
+      -- v₃′ i (there ())
 
       v₄′ : ∀ i → (i∈ : i ∈ inputs t₃) → (st : State) →
         T (runValidation i (lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈)) (v₃′ i i∈) st)
-      v₄′ .(withScripts out₂₁) (here refl) _ = tt
-      v₄′ i (there ())
+      v₄′ i i∈ st = (toWitness {Q = allInputsValidate? t₃ l₂ v₀′ v₁′ v₃′ st} tt) i i∈
+      -- v₄′ .(withScripts out₂₁) (here refl) _ = tt
+      -- v₄′ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -283,14 +318,16 @@ module Examples where
       l₃ = t₃ ∷ t₂ ∷ t₁ ∷ []
 
       v₀″ : ∀ i → i ∈ inputs t₄ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₃
+      -- v₀″ = toWitness {Q = validTxRefs? t₄ l₃} tt
       v₀″ i (here refl) = here refl
       v₀″ i (there ())
 
       v₁″ : ∀ i → (i∈ : i ∈ inputs t₄) →
              index (outputRef i) <
                length (outputs (lookupTx l₃ (outputRef i) (v₀″ i i∈)))
-      v₁″ .(withScripts out₃₀) (here refl) = s≤s ≤-refl
-      v₁″ i (there ())
+      v₁″ = toWitness {Q = validOutputIndices? t₄ l₃ v₀″} tt
+      -- v₁″ .(withScripts out₃₀) (here refl) = s≤s ≤-refl
+      -- v₁″ i (there ())
 
       index≡-inj : ∀ {t t′ i} → t indexed-at i ≡ t′ indexed-at i → t ≡ t′
       index≡-inj refl = refl
@@ -311,18 +348,21 @@ module Examples where
       ... | no _ = refl
 
       v₂″ : ∀ i → i ∈ inputs t₄ → outputRef i ∈ₒ unspentOutputs l₃
+      -- v₂″ = toWitness {Q = validOutputRefs? t₄ l₃} tt
       v₂″ .(withScripts out₃₀) (here refl) rewrite utxo-l₃ = there (here refl)
       v₂″ i (there ())
 
       v₃″ : ∀ i → (i∈ : i ∈ inputs t₄) →
         D i ≡ Data (lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈))
-      v₃″ i (here refl) = refl
-      v₃″ i (there ())
+      v₃″ = toWitness {Q = validDataScriptTypes? t₄ l₃ v₀″ v₁″} tt
+      -- v₃″ i (here refl) = refl
+      -- v₃″ i (there ())
 
       v₄″ : ∀ i → (i∈ : i ∈ inputs t₄) → (st : State) →
         T (runValidation i (lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈)) (v₃″ i i∈) st)
-      v₄″ .(withScripts out₃₀) (here refl) _ = tt
-      v₄″ i (there ())
+      v₄″ i i∈ st = (toWitness {Q = allInputsValidate? t₄ l₃ v₀″ v₁″ v₃″ st} tt) i i∈
+      -- v₄″ .(withScripts out₃₀) (here refl) _ = tt
+      -- v₄″ i (there ())
 
       ----------------------------------------------------------------------------------
 
@@ -336,6 +376,7 @@ module Examples where
       ... | yes (there ())
 
       v₀‴ : ∀ i → i ∈ inputs t₅ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₄
+      -- v₀‴ = toWitness {Q = validTxRefs? t₅ l₄} tt
       v₀‴ i (here refl)         = there (there (here refl))
       v₀‴ i (there (here refl)) = here refl
       v₀‴ i (there (there ()))
@@ -343,9 +384,10 @@ module Examples where
       v₁‴ : ∀ i → (i∈ : i ∈ inputs t₅) →
              index (outputRef i) <
                length (outputs (lookupTx l₄ (outputRef i) (v₀‴ i i∈)))
-      v₁‴ .(withScripts out₂₀) (here refl)         = s≤s z≤n
-      v₁‴ .(withScripts out₄₀) (there (here refl)) = s≤s z≤n
-      v₁‴ i (there (there ()))
+      v₁‴ = toWitness {Q = validOutputIndices? t₅ l₄ v₀‴} tt
+      -- v₁‴ .(withScripts out₂₀) (here refl)         = s≤s z≤n
+      -- v₁‴ .(withScripts out₄₀) (there (here refl)) = s≤s z≤n
+      -- v₁‴ i (there (there ()))
 
       utxo-l₄ : list (unspentOutputs l₄) ≡ out₂₀ ∷ out₄₀ ∷ []
       utxo-l₄ rewrite utxo-l₃
@@ -363,21 +405,24 @@ module Examples where
       ... | no _ = refl
 
       v₂‴ : ∀ i → i ∈ inputs t₅ → outputRef i ∈ₒ unspentOutputs l₄
+      -- v₂‴ = toWitness {Q = validOutputRefs? t₅ l₄} tt
       v₂‴ .(withScripts out₂₀) (here refl)         rewrite utxo-l₄ = here refl
       v₂‴ .(withScripts out₄₀) (there (here refl)) rewrite utxo-l₄ = there (here refl)
       v₂‴ i (there (there ()))
 
       v₃‴ : ∀ i → (i∈ : i ∈ inputs t₅) →
         D i ≡ Data (lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈))
-      v₃‴ i (here refl)         = refl
-      v₃‴ i (there (here refl)) = refl
-      v₃‴ i (there (there ()))
+      v₃‴ = toWitness {Q = validDataScriptTypes? t₅ l₄ v₀‴ v₁‴} tt
+      -- v₃‴ i (here refl)         = refl
+      -- v₃‴ i (there (here refl)) = refl
+      -- v₃‴ i (there (there ()))
 
       v₄‴ : ∀ i → (i∈ : i ∈ inputs t₅) → (st : State) →
         T (runValidation i (lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈)) (v₃‴ i i∈) st)
-      v₄‴ .(withScripts out₂₀) (here refl)         _ = tt
-      v₄‴ .(withScripts out₄₀) (there (here refl)) _ = tt
-      v₄‴ i (there (there ()))
+      v₄‴ i i∈ st = (toWitness {Q = allInputsValidate? t₅ l₄ v₀‴ v₁‴ v₃‴ st} tt) i i∈
+      -- v₄‴ .(withScripts out₂₀) (here refl)         _ = tt
+      -- v₄‴ .(withScripts out₄₀) (there (here refl)) _ = tt
+      -- v₄‴ i (there (there ()))
 
       ----------------------------------------------------------------------------------
 
@@ -391,6 +436,7 @@ module Examples where
       ... | no ¬p = tt
 
       v₀⁗ : ∀ i → i ∈ inputs t₆ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l₅
+      -- v₀⁗ = toWitness {Q = validTxRefs? t₆ l₅} tt
       v₀⁗ i (here refl)         = here refl
       v₀⁗ i (there (here refl)) = here refl
       v₀⁗ i (there (there ()))
@@ -398,9 +444,10 @@ module Examples where
       v₁⁗ : ∀ i → (i∈ : i ∈ inputs t₆) →
              index (outputRef i) <
                length (outputs (lookupTx l₅ (outputRef i) (v₀⁗ i i∈)))
-      v₁⁗ .(withScripts out₅₀) (here refl)         = s≤s z≤n
-      v₁⁗ .(withScripts out₅₁) (there (here refl)) = s≤s ≤-refl
-      v₁⁗ i (there (there ()))
+      v₁⁗ = toWitness {Q = validOutputIndices? t₆ l₅ v₀⁗} tt
+      -- v₁⁗ .(withScripts out₅₀) (here refl)         = s≤s z≤n
+      -- v₁⁗ .(withScripts out₅₁) (there (here refl)) = s≤s ≤-refl
+      -- v₁⁗ i (there (there ()))
 
       utxo-t₅ : list (unspentOutputsTx t₅) ≡ out₅₀ ∷ out₅₁ ∷ []
       utxo-t₅ rewrite from↔to {xs = out₅₀ ∷ out₅₁ ∷ []} nodup-50-51 = refl
@@ -422,18 +469,21 @@ module Examples where
       ... | yes (there (here refl)) = refl
 
       v₂⁗ : ∀ i → i ∈ inputs t₆ → outputRef i ∈ₒ unspentOutputs l₅
+      -- v₂⁗ = toWitness {Q = validOutputRefs? t₆ l₅} tt
       v₂⁗ .(withScripts out₅₀) (here refl)         rewrite utxo-l₅ = here refl
       v₂⁗ .(withScripts out₅₁) (there (here refl)) rewrite utxo-l₅ = there (here refl)
       v₂⁗ i (there (there ()))
 
       v₃⁗ : ∀ i → (i∈ : i ∈ inputs t₆) →
         D i ≡ Data (lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈))
-      v₃⁗ i (here refl)         = refl
-      v₃⁗ i (there (here refl)) = refl
-      v₃⁗ i (there (there ()))
+      v₃⁗ = toWitness {Q = validDataScriptTypes? t₆ l₅ v₀⁗ v₁⁗} tt
+      -- v₃⁗ i (here refl)         = refl
+      -- v₃⁗ i (there (here refl)) = refl
+      -- v₃⁗ i (there (there ()))
 
       v₄⁗ : ∀ i → (i∈ : i ∈ inputs t₆) → (st : State) →
         T (runValidation i (lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈)) (v₃⁗ i i∈) st)
-      v₄⁗ .(withScripts out₅₀) (here refl)         _ = tt
-      v₄⁗ .(withScripts out₅₁) (there (here refl)) _ = tt
-      v₄⁗ i (there (there ()))
+      v₄⁗ i i∈ st = (toWitness {Q = allInputsValidate? t₆ l₅ v₀⁗ v₁⁗ v₃⁗ st} tt) i i∈
+      -- v₄⁗ .(withScripts out₅₀) (here refl)         _ = tt
+      -- v₄⁗ .(withScripts out₅₁) (there (here refl)) _ = tt
+      -- v₄⁗ i (there (there ()))

@@ -1,11 +1,10 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 open import Level    using (0ℓ)
-open import Function using (_∘_; _∋_; flip)
+open import Function using (_∘_; _∋_; flip; _$_)
 
 open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Unit     using (⊤; tt)
 open import Data.Bool     using (Bool; T)
-open import Data.Product  using (proj₁)
+open import Data.Product  using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
 open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
@@ -28,7 +27,7 @@ module UTxO (addresses : List Address) where
 ------------------------------------------------------------------------
 -- Transactions.
 
-record TxOutput : Set₁ where
+record TxOutput : Set where
   field
     value   : Value
     address : Index addresses
@@ -41,7 +40,7 @@ open TxOutput public
 runValidation : (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
 runValidation i o refl st = validator i st (value o) (redeemer i st) (dataScript o st)
 
-record Tx : Set₁ where
+record Tx : Set where
 
   field
     inputs  : List TxInput -- T0D0: Set⟨TxInput⟩
@@ -51,7 +50,7 @@ record Tx : Set₁ where
 
 open Tx public
 
-Ledger : Set₁
+Ledger : Set
 Ledger = List Tx
 
 module _ where
@@ -164,98 +163,3 @@ data ValidLedger : Ledger → Set₁ where
          → ValidLedger (t ∷ l)
 
 infixl 5 _⊕_∶-_
-
-
-
--- Decidable procedure for IsValidTx.
-open import Relation.Nullary using (Dec; ¬_)
-open import Relation.Binary using (Decidable)
-open import Data.List.Relation.Unary.Any using (Any; any; here; there)
-open import Data.List.Membership.Propositional using (_∈_)
-
-
-∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
-     → (xs : List A)
-     → {P : (x : A) → (x∈ : x ∈ xs) → Set ℓ′}
-     → (∀ x → (x∈ : x ∈ xs) → Dec (P x x∈))
-     → Dec (∀ x → (x∈ : x ∈ xs) → P x x∈)
-∀? []       P? = yes λ _ ()
-∀? (x ∷ xs) P?
-  with ∀? xs (λ x′ x∈ → P? x′ (there x∈))
-... | no ¬p = no λ p → ¬p (λ x′ x∈ → p x′ (there x∈))
-... | yes p′
-  with P? x (here refl)
-... | no ¬p = no (λ p → ¬p (p x (here refl)))
-... | yes p = yes (λ { x′ (here refl) → p
-                     ; x′ (there x∈)  → p′ x′ x∈
-                     })
-
-open import Data.Nat using (_<?_)
-open import Data.Bool.Properties using (T?)
-
-postulate
-  ∀state? : ∀ {ℓ} {P : State → Set ℓ}
-          → (∀ st → Dec (P st))
-          → Dec (∀ (st : State) → P st)
-
-isValidTx? : ∀ (tx : Tx) → (l : Ledger) → Dec (IsValidTx tx l)
-isValidTx? tx l
-    -- validTxRefs
-  with ∀? (inputs tx) λ i _ →
-         any (λ t → t ♯  ≟ id (outputRef i)) l
-... | no ¬p = no (¬p ∘ validTxRefs)
-... | yes v₁
-  -- validOutputIndices
-  with ∀? (inputs tx) λ i i∈ →
-       index (outputRef i) <? length (outputs (lookupTx l (outputRef i) (v₁ i i∈)))
-... | no ¬p = no (¬p ∘ λ valid x x∈ → {!!})-- {!validOutputIndices!})
-... | yes v₂
-  -- validOutputRefs
-  with ∀? (inputs tx) λ i _ →
-         outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)
-... | no ¬p = no (¬p ∘ validOutputRefs)
-... | yes v₃
-  -- validDataScriptTypes
-  with ∀? (inputs tx) λ i i∈ →
-         D i ≟ᵤ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈))
-... | no ¬p  = no (¬p ∘ {!validDataScriptTypes!})
-... | yes v₄
-  -- preservesValues
-   with forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
-                   lookupValue l i (v₁ i i∈) (v₂ i i∈))
-          ≟
-        fee tx + Σ[ value ∈ outputs tx ]
-... | no ¬p = no (¬p ∘ {!preservesValues!})
-... | yes v₅
-  -- noDoubleSpending
-  with SETₒ.noDuplicates? (map outputRef (inputs tx))
-... | no ¬p = no (¬p ∘ noDoubleSpending)
-... | yes v₆
-  -- allInputsValidate
-  with ∀? (inputs tx) λ i i∈ →
-         let
-           out : TxOutput
-           out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-         in
-           ∀state? λ st →
-             T? (runValidation i out (v₄ i i∈) st)
-... | no ¬p = no (¬p ∘ {!allInputsValidate!})
-... | yes v₇
-  -- validateValidHashes
-  with ∀? (inputs tx) λ i i∈ →
-         let
-           out : TxOutput
-           out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-         in
-           toℕ (address out) ≟ (validator i) ♯
-... | no ¬p = no (¬p ∘ {!validateValidHashes!})
-... | yes v₈ = yes (record
-                      { validTxRefs = v₁
-                      ; validOutputIndices = v₂
-                      ; validOutputRefs = v₃
-                      ; validDataScriptTypes = v₄
-                      ; preservesValues = v₅
-                      ; noDoubleSpending = v₆
-                      ; allInputsValidate = v₇
-                      ; validateValidHashes = v₈
-                      })
