@@ -27,19 +27,19 @@ open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 open import Utilities.Lists
 open import Types
 
-Ledger′ : List Address → Set₁
+Ledger′ : List Address → Set
 Ledger′ as = Ledger
   where open import UTxO as
 
-Tx′ : List Address → Set₁
+Tx′ : List Address → Set
 Tx′ as = Tx
   where open import UTxO as
 
-IsValidTx′ : (as : List Address) → Tx′ as → Ledger′ as → Set₁
+IsValidTx′ : (as : List Address) → Tx′ as → Ledger′ as → Set
 IsValidTx′ as t l = IsValidTx t l
   where open import UTxO as
 
-TxOutput′ : List Address → Set₁
+TxOutput′ : List Address → Set
 TxOutput′ as = TxOutput
   where open import UTxO as
 
@@ -81,16 +81,18 @@ weakening {as} {bs} {tx} {l} pr
       ; noDoubleSpending     = nds
       ; allInputsValidate    = aiv
       ; validateValidHashes  = vvh
+      ; forging              = frg
       }
   = record
-      { validTxRefs          = weakenValidTxRefs vtx
-      ; validOutputIndices   = weakenValidOutputIndices vtx voi
-      ; validOutputRefs      = weakenValidOutputRefs vor
-      ; validDataScriptTypes = weakenValidDataScriptTypes vtx voi vds
-      ; preservesValues      = weakenPreservesValues vtx voi pv
-      ; noDoubleSpending     = weakenNoDoubleSpending nds
-      ; allInputsValidate    = weakenAllInputsValidate vtx voi vds aiv
-      ; validateValidHashes  = weakenValidateValidHashes vtx voi vvh
+      { validTxRefs          = vtx′
+      ; validOutputIndices   = voi′
+      ; validOutputRefs      = vor′
+      ; validDataScriptTypes = vds′
+      ; preservesValues      = pv′
+      ; noDoubleSpending     = nds
+      ; allInputsValidate    = aiv′
+      ; validateValidHashes  = vvh′
+      ; forging              = frg
       }
   where
     open import UTxO as
@@ -134,10 +136,8 @@ weakening {as} {bs} {tx} {l} pr
     weaken₀ {_}      {i} (here px) = here (trans (sym weakenTx-preserves-♯) px)
     weaken₀ {x ∷ xs} {i} (there p) = there (weaken₀ {xs} {i} p)
 
-    weakenValidTxRefs :
-       (∀ i → i ∈ⁱ U₀.inputs tx → Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → ∀ i → i ∈ⁱ inputs tx′   → Any (λ tx → tx ♯ ≡ id (outputRef i)) l′
-    weakenValidTxRefs validTxRefs i i∈ = weaken₀ {l} {i} (validTxRefs i i∈)
+    vtx′ : ∀ i → i ∈ⁱ inputs tx′ → Any (λ tx → tx ♯ ≡ id (outputRef i)) l′
+    vtx′ i i∈ = weaken₀ {l} {i} (vtx i i∈)
 
     ------------------------------------------------------------------------------------
 
@@ -179,19 +179,12 @@ weakening {as} {bs} {tx} {l} pr
             | outputs≡ {U₀.lookupTx xs (outputRef i) v₀}
             = p
 
-    weakenValidOutputIndices :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-           Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (valid₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i)
-                               (validTxRefs₀ i i∈₀))))
-      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
-          index (outputRef i) <
-            length (outputs (lookupTx l′ (outputRef i)
-                            (weakenValidTxRefs validTxRefs₀ i i∈)))
-    weakenValidOutputIndices validTxRefs₀ v₀ i i∈ =
-      weaken₁ {l} {i} {validTxRefs₀ i i∈} (v₀ i i∈)
+    voi′ :
+      ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+        index (outputRef i) <
+          length (outputs (lookupTx l′ (outputRef i)
+                          (vtx′ i i∈)))
+    voi′ i i∈ = weaken₁ {l} {i} {vtx i i∈} (voi i i∈)
 
     ------------------------------------------------------------------------------------
 
@@ -219,15 +212,16 @@ weakening {as} {bs} {tx} {l} pr
             | weakenUnspentOutputsTx {x}
             = refl
 
-    weakenValidOutputRefs :
-        (validOutputRefs₀ :
-          ∀ i → i ∈ⁱ U₀.inputs tx → outputRef i SETₒ.∈′ U₀.unspentOutputs l)
-        → ∀ i → i ∈ⁱ inputs tx′ → outputRef i SETₒ.∈′ unspentOutputs l′
-    weakenValidOutputRefs v₀ i i∈
-      rewrite weakenUnspentOutputs {l}
-            = v₀ i i∈
+    vor′ : ∀ i → i ∈ⁱ inputs tx′ → outputRef i SETₒ.∈′ unspentOutputs l′
+    vor′ i i∈ rewrite weakenUnspentOutputs {l} = vor i i∈
 
     ------------------------------------------------------------------------------------
+
+    ptx : PendingTx
+    ptx = U₀.mkPendingTx l tx vtx voi
+
+    ptx′ : PendingTx
+    ptx′ = mkPendingTx l′ tx′ vtx′ voi′
 
     forge≡ : U₀.forge tx ≡ forge tx′
     forge≡ = refl
@@ -235,13 +229,15 @@ weakening {as} {bs} {tx} {l} pr
     fee≡ : U₀.fee tx ≡ fee tx′
     fee≡ = refl
 
+    ------------------------------------------------------------------------------------
+
     mapValue≡ : (map value ∘ map (weakenTxOutput pr)) (U₀.outputs tx)
               ≡ map U₀.value (U₀.outputs tx)
     mapValue≡
       rewrite sym (map-compose {g = value} {f = weakenTxOutput pr} (U₀.outputs tx))
             = refl
 
-    Σvalue≡ : Σ[ U₀.value ∈ U₀.outputs tx ] ≡ Σ[ value ∈ outputs tx′ ]
+    Σvalue≡ : sumᶜ (map U₀.value (U₀.outputs tx)) ≡ sumᶜ (map value (outputs tx′))
     Σvalue≡ rewrite mapValue≡ = refl
 
     lookupOutputWeakens : ∀ {xs i}
@@ -343,103 +339,71 @@ weakening {as} {bs} {tx} {l} pr
             weakenTxOutput pr (outs₀ ‼ index₀)
           ∎
 
-    lookupValue≡ : ∀ {v₀ v₁ i i∈} →
-        U₀.lookupValue l i (v₀ i i∈) (v₁ i i∈)
-      ≡ lookupValue l′ i (weakenValidTxRefs v₀ i i∈)
-                         (weakenValidOutputIndices v₀ v₁ i i∈)
-    lookupValue≡ {v₀} {v₁} {i} {i∈}
-      rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
+    lookupValue≡ : ∀ {i i∈} →
+        U₀.lookupValue l i (vtx i i∈) (voi i i∈)
+      ≡ lookupValue l′ i (vtx′ i i∈) (voi′ i i∈)
+    lookupValue≡ {i} {i∈}
+      rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
             = refl
 
-    map∈-cong : ∀ {xs : List TxInput}
-                  → (f : ∀ {i} → i ∈ xs → ℕ)
-                  → (g : ∀ {i} → i ∈ xs → ℕ)
+    map∈-cong : ∀ {A : Set} {xs : List TxInput}
+                  → (f : ∀ {i} → i ∈ xs → A)
+                  → (g : ∀ {i} → i ∈ xs → A)
                   → (∀ {i} → (i∈ : i ∈ xs) → f i∈ ≡ g i∈)
                   → Pointwise _≡_ (map∈ xs f) (map∈ xs g)
-    map∈-cong {[]}     f g cong = Pointwise.[]
-    map∈-cong {x ∷ xs} f g cong =
+    map∈-cong {xs = []}     f g cong = Pointwise.[]
+    map∈-cong {xs = x ∷ xs} f g cong =
       cong (here refl)
         Pointwise.∷
       map∈-cong (f ∘ there) (g ∘ there) λ {i} i∈ → cong (there i∈)
 
-    mapLookupValue≡ : ∀ {v₀ v₁} →
-        map∈ (U₀.inputs tx) (λ {i} i∈ → U₀.lookupValue l i (v₀ i i∈) (v₁ i i∈))
-      ≡ map∈ (inputs tx′) (λ {i} i∈ → lookupValue l′ i
-                                        (weakenValidTxRefs v₀ i i∈)
-                                        (weakenValidOutputIndices v₀ v₁ i i∈))
-    mapLookupValue≡ {v₀} {v₁} =
+    mapLookupValue≡ :
+        map∈ (U₀.inputs tx) (λ {i} i∈ → U₀.lookupValue l i (vtx i i∈) (voi i i∈))
+      ≡ map∈ (inputs tx′) (λ {i} i∈ → lookupValue l′ i (vtx′ i i∈) (voi′ i i∈))
+    mapLookupValue≡ =
       Pointwise-≡⇒≡ (map∈-cong
-        (λ {i} i∈ → U₀.lookupValue l i (v₀ i i∈) (v₁ i i∈))
-        (λ {i} i∈ → lookupValue l′ i (weakenValidTxRefs v₀ i i∈)
-                                     (weakenValidOutputIndices v₀ v₁ i i∈))
-        (λ {i} i∈ → lookupValue≡ {v₀} {v₁} {i} {i∈}))
+        (λ {i} i∈ → U₀.lookupValue l i (vtx i i∈) (voi i i∈))
+        (λ {i} i∈ → lookupValue l′ i (vtx′ i i∈) (voi′ i i∈))
+        (λ {i} i∈ → lookupValue≡ {i} {i∈}))
 
-    weakenPreservesValues :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
-      → (preservesValues₀ :
-          U₀.forge tx
-          + sum (map∈ (U₀.inputs tx) λ {i} i∈ →
-              U₀.lookupValue l i (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈))
-            ≡
-          U₀.fee tx + Σ[ U₀.value ∈ U₀.outputs tx ])
-      → forge tx′
-      + sum (map∈ (inputs tx′) λ {i} i∈ →
-          lookupValue l′ i
-            (weakenValidTxRefs validTxRefs₀ i i∈)
-            (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈))
-          ≡
-        fee tx′ + Σ[ value ∈ outputs tx′ ]
-    weakenPreservesValues v₀ v₁ v₂
-      rewrite forge≡
-            | fee≡
-            | Σvalue≡
-            | mapLookupValue≡ {v₀} {v₁}
-            = v₂
+    pv₁ :
+      forge tx′ +ᶜ sumᶜ (map∈ (inputs tx′) λ {i} i∈ → lookupValue l′ i (vtx′ i i∈) (voi′ i i∈))
+        ≡
+      U₀.forge tx +ᶜ sumᶜ (map∈ (U₀.inputs tx) λ {i} i∈ → U₀.lookupValue l i (vtx i i∈) (voi i i∈))
+    pv₁ rewrite forge≡
+              | sym (cong sumᶜ mapLookupValue≡)
+              = refl
+
+    pv₂ :
+      fee tx′ +ᶜ sumᶜ (map value (outputs tx′))
+        ≡
+      U₀.fee tx +ᶜ sumᶜ (map U₀.value (U₀.outputs tx))
+    pv₂ rewrite fee≡
+              | Σvalue≡
+              = refl
+
+    pv′ :
+      forge tx′ +ᶜ sumᶜ (map∈ (inputs tx′) λ {i} i∈ → lookupValue l′ i (vtx′ i i∈) (voi′ i i∈))
+        ≡
+      fee tx′ +ᶜ sumᶜ (map value (outputs tx′))
+    pv′ rewrite pv₁
+              | pv₂
+              = pv
 
     ------------------------------------------------------------------------------------
 
-    weakenValidDataScriptTypes :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
-      → (validDataScriptTypes₀ :
-          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
-            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
-      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
-          D i ≡ Data (lookupOutput l′ (outputRef i)
-                     (weakenValidTxRefs validTxRefs₀ i i∈)
-                     (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈))
-    weakenValidDataScriptTypes v₀ v₁ v₂ i i∈
-      rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
-            = v₂ i i∈
+    vds′ :
+      ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+        D i ≡ Data (lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈))
+    vds′ i i∈
+      rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
+            = vds i i∈
 
-    weakenValidDataScriptTypes′ :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
-      → (validDataScriptTypes₀ :
-          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
-            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
-      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
-          D i ≡ Data (weakenTxOutput pr
-                     (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
-    weakenValidDataScriptTypes′ v₀ v₁ v₂ i i∈ = v₂ i i∈
-
-    ------------------------------------------------------------------------------------
-
-    weakenNoDoubleSpending :
-      (noDoubleSpending₀ :
-        SETₒ.noDuplicates (map outputRef (U₀.inputs tx)))
-      → SETₒ.noDuplicates (map outputRef (inputs tx′))
-    weakenNoDoubleSpending v₀ = v₀
+    vds″ :
+      ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+        D i ≡ Data (weakenTxOutput pr
+                   (U₀.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)))
+    vds″ i i∈ = vds i i∈
 
     ------------------------------------------------------------------------------------
 
@@ -449,80 +413,130 @@ weakening {as} {bs} {tx} {l} pr
     dataScript≡ : ∀ {o} → dataScript (weakenTxOutput pr o) ≡ U₀.dataScript o
     dataScript≡ = refl
 
+    mapPending≡ : (map mkPendingTxOut ∘ map (weakenTxOutput pr)) (U₀.outputs tx)
+              ≡ map U₀.mkPendingTxOut (U₀.outputs tx)
+    mapPending≡
+      rewrite sym (map-compose {g = mkPendingTxOut} {f = weakenTxOutput pr} (U₀.outputs tx))
+            = refl
+
+    pendingOut≡ : map mkPendingTxOut (outputs tx′)
+                ≡ map U₀.mkPendingTxOut (U₀.outputs tx)
+    pendingOut≡ rewrite mapPending≡
+                      = refl
+
+
+    mkPending≡ : ∀ {i i∈} →
+        U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+      ≡ mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+    mkPending≡ {i} {i∈} =
+      begin
+        U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+      ≡⟨⟩
+       record { value         = U₀.lookupValue l i (vtx i i∈) (voi i i∈)
+              ; validatorHash = (validator i) ♯
+              ; redeemerHash  = (redeemer i) ♯
+              }
+      ≡⟨ cong (λ v → record { value = v
+                            ; validatorHash = (validator i) ♯
+                            ; redeemerHash  = (redeemer i) ♯
+                            }) (lookupValue≡ {i} {i∈}) ⟩
+       record { value         = lookupValue l′ i (vtx′ i i∈) (voi′ i i∈)
+              ; validatorHash = (validator i) ♯
+              ; redeemerHash  = (redeemer i) ♯
+              }
+      ≡⟨⟩
+        mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+      ∎
+
+    pendingIn≡ : mapWith∈ (U₀.inputs tx) (λ {i} i∈ → U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈))
+               ≡ mapWith∈ (inputs tx′) (λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈))
+    pendingIn≡ =
+      Pointwise-≡⇒≡ (map∈-cong
+        (λ {i} i∈ → U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈))
+        (λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈))
+        (λ {i} i∈ → mkPending≡ {i} {i∈}))
+
+    pendingTx≡ : ptx ≡ ptx′
+    pendingTx≡ =
+      begin
+        ptx
+      ≡⟨⟩
+        record { txHash  = tx ♯
+               ; inputs  = mapWith∈ (U₀.inputs tx) λ {i} i∈ → U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+               ; outputs = map U₀.mkPendingTxOut (U₀.outputs tx)
+               ; forge   = U₀.forge tx
+               ; fee     = U₀.fee tx
+               }
+      ≡⟨ helper ⟩
+        record { txHash  = tx′ ♯
+               ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+               ; outputs = map mkPendingTxOut (outputs tx′)
+               ; forge   = forge tx′
+               ; fee     = fee tx′
+               }
+      ≡⟨⟩
+        ptx′
+      ∎
+      where
+        helper : record { txHash  = tx ♯
+                        ; inputs  = mapWith∈ (U₀.inputs tx) λ {i} i∈ → U₀.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+                        ; outputs = map U₀.mkPendingTxOut (U₀.outputs tx)
+                        ; forge   = U₀.forge tx
+                        ; fee     = U₀.fee tx
+                        }
+               ≡ record { txHash  = tx′ ♯
+                        ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+                        ; outputs = map mkPendingTxOut (outputs tx′)
+                        ; forge   = forge tx′
+                        ; fee     = fee tx′
+                        }
+        helper rewrite weakenTx-preserves-♯ {tx}
+                     | forge≡
+                     | fee≡
+                     | pendingOut≡
+                     | pendingIn≡
+                     = refl
+
     weakenRunValidation : ∀ {o : U₀.TxOutput} {i : TxInput} {st : State}
                             {v : D i ≡ U₀.Data o}
                             {v′ : D i ≡ Data (weakenTxOutput pr o)}
-      → U₀.runValidation i o v st
+      → U₀.runValidation ptx i o v st
           ≡
-        runValidation i (weakenTxOutput pr o) v′ st
+        runValidation ptx′ i (weakenTxOutput pr o) v′ st
     weakenRunValidation {o} {_} {_} {refl} {refl}
       rewrite value≡ {o}
             | dataScript≡ {o}
+            | pendingTx≡
             = refl
 
-    weakenAllInputsValidate :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-           Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
-      → (validDataScriptTypes₀ :
-          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
-            D i ≡ U₀.Data (U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)))
-      → (allInputsValidate₀ :
-          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
-            let
-              out : U₀.TxOutput
-              out = U₀.lookupOutput l (outputRef i) (validTxRefs₀ i i∈) (validOutputIndices₀ i i∈)
-            in
-              ∀ (st : State) →
-                T (U₀.runValidation i out (validDataScriptTypes₀ i i∈) st))
-      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
-          let
-            out : TxOutput
-            out = lookupOutput l′ (outputRef i) (weakenValidTxRefs validTxRefs₀ i i∈)
-                                                (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈)
-          in
-            ∀ (st : State) →
-              T (runValidation i out (weakenValidDataScriptTypes validTxRefs₀ validOutputIndices₀
-                                                                 validDataScriptTypes₀ i i∈) st)
-    weakenAllInputsValidate v₀ v₁ v₂ v₃ i i∈ st
-      rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
-            | sym (weakenRunValidation {U₀.lookupOutput l (outputRef i) (v₀ i i∈) (v₁ i i∈)}
+    aiv′ :
+      ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+        let
+          out = lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)
+        in
+          ∀ (st : State) →
+            T (runValidation ptx′ i out (vds′ i i∈) st)
+    aiv′ i i∈ st
+      rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
+            | sym (weakenRunValidation {U₀.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)}
                                        {i} {st}
-                                       {v = v₂ i i∈}
-                                       {v′ = weakenValidDataScriptTypes′ v₀ v₁ v₂ i i∈})
-            = v₃ i i∈ st
+                                       {v = vds i i∈}
+                                       {v′ = vds″ i i∈})
+            = aiv i i∈ st
 
     ------------------------------------------------------------------------------------
 
-    weakenValidateValidHashes :
-        (validTxRefs₀ : ∀ i → i ∈ⁱ U₀.inputs tx →
-          Any (λ tx → tx ♯ ≡ id (outputRef i)) l)
-      → (validOutputIndices₀ : ∀ i → (i∈₀ : i ∈ⁱ U₀.inputs tx) →
-          index (outputRef i) <
-            length (U₀.outputs (U₀.lookupTx l (outputRef i) (validTxRefs₀ i i∈₀))))
-      → (validateValidHashes₀ :
-          ∀ i → (i∈ : i ∈ⁱ U₀.inputs tx) →
-            toℕ (U₀.address (U₀.lookupOutput l (outputRef i)
-              (validTxRefs₀ i i∈)
-              (validOutputIndices₀ i i∈)))
-              ≡
-            (validator i) ♯)
-      → ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
-          toℕ (address (lookupOutput l′ (outputRef i)
-            (weakenValidTxRefs validTxRefs₀ i i∈)
-            (weakenValidOutputIndices validTxRefs₀ validOutputIndices₀ i i∈)))
-            ≡
-          (validator i) ♯
-    weakenValidateValidHashes v₀ v₁ v₂ i i∈ =
+    vvh′ :
+      ∀ i → (i∈ : i ∈ⁱ inputs tx′) →
+        toℕ (address (lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)))
+          ≡
+        (validator i) ♯
+    vvh′ i i∈ =
       begin
-        toℕ (address (lookupOutput l′ (outputRef i)
-          (weakenValidTxRefs v₀ i i∈)
-          (weakenValidOutputIndices v₀ v₁ i i∈)))
+        toℕ (address (lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)))
       ≡⟨ hhh ⟩
-        toℕ (U₀.address (U₀.lookupOutput l (outputRef i) (v₀ i i∈) (v₁ i i∈)))
-      ≡⟨ v₂ i i∈ ⟩
+        toℕ (U₀.address (U₀.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)))
+      ≡⟨ vvh i i∈ ⟩
         (validator i) ♯
       ∎
 
@@ -534,12 +548,11 @@ weakening {as} {bs} {tx} {l} pr
                            = refl
 
         hhh :
-          toℕ (address (lookupOutput (weakenLedger pr l) (outputRef i)
-            (weakenValidTxRefs v₀ i i∈) (weakenValidOutputIndices v₀ v₁ i i∈)))
+          toℕ (address (lookupOutput (weakenLedger pr l) (outputRef i) (vtx′ i i∈) (voi′ i i∈)))
           ≡
-          toℕ (U₀.address (U₀.lookupOutput l (outputRef i) (v₀ i i∈) (v₁ i i∈)))
-        hhh rewrite lookupOutputWeakens {l} {i} (v₀ i i∈) (v₁ i i∈)
-                  | address≡ {t = U₀.lookupOutput l (outputRef i) (v₀ i i∈) (v₁ i i∈)}
+          toℕ (U₀.address (U₀.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)))
+        hhh rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
+                  | address≡ {t = U₀.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)}
                   = refl
 
 

@@ -26,6 +26,7 @@ open import Data.List.Membership.Propositional using (_∈_)
 open import Utilities.Lists
 open import Data.TYPE using (𝕌; el; _≟ᵤ_)
 open import Types
+open import Currency
 
 module DecisionProcedure (addresses : List Address) where
 
@@ -78,19 +79,19 @@ validDataScriptTypes? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
     D i ≟ᵤ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈))
 
-preservesValues? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
-  → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
-            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
-                            lookupValue l i (v₁ i i∈) (v₂ i i∈))
-           ≡
-         fee tx + Σ[ value ∈ outputs tx ])
-preservesValues? tx l v₁ v₂ =
-  forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
-                   lookupValue l i (v₁ i i∈) (v₂ i i∈))
-    ≟
-  fee tx + Σ[ value ∈ outputs tx ]
+-- preservesValues? : ∀ (tx : Tx) (l : Ledger)
+--   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+--   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
+--             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
+--   → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
+--                              lookupValue l i (v₁ i i∈) (v₂ i i∈))
+--            ≡
+--          fee tx +ᶜ sumᶜ (map value (outputs tx)))
+-- preservesValues? tx l v₁ v₂ =
+--   forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
+--                       lookupValue l i (v₁ i i∈) (v₂ i i∈))
+--     ≟ -- NB: no decidable equality for AVL trees
+--   fee tx +ᶜ sumᶜ (map value (outputs tx))
 
 noDoubleSpending? : ∀ (tx : Tx) (l : Ledger)
   → Dec (SETₒ.noDuplicates (map outputRef (inputs tx)))
@@ -106,17 +107,17 @@ allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
   → ∀ (st : State) -- NB: cannot completely decide the proposition, hence the lifting of the ∀
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            let
-             out : TxOutput
              out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+             ptx = mkPendingTx l tx v₁ v₂
            in
-             T (runValidation i out (v₄ i i∈) st))
+             T (runValidation ptx i out (v₄ i i∈) st))
 allInputsValidate? tx l v₁ v₂ v₄ st =
   ∀? (inputs tx) λ i i∈ →
     let
-      out : TxOutput
       out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+      ptx = mkPendingTx l tx v₁ v₂
     in
-      T? (runValidation i out (v₄ i i∈) st)
+      T? (runValidation ptx i out (v₄ i i∈) st)
 
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)

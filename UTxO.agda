@@ -4,7 +4,7 @@ open import Function using (_∘_; _∋_; flip; _$_)
 open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Unit     using (⊤; tt)
 open import Data.Bool     using (Bool; T)
-open import Data.Product  using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
+open import Data.Product  using (_×_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
 open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
@@ -37,11 +37,11 @@ record TxOutput : Set where
 
 open TxOutput public
 
-runValidation : (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
-runValidation i o refl st = validator i st (value o) (redeemer i st) (dataScript o st)
+runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
+runValidation ptx i o refl st =
+  validator i st (value o) ptx (redeemer i st) (dataScript o st)
 
 record Tx : Set where
-
   field
     inputs  : List TxInput -- T0D0: Set⟨TxInput⟩
     outputs : List TxOutput
@@ -50,17 +50,20 @@ record Tx : Set where
 
 open Tx public
 
+--------------------------------------------------------------------------------------
+-- Ledgers and unspent outputs.
+
 Ledger : Set
 Ledger = List Tx
 
 module _ where
-  open SETₒ
+  open SETₒ renaming (fromList to fromListₒ)
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (map ((tx ♯) indexed-at_) (indices (outputs tx)))
+  unspentOutputsTx tx = fromListₒ (map ((tx ♯) indexed-at_) (indices (outputs tx)))
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  spentOutputsTx tx = fromList (map outputRef (inputs tx))
+  spentOutputsTx tx = fromListₒ (map outputRef (inputs tx))
 
   unspentOutputs : Ledger → Set⟨TxOutputRef⟩
   unspentOutputs []         = ∅
@@ -95,10 +98,44 @@ lookupValue : (l : Ledger)
 lookupValue l input ∃tx≡id index≤len =
   value (lookupOutput l (outputRef input) ∃tx≡id index≤len)
 
+--------------------------------------------------------------------------------------
+-- Pending transactions (i.e. parts of the transaction being passed to a validator).
+
+mkPendingTxOut : TxOutput → PendingTxOutput
+mkPendingTxOut txOut = record
+                         { value         = value txOut
+                         ; dataHash      = (dataScript txOut) ♯
+                         }
+
+mkPendingTxIn : (l : Ledger)
+              → (input : TxInput)
+              → (∃tx≡id : Any (λ tx → tx ♯ ≡ id (outputRef input)) l)
+              → index (outputRef input) < length (outputs (lookupTx l (outputRef input) ∃tx≡id))
+              → PendingTxInput
+mkPendingTxIn l txIn ∃tx index< = record
+                       { value         = lookupValue l txIn ∃tx index<
+                       ; validatorHash = (validator txIn) ♯
+                       ; redeemerHash  = (redeemer txIn) ♯
+                       }
+
+mkPendingTx : (l : Ledger)
+            → (tx : Tx)
+            → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+            → (∀ i → (i∈ : i ∈ inputs tx) →
+                 index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
+            → PendingTx
+mkPendingTx l tx v₁ v₂ =
+  record { txHash  = tx ♯
+         ; inputs  = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
+         ; outputs = map mkPendingTxOut (outputs tx)
+         ; forge   = forge tx
+         ; fee     = fee tx
+         }
+
 ------------------------------------------------------------------------
 -- Properties.
 
-record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
+record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
   field
 
@@ -108,8 +145,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
 
     validOutputIndices :
       ∀ i → (i∈ : i ∈ inputs tx) →
-        index (outputRef i) <
-          length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈)))
+          index (outputRef i) < length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈)))
 
     validOutputRefs :
       ∀ i → i ∈ inputs tx →
@@ -122,35 +158,42 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set₁ where
     -----------------------------------------------------------------------------------------
 
     preservesValues :
-      forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
-                   lookupValue l i (validTxRefs i i∈) (validOutputIndices i i∈))
+      forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
+                          lookupValue l i (validTxRefs i i∈) (validOutputIndices i i∈))
         ≡
-      fee tx + Σ[ value ∈ outputs tx ]
+      fee tx +ᶜ sumᶜ (map value (outputs tx))
 
     noDoubleSpending :
       SETₒ.noDuplicates (map outputRef (inputs tx))
 
-    allInputsValidate : -- {_≈_ : Rel State 0ℓ} →
+    allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let
-          out : TxOutput
           out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+          ptx = mkPendingTx l tx validTxRefs validOutputIndices
         in
           ∀ (st : State) →
-            T (runValidation i out (validDataScriptTypes i i∈) st)
+            T (runValidation ptx i out (validDataScriptTypes i i∈) st)
 
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let
-          out : TxOutput
           out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
         in
           toℕ (address out) ≡ (validator i) ♯
 
+    -- enforce monetary policies
+    forging :
+      ∀ c → c ∈ values (forge tx) →
+        ∃[ i ] ( (i ∈ inputs tx)
+               × (id (outputRef i) ≡ c)
+               )
+
+
 open IsValidTx public
 
 -- List notation for constructing valid ledgers.
-data ValidLedger : Ledger → Set₁ where
+data ValidLedger : Ledger → Set where
 
   ∙_∶-_ : (t : Tx)
        → .(IsValidTx t [])

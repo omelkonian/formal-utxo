@@ -3,16 +3,24 @@
 ------------------------------------------------------------------------
 module Types where
 
-open import Level       using (Level; 0ℓ)
-open import Data.Bool   using (Bool)
-
-open import Data.Nat using (ℕ; _≟_)
+open import Level     using (Level; 0ℓ)
+open import Data.Bool using (Bool)
+open import Data.Nat  using (ℕ; _≟_)
+open import Data.List using (List)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import Data.TYPE using (𝕌; el)
+-- Re-export type universe 𝕌.
+open import Data.TYPE public
+
+-- Re-export currency maps.
+open import Currency public
+  using ( CurrencyMap; $; _+ᶜ_; sumᶜ; values
+        ; empty; singleton; insert; insertWith; delete; lookup
+        ; mapValues; fromList; toList; union; unionWith; unions
+        )
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -24,10 +32,7 @@ Id : Set
 Id = ℕ
 
 Value : Set
-Value = ℕ
-
-$ : ℕ → Value
-$ v = v
+Value = CurrencyMap
 
 record State : Set where
   field
@@ -38,6 +43,34 @@ infix 9 _♯
 postulate
   _♯ : ∀ {ℓ} {A : Set ℓ} → A → Address
   ♯-injective : ∀ {ℓ} {A : Set ℓ} {x y : A} → x ♯ ≡ y ♯ → x ≡ y
+
+--------------------------------------------------------------------------------------
+-- Pending transactions (i.e. parts of the transaction being passed to a validator).
+
+record PendingTxInput : Set where
+  field
+    value         : Value
+    validatorHash : Id
+    redeemerHash  : Id
+    -- dataHash      : Id
+
+record PendingTxOutput : Set where
+  field
+    value         : Value
+    dataHash      : Id
+    -- validatorHash : Id
+
+record PendingTx : Set where
+  field
+    txHash : Id   -- ^ hash of the current validated transaction
+
+    inputs  : List PendingTxInput
+    outputs : List PendingTxOutput
+    forge   : Value
+    fee     : Value
+
+--------------------------------------------------------------------------------------
+-- Output references and inputs.
 
 record TxOutputRef : Set where
   constructor _indexed-at_
@@ -50,15 +83,20 @@ record TxInput : Set where
   field
     outputRef : TxOutputRef
 
-    R         : 𝕌
+    R         : 𝕌 -- ^ intermediate type used by the redeemer script
+    D         : 𝕌 -- ^ intermediate type used by the data script
+
     redeemer  : State → el R
-    D         : 𝕌
-    validator : State -- ^ current blockchain state
-              → Value -- ^ output value
-              → el R  -- ^ intermediate type used by the redeemer script
-              → el D  -- ^ intermediate type used by the data script
+    validator : State     -- ^ current blockchain state
+              → Value     -- ^ output value
+              → PendingTx -- ^ parts of the currently validated transaction
+              → el R      -- ^ result value of the redeemer script
+              → el D      -- ^ result value of the data script
               → Bool
+
 open TxInput public
+
+
 
 ------------------------------------------------------------------------
 -- Set modules/types.

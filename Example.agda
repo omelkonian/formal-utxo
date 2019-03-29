@@ -24,7 +24,7 @@ open import Relation.Nullary.Negation  using (¬?)
 open import Relation.Nullary.Decidable using (True; False; toWitness)
 
 open import Utilities.Lists
-open import Types
+open import Types hiding ($)
 
 module Examples where
 
@@ -45,8 +45,8 @@ module Examples where
   dummyRedeemer : State → ℕ
   dummyRedeemer = λ _ → 0
 
-  dummyValidator : State → Value → ℕ → ℕ → Bool
-  dummyValidator = λ _ _ _ _ → true
+  dummyValidator : State → Value → PendingTx → ℕ → ℕ → Bool
+  dummyValidator = λ _ _ _ _ _ → true
 
   withScripts : TxOutputRef → TxInput
   withScripts tin = record { outputRef = tin
@@ -57,8 +57,14 @@ module Examples where
   dummyDataScript : State → ℕ
   dummyDataScript = λ _ → 0
 
-  $_at_ : Value → Index addresses → TxOutput
-  $ v at addr = record { value      = v
+  adaCurrency : ℕ
+  adaCurrency = 1234
+
+  $ : ℕ → Value
+  $ v = singleton adaCurrency v
+
+  $_at_ : ℕ → Index addresses → TxOutput
+  $ v at addr = record { value      = $ v
                        ; address    = addr
                        ; dataScript = dummyDataScript
                        }
@@ -144,6 +150,7 @@ module Examples where
               ; noDoubleSpending     = tt
               ; allInputsValidate    = v₀₄
               ; validateValidHashes  = λ i ()
+              ; forging              = {!!}
               }
     ⊕ t₂ ∶- record
               { validTxRefs          = v₀
@@ -154,6 +161,7 @@ module Examples where
               ; noDoubleSpending     = tt
               ; allInputsValidate    = v₄
               ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
+              ; forging              = {!!}
               }
     ⊕ t₃ ∶- record
               { validTxRefs          = v₀′
@@ -164,6 +172,7 @@ module Examples where
               ; noDoubleSpending     = tt
               ; allInputsValidate    = v₄′
               ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
+              ; forging              = {!!}
               }
     ⊕ t₄ ∶- record
               { validTxRefs          = v₀″
@@ -174,6 +183,7 @@ module Examples where
               ; noDoubleSpending     = tt
               ; allInputsValidate    = v₄″
               ; validateValidHashes  = λ{ i (here refl) → validator♯ ; i (there ()) }
+              ; forging              = {!!}
               }
     ⊕ t₅ ∶- record
               { validTxRefs          = v₀‴
@@ -186,6 +196,7 @@ module Examples where
               ; validateValidHashes  = λ{ i (here refl) → validator♯
                                         ; i (there (here refl)) → validator♯
                                         ; i (there (there ())) }
+              ; forging              = {!!}
               }
     ⊕ t₆ ∶- record
               { validTxRefs          = v₀⁗
@@ -198,6 +209,7 @@ module Examples where
               ; validateValidHashes  = λ{ i (here refl) → validator♯
                                         ; i (there (here refl)) → validator♯
                                         ; i (there (there ())) }
+              ; forging              = {!!}
               }
 
     where
@@ -227,7 +239,11 @@ module Examples where
       v₀₃ = toWitness {Q = validDataScriptTypes? t₁ l₀ v₀₀ v₀₁} tt
 
       v₀₄ : ∀ i → (i∈ : i ∈ inputs t₁) → (st : State) →
-        T (runValidation i (lookupOutput l₀ (outputRef i) (v₀₀ i i∈) (v₀₁ i i∈)) (v₀₃ i i∈) st)
+        let
+          out = lookupOutput l₀ (outputRef i) (v₀₀ i i∈) (v₀₁ i i∈)
+          ptx = mkPendingTx l₀ t₁ v₀₀ v₀₁
+        in
+          T (runValidation ptx i out (v₀₃ i i∈) st)
       v₀₄ i i∈ st = (toWitness {Q = allInputsValidate? t₁ l₀ v₀₀ v₀₁ v₀₃ st} tt) i i∈
 
       ----------------------------------------------------------------------------------
@@ -259,7 +275,11 @@ module Examples where
       -- v₃ i (there ())
 
       v₄ : ∀ i → (i∈ : i ∈ inputs t₂) → (st : State) →
-        T (runValidation i (lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈)) (v₃ i i∈) st)
+        let
+          out = lookupOutput l₁ (outputRef i) (v₀ i i∈) (v₁ i i∈)
+          ptx = mkPendingTx l₁ t₂ v₀ v₁
+        in
+          T (runValidation ptx i out (v₃ i i∈) st)
       v₄ i i∈ st = (toWitness {Q = allInputsValidate? t₂ l₁ v₀ v₁ v₃ st} tt) i i∈
       -- v₄ .(withScripts out₁₀) (here refl) _ = tt
       -- v₄ i (there ())
@@ -307,7 +327,11 @@ module Examples where
       -- v₃′ i (there ())
 
       v₄′ : ∀ i → (i∈ : i ∈ inputs t₃) → (st : State) →
-        T (runValidation i (lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈)) (v₃′ i i∈) st)
+        let
+          out = lookupOutput l₂ (outputRef i) (v₀′ i i∈) (v₁′ i i∈)
+          ptx = mkPendingTx l₂ t₃ v₀′ v₁′
+        in
+          T (runValidation ptx i out (v₃′ i i∈) st)
       v₄′ i i∈ st = (toWitness {Q = allInputsValidate? t₃ l₂ v₀′ v₁′ v₃′ st} tt) i i∈
       -- v₄′ .(withScripts out₂₁) (here refl) _ = tt
       -- v₄′ i (there ())
@@ -359,7 +383,11 @@ module Examples where
       -- v₃″ i (there ())
 
       v₄″ : ∀ i → (i∈ : i ∈ inputs t₄) → (st : State) →
-        T (runValidation i (lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈)) (v₃″ i i∈) st)
+        let
+          out = lookupOutput l₃ (outputRef i) (v₀″ i i∈) (v₁″ i i∈)
+          ptx = mkPendingTx l₃ t₄ v₀″ v₁″
+        in
+          T (runValidation ptx i out (v₃″ i i∈) st)
       v₄″ i i∈ st = (toWitness {Q = allInputsValidate? t₄ l₃ v₀″ v₁″ v₃″ st} tt) i i∈
       -- v₄″ .(withScripts out₃₀) (here refl) _ = tt
       -- v₄″ i (there ())
@@ -418,7 +446,11 @@ module Examples where
       -- v₃‴ i (there (there ()))
 
       v₄‴ : ∀ i → (i∈ : i ∈ inputs t₅) → (st : State) →
-        T (runValidation i (lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈)) (v₃‴ i i∈) st)
+        let
+          out = lookupOutput l₄ (outputRef i) (v₀‴ i i∈) (v₁‴ i i∈)
+          ptx = mkPendingTx l₄ t₅ v₀‴ v₁‴
+        in
+          T (runValidation ptx i out (v₃‴ i i∈) st)
       v₄‴ i i∈ st = (toWitness {Q = allInputsValidate? t₅ l₄ v₀‴ v₁‴ v₃‴ st} tt) i i∈
       -- v₄‴ .(withScripts out₂₀) (here refl)         _ = tt
       -- v₄‴ .(withScripts out₄₀) (there (here refl)) _ = tt
@@ -482,7 +514,11 @@ module Examples where
       -- v₃⁗ i (there (there ()))
 
       v₄⁗ : ∀ i → (i∈ : i ∈ inputs t₆) → (st : State) →
-        T (runValidation i (lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈)) (v₃⁗ i i∈) st)
+        let
+          out = lookupOutput l₅ (outputRef i) (v₀⁗ i i∈) (v₁⁗ i i∈)
+          ptx = mkPendingTx l₅ t₆ v₀⁗ v₁⁗
+        in
+          T (runValidation ptx i out (v₃⁗ i i∈) st)
       v₄⁗ i i∈ st = (toWitness {Q = allInputsValidate? t₆ l₅ v₀⁗ v₁⁗ v₃⁗ st} tt) i i∈
       -- v₄⁗ .(withScripts out₅₀) (here refl)         _ = tt
       -- v₄⁗ .(withScripts out₅₁) (there (here refl)) _ = tt
