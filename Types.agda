@@ -17,10 +17,7 @@ open import Data.TYPE public
 
 -- Re-export currency maps.
 open import Currency public
-  using ( CurrencyMap; $; _+ᶜ_; sumᶜ; values
-        ; empty; singleton; insert; insertWith; delete; lookup
-        ; mapValues; fromList; toList; union; unionWith; unions
-        )
+  using ( Value; $; _+ᶜ_; sumᶜ; values )
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -30,9 +27,6 @@ Address = ℕ
 
 Id : Set
 Id = ℕ
-
-Value : Set
-Value = CurrencyMap
 
 record State : Set where
   field

@@ -4,7 +4,7 @@ open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Unit     using (⊤; tt)
 open import Data.Bool     using (Bool; T)
 open import Data.Bool.Properties using (T?)
-open import Data.Product  using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
+open import Data.Product  using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax; _,_)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_; _<?_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
 open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
@@ -34,20 +34,32 @@ open import UTxO addresses
 
 
 ∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
-     → (xs : List A)
-     → {P : (x : A) (x∈ : x ∈ xs) → Set ℓ′}
-     → (∀ x → (x∈ : x ∈ xs) → Dec (P x x∈))
-     → Dec (∀ x x∈ → P x x∈)
+  → (xs : List A)
+  → {P : (x : A) (x∈ : x ∈ xs) → Set ℓ′}
+  → (∀ x → (x∈ : x ∈ xs) → Dec (P x x∈))
+  → Dec (∀ x x∈ → P x x∈)
 ∀? []       P? = yes λ _ ()
-∀? (x ∷ xs) P?
-  with ∀? xs (λ x′ x∈ → P? x′ (there x∈))
-... | no ¬p = no λ p → ¬p (λ x′ x∈ → p x′ (there x∈))
-... | yes p′
-  with P? x (here refl)
-... | no ¬p = no λ p → ¬p (p x (here refl))
-... | yes p = yes λ { x′ (here refl) → p
-                    ; x′ (there x∈)  → p′ x′ x∈
-                    }
+∀? (x ∷ xs) P? with ∀? xs (λ x′ x∈ → P? x′ (there x∈))
+... | no ¬p    = no λ p → ¬p (λ x′ x∈ → p x′ (there x∈))
+... | yes p′   with P? x (here refl)
+... | no ¬p    = no λ p → ¬p (p x (here refl))
+... | yes p    = yes λ { x′ (here refl) → p
+                       ; x′ (there x∈)  → p′ x′ x∈
+                       }
+
+∃? : ∀ {ℓ ℓ′} {A : Set ℓ}
+  → (xs : List A)
+  → {P : (x : A) (x∈ : x ∈ xs) → Set ℓ′}
+  → (∀ x → (x∈ : x ∈ xs) → Dec (P x x∈))
+  → Dec (∃[ x ] ∃ λ (x∈ : x ∈ xs) → P x x∈)
+∃? []  P?               = no λ { (x , () , p) }
+∃? (x ∷ xs) P?          with P? x (here refl)
+... | yes p             = yes (x , here refl , p)
+... | no ¬p             with ∃? xs (λ x′ x∈ → P? x′ (there x∈))
+... | yes (x′ , x∈ , p) = yes (x′ , there x∈ , p)
+... | no ¬pp            = no λ { (x′ , here refl , p) → ¬p p
+                               ; (x′ , there x∈ , p) → ¬pp (x′ , x∈ , p)
+                               }
 
 validTxRefs? : ∀ (tx : Tx) (l : Ledger)
   → Dec (∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
@@ -79,19 +91,17 @@ validDataScriptTypes? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
     D i ≟ᵤ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈))
 
--- preservesValues? : ∀ (tx : Tx) (l : Ledger)
---   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
---   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
---             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
---   → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
---                              lookupValue l i (v₁ i i∈) (v₂ i i∈))
---            ≡
---          fee tx +ᶜ sumᶜ (map value (outputs tx)))
--- preservesValues? tx l v₁ v₂ =
---   forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
---                       lookupValue l i (v₁ i i∈) (v₂ i i∈))
---     ≟ -- NB: no decidable equality for AVL trees
---   fee tx +ᶜ sumᶜ (map value (outputs tx))
+preservesValues? : ∀ (tx : Tx) (l : Ledger)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
+            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
+  → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
+           ≡
+         fee tx +ᶜ sumᶜ (map value (outputs tx)))
+preservesValues? tx l v₁ v₂ =
+  forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
+    ≟ᶜ
+  fee tx +ᶜ sumᶜ (map value (outputs tx))
 
 noDoubleSpending? : ∀ (tx : Tx) (l : Ledger)
   → Dec (SETₒ.noDuplicates (map outputRef (inputs tx)))
@@ -104,38 +114,43 @@ allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → (v₄ : ∀ i → (i∈ : i ∈ inputs tx) →
             D i ≡ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)))
-  → ∀ (st : State) -- NB: cannot completely decide the proposition, hence the lifting of the ∀
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
-           let
-             out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-             ptx = mkPendingTx l tx v₁ v₂
-           in
-             T (runValidation ptx i out (v₄ i i∈) st))
-allInputsValidate? tx l v₁ v₂ v₄ st =
+           let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+               ptx = mkPendingTx l tx v₁ v₂
+           in T (runValidation ptx i out (v₄ i i∈) (getState l)))
+allInputsValidate? tx l v₁ v₂ v₄ =
   ∀? (inputs tx) λ i i∈ →
-    let
-      out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-      ptx = mkPendingTx l tx v₁ v₂
-    in
-      T? (runValidation ptx i out (v₄ i i∈) st)
+    let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+        ptx = mkPendingTx l tx v₁ v₂
+    in T? (runValidation ptx i out (v₄ i i∈) (getState l))
 
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
-           let
-             out : TxOutput
-             out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-           in
-             toℕ (address out) ≡ (validator i) ♯)
+           let out : TxOutput
+               out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+           in (addresses ‼ (address out)) ≡ (validator i) ♯)
 validateValidHashes? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
-    let
-      out : TxOutput
-      out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-    in
-      toℕ (address out) ≟ (validator i) ♯
+    let out : TxOutput
+        out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+    in (addresses ‼ (address out)) ≟ (validator i) ♯
+
+forging? : ∀ (tx : Tx) (l : Ledger)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
+            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
+  → Dec (∀ c → c ∈ values (forge tx) →
+           ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
+             let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+             in (addresses ‼ address out) ≡ c)
+forging? tx l v₁ v₂ =
+  ∀? (values (forge tx)) λ c _ →
+    ∃? (inputs tx) λ i i∈ →
+       let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
+       in (addresses ‼ address out) ≟ c
 
 {-
 isValidTx? : ∀ (tx : Tx) → (l : Ledger) → Dec (IsValidTx tx l)
@@ -158,7 +173,7 @@ isValidTx? tx l
   with noDoubleSpending? tx l
 ... | no ¬p = no (¬p ∘ noDoubleSpending)
 ... | yes v₆
-  with allInputsValidate? tx l v₁ v₂ v₄ (record {height = 0})
+  with allInputsValidate? tx l v₁ v₂ v₄
 ... | no ¬p = no (¬p ∘ {!allInputsValidate!})
 ... | yes v₇
   with validateValidHashes? tx l v₁ v₂
@@ -173,28 +188,4 @@ isValidTx? tx l
                       ; allInputsValidate    = {!!}
                       ; validateValidHashes  = v₈
                       })
--}
-
-{-
-_→-dec_ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → Dec A → Dec B → Dec (A → B)
-_     →-dec yes y  =  yes (λ _ → y)
-no ¬x →-dec _      =  yes (λ x → ⊥-elim (¬x x))
-yes x →-dec no ¬y  =  no (λ f → ¬y (f x))
-
-_→?_ : ∀ {A : Set} {B : A → Set}
-     → Dec A
-     → (∀ a → Dec (B a))
-     → Dec ((a : A) → B a)
-yes a →? b? with b? a
-... | yes p = yes (λ a₁ → {!!})
-... | no ¬p = no (λ b → ¬p (b a))
-no ¬a →? _ = yes (λ a → ⊥-elim (¬a a))
-
-∀state? : ∀ {ℓ} {P : State → Set ℓ}
-        → (∀ st → Dec (P st))
-        → Dec (∀ (st : State) → P st)
-∀state? P?
-  with P? (record { height = 0 })
-... | no ¬p = no λ p → ¬p (p (record { height = 0 }))
-... | yes p = yes (λ { record { height = 0 } → p ; record { height = (suc n) } → {!!} })
 -}

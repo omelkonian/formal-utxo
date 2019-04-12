@@ -70,6 +70,9 @@ module _ where
   unspentOutputs (tx ∷ txs) = unspentOutputs txs ─ spentOutputsTx tx
                             ∪ unspentOutputsTx tx
 
+getState : Ledger → State
+getState l = record { height = length l }
+
 ------------------------------------------------------------------------
 -- Tx utilities.
 
@@ -168,26 +171,21 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
-        let
-          out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-          ptx = mkPendingTx l tx validTxRefs validOutputIndices
-        in
-          ∀ (st : State) →
-            T (runValidation ptx i out (validDataScriptTypes i i∈) st)
+        let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+            ptx = mkPendingTx l tx validTxRefs validOutputIndices
+        in T (runValidation ptx i out (validDataScriptTypes i i∈) (getState l))
 
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →
-        let
-          out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-        in
-          toℕ (address out) ≡ (validator i) ♯
+        let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+        in (addresses ‼ (address out)) ≡ (validator i) ♯
 
     -- enforce monetary policies
     forging :
       ∀ c → c ∈ values (forge tx) →
-        ∃[ i ] ( (i ∈ inputs tx)
-               × (id (outputRef i) ≡ c)
-               )
+        ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
+          let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
+          in (addresses ‼ address out) ≡ c
 
 
 open IsValidTx public
