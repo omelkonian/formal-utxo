@@ -1,7 +1,7 @@
 
 -- Multi-currency support.
 ------------------------------------------------------------------------
-module Currency where
+module Utilities.Currency where
 
 open import Function     using (_∘_)
 open import Data.Product using (_×_; _,_; proj₁)

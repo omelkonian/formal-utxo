@@ -12,18 +12,20 @@ open import Data.Fin      using (Fin; toℕ; fromℕ≤; inject≤)
   renaming (zero to fzero; suc to fsuc)
 open import Data.Nat      using (ℕ; zero; suc; _≤_; z≤n; s≤s; pred)
 open import Data.Nat.Properties using (suc-injective)
-open import Data.List     using (List; []; [_]; _∷_; map; sum; length; upTo; lookup)
 open import Data.List.Properties using (length-map)
 
 open import Relation.Nullary.Decidable using (True)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; sym)
 
+open import Data.List public
+  using (List; []; [_]; _∷_; _∷ʳ_; map; concatMap; length; sum; upTo; lookup)
+
 ------------------------------------------------------------------------
 -- Sums.
 
-Σ-sum-syntax : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → List A → ℕ
-Σ-sum-syntax f xs = sum (map f xs)
-syntax Σ-sum-syntax f xs = Σ[ f ∈ xs ]
+-- Σ-sum-syntax : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → List A → ℕ
+-- Σ-sum-syntax f xs = sum (map f xs)
+-- syntax Σ-sum-syntax f xs = Σ[ f ∈ xs ]
 
 ------------------------------------------------------------------------
 -- Indexed operations.

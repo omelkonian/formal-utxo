@@ -26,7 +26,9 @@ open import Relation.Nullary.Negation  using (¬?) public
 open import Relation.Nullary.Decidable using (True; False; toWitness) public
 
 open import Utilities.Lists public
-open import Types hiding ($) public
+open import UTxO.Types hiding ($) public
+open import Hashing.Types public
+open import Hashing.MetaHash public
 open SETₒ using (_∈?_; from↔to; list; noDuplicates; noDuplicates?) public
   renaming (_∈′_ to _∈ₒ_)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈) public
@@ -39,8 +41,8 @@ addresses = 111  -- first address
           ∷ 1234 -- ADA identifier
           ∷ []
 
-open import UTxO addresses public
-open import DecisionProcedure addresses public
+open import UTxO.Validity          addresses public
+open import UTxO.DecisionProcedure addresses public
 
 1ᶠ : Fin 4
 1ᶠ = sucᶠ 0ᶠ
@@ -93,7 +95,7 @@ c₁ = record { inputs  = []
             }
 
 c₁₀ : TxOutputRef
-c₁₀ = (c₁ ♯) indexed-at 0
+c₁₀ = (c₁ ♯ₜₓ) indexed-at 0
 
 t₁ : Tx
 t₁ = record { inputs  = [ withAda c₁₀ ]
@@ -103,7 +105,7 @@ t₁ = record { inputs  = [ withAda c₁₀ ]
             }
 
 out₁₀ : TxOutputRef
-out₁₀ = (t₁ ♯) indexed-at 0
+out₁₀ = (t₁ ♯ₜₓ) indexed-at 0
 
 t₂ : Tx
 t₂ = record { inputs  = [ withScripts out₁₀ ]
@@ -113,10 +115,10 @@ t₂ = record { inputs  = [ withScripts out₁₀ ]
             }
 
 out₂₀ : TxOutputRef
-out₂₀ = (t₂ ♯) indexed-at 0
+out₂₀ = (t₂ ♯ₜₓ) indexed-at 0
 
 out₂₁ : TxOutputRef
-out₂₁ = (t₂ ♯) indexed-at 1
+out₂₁ = (t₂ ♯ₜₓ) indexed-at 1
 
 t₃ : Tx
 t₃ = record { inputs  = [ withScripts out₂₁ ]
@@ -126,7 +128,7 @@ t₃ = record { inputs  = [ withScripts out₂₁ ]
             }
 
 out₃₀ : TxOutputRef
-out₃₀ = (t₃ ♯) indexed-at 0
+out₃₀ = (t₃ ♯ₜₓ) indexed-at 0
 
 c₄ : Tx
 c₄ = record { inputs  = []
@@ -136,7 +138,7 @@ c₄ = record { inputs  = []
             }
 
 c₄₀ : TxOutputRef
-c₄₀ = (c₄ ♯) indexed-at 0
+c₄₀ = (c₄ ♯ₜₓ) indexed-at 0
 
 t₄ : Tx
 t₄ = record { inputs  = (withScripts out₃₀ ∷ withAda c₄₀ ∷ [])
@@ -146,7 +148,7 @@ t₄ = record { inputs  = (withScripts out₃₀ ∷ withAda c₄₀ ∷ [])
             }
 
 out₄₀ : TxOutputRef
-out₄₀ = (t₄ ♯) indexed-at 0
+out₄₀ = (t₄ ♯ₜₓ) indexed-at 0
 
 t₅ : Tx
 t₅ = record { inputs  = withScripts out₂₀ ∷ withScripts out₄₀ ∷ []
@@ -156,10 +158,10 @@ t₅ = record { inputs  = withScripts out₂₀ ∷ withScripts out₄₀ ∷ []
             }
 
 out₅₀ : TxOutputRef
-out₅₀ = (t₅ ♯) indexed-at 0
+out₅₀ = (t₅ ♯ₜₓ) indexed-at 0
 
 out₅₁ : TxOutputRef
-out₅₁ = (t₅ ♯) indexed-at 1
+out₅₁ = (t₅ ♯ₜₓ) indexed-at 1
 
 
 t₆ : Tx
@@ -170,7 +172,7 @@ t₆ = record { inputs  = withScripts out₅₀ ∷ withScripts out₅₁ ∷ []
             }
 
 out₆₀ : TxOutputRef
-out₆₀ = (t₆ ♯) indexed-at 0
+out₆₀ = (t₆ ♯ₜₓ) indexed-at 0
 
 -- hash postulates + rewriting
 postulate
@@ -184,16 +186,6 @@ postulate
   validator♯₅₁   : (mkValidator out₅₁) ♯ ≡ 333
   validator♯₆₀   : (mkValidator out₆₀) ♯ ≡ 333
 
-  c₁≡ : c₁ ♯ ≡ 11
-  c₄≡ : c₄ ♯ ≡ 44
-
-  t₁≡ : t₁ ♯ ≡ 1111
-  t₂≡ : t₂ ♯ ≡ 2222
-  t₃≡ : t₃ ♯ ≡ 3333
-  t₄≡ : t₄ ♯ ≡ 4444
-  t₅≡ : t₅ ♯ ≡ 5555
-  t₆≡ : t₆ ♯ ≡ 6666
-
 {-# BUILTIN REWRITE _≡_ #-}
 {-# REWRITE adaValidator♯ #-}
 {-# REWRITE validator♯₁₀ #-}
@@ -204,11 +196,3 @@ postulate
 {-# REWRITE validator♯₅₀ #-}
 {-# REWRITE validator♯₅₁ #-}
 {-# REWRITE validator♯₆₀ #-}
-{-# REWRITE c₁≡ #-}
-{-# REWRITE c₄≡ #-}
-{-# REWRITE t₁≡ #-}
-{-# REWRITE t₂≡ #-}
-{-# REWRITE t₃≡ #-}
-{-# REWRITE t₄≡ #-}
-{-# REWRITE t₅≡ #-}
-{-# REWRITE t₆≡ #-}

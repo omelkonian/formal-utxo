@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
-module Types where
+module UTxO.Types where
 
 open import Level     using (Level; 0ℓ)
 open import Data.Bool using (Bool)
@@ -12,11 +12,14 @@ open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
+-- Re-export list utilities.
+open import Utilities.Lists public
+
 -- Re-export type universe 𝕌.
 open import Data.TYPE public
 
 -- Re-export currency maps.
-open import Currency public
+open import Utilities.Currency public
   using ( Value; $; _+ᶜ_; sumᶜ; values )
 
 ------------------------------------------------------------------------
@@ -32,11 +35,6 @@ record State : Set where
   field
     height : ℕ
 open State public
-
-infix 9 _♯
-postulate
-  _♯ : ∀ {ℓ} {A : Set ℓ} → A → Address
-  ♯-injective : ∀ {ℓ} {A : Set ℓ} {x y : A} → x ♯ ≡ y ♯ → x ≡ y
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).

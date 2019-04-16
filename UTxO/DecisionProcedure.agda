@@ -1,3 +1,6 @@
+{-# OPTIONS --rewriting #-}
+{- NB: REWRITE rules may be useful while deciding on something that requires them,
+e.g. calls to postulated hash function _♯. -}
 open import Function using (_∘_; _∋_; flip; _$_)
 
 open import Data.Empty    using (⊥; ⊥-elim)
@@ -24,14 +27,14 @@ open import Data.List.Relation.Unary.Any using (Any; any; here; there)
 open import Data.List.Membership.Propositional using (_∈_)
 
 open import Utilities.Lists
-open import Data.TYPE using (𝕌; el; _≟ᵤ_)
-open import Types
-open import Currency
+open import Utilities.Currency
+open import UTxO.Types
+open import Hashing.Types    using (_♯ᵢ)
+open import Hashing.MetaHash using (_♯)
 
-module DecisionProcedure (addresses : List Address) where
+module UTxO.DecisionProcedure (addresses : List Address) where
 
-open import UTxO addresses
-
+open import UTxO.Validity addresses
 
 ∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
   → (xs : List A)
@@ -62,13 +65,13 @@ open import UTxO addresses
                                }
 
 validTxRefs? : ∀ (tx : Tx) (l : Ledger)
-  → Dec (∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → Dec (∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
 validTxRefs? tx l =
   ∀? (inputs tx) λ i _ →
-    any (λ t → t ♯ ≟ id (outputRef i)) l
+    any (λ t → t ♯ₜₓ ≟ id (outputRef i)) l
 
 validOutputIndices? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
 validOutputIndices? tx l v₁ =
@@ -82,7 +85,7 @@ validOutputRefs? tx l =
     outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)
 
 validDataScriptTypes? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
@@ -92,7 +95,7 @@ validDataScriptTypes? tx l v₁ v₂ =
     D i ≟ᵤ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈))
 
 preservesValues? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
@@ -109,7 +112,7 @@ noDoubleSpending? tx l =
   SETₒ.noDuplicates? (map outputRef (inputs tx))
 
 allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → (v₄ : ∀ i → (i∈ : i ∈ inputs tx) →
@@ -125,7 +128,7 @@ allInputsValidate? tx l v₁ v₂ v₄ =
     in T? (runValidation ptx i out (v₄ i i∈) (getState l))
 
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
@@ -139,7 +142,7 @@ validateValidHashes? tx l v₁ v₂ =
     in (addresses ‼ (address out)) ≟ (validator i) ♯
 
 forging? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ c → c ∈ values (forge tx) →

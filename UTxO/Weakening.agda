@@ -2,7 +2,7 @@
 -- Weakening (adding available addresses).
 ------------------------------------------------------------------------
 
-module Weakening where
+module UTxO.Weakening where
 
 open import Level         using (0ℓ)
 open import Function      using (_∘_; _∋_; _$_; case_of_)
@@ -25,29 +25,31 @@ open Eq using (_≡_; refl; trans; sym; cong; cong-app; subst)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
 open import Utilities.Lists
-open import Types
-
-Ledger′ : List Address → Set
-Ledger′ as = Ledger
-  where open import UTxO as
-
-Tx′ : List Address → Set
-Tx′ as = Tx
-  where open import UTxO as
-
-IsValidTx′ : (as : List Address) → Tx′ as → Ledger′ as → Set
-IsValidTx′ as t l = IsValidTx t l
-  where open import UTxO as
+open import UTxO.Types
+open import Hashing.Types
+open import Hashing.MetaHash
 
 TxOutput′ : List Address → Set
 TxOutput′ as = TxOutput
-  where open import UTxO as
+  where open import UTxO.Ledger as
+
+Tx′ : List Address → Set
+Tx′ as = Tx
+  where open import UTxO.Ledger as
+
+Ledger′ : List Address → Set
+Ledger′ as = Ledger
+  where open import UTxO.Ledger as
+
+IsValidTx′ : (as : List Address) → Tx′ as → Ledger′ as → Set
+IsValidTx′ as t l = IsValidTx t l
+  where open import UTxO.Validity as
 
 weakenTxOutput : ∀ {as bs} → Prefix as bs → TxOutput′ as → TxOutput′ bs
 weakenTxOutput {as} {bs} pr
     record { value = v ; dataScript = ds ; address = addr }
   = record { value = v ; dataScript = ds ; address = inject≤ addr (prefix-length pr) }
-  where open import UTxO bs
+  where open import UTxO.Ledger bs
 
 weakenTx : ∀ {as bs} → Prefix as bs → Tx′ as → Tx′ bs
 weakenTx {as} {bs} pr
@@ -83,7 +85,9 @@ weakening {as} {bs} {tx} {l} pr
       ; validateValidHashes  = vvh
       ; forging              = frg
       }
-  = record
+  = {!!}
+{-
+    record
       { validTxRefs          = vtx′
       ; validOutputIndices   = voi′
       ; validOutputRefs      = vor′
@@ -95,9 +99,9 @@ weakening {as} {bs} {tx} {l} pr
       ; forging              = frg
       }
   where
-    open import UTxO as
+    open import UTxO.TxUtilities as
       as U₀ using ()
-    open import UTxO bs
+    open import UTxO.TxUtilities bs
 
     open import Relation.Binary.PropositionalEquality using (_≡_; setoid)
     open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-map⁺)
@@ -131,8 +135,8 @@ weakening {as} {bs} {tx} {l} pr
     ------------------------------------------------------------------------------------
 
     weaken₀ : ∀ {xs i}
-      → Any (λ tx → tx ♯ ≡ id (outputRef i)) xs
-      → Any (λ tx → tx ♯ ≡ id (outputRef i)) (weakenLedger pr xs)
+      → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) xs
+      → Any (λ t → t U₀.♯ₜₓ ≡ id (outputRef i)) (weakenLedger pr xs)
     weaken₀ {_}      {i} (here px) = here (trans (sym weakenTx-preserves-♯) px)
     weaken₀ {x ∷ xs} {i} (there p) = there (weaken₀ {xs} {i} p)
 
@@ -557,3 +561,4 @@ weakening {as} {bs} {tx} {l} pr
 
 
     ------------------------------------------------------------------------------------
+-}
