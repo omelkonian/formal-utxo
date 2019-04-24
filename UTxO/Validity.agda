@@ -3,15 +3,22 @@ open import Data.Product  using (∃; ∃-syntax)
 open import Data.Nat      using (_<_)
 open import Data.List.Any using (Any)
 
+open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
+open import Data.List.Membership.Propositional    using (_∈_; mapWith∈)
 
 open import UTxO.Types
+open import Hashing.Base
+open import Hashing.Types
 open import Hashing.MetaHash using (_♯)
 
-module UTxO.Validity (addresses : List Address) where
+module UTxO.Validity
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 
-open import UTxO.TxUtilities addresses public
+open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_ public
 
 record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
@@ -53,14 +60,14 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-        in (addresses ‼ (address out)) ≡ (validator i) ♯
+        in (address out) ♯ₐ ≡ (validator i) ♯
 
     -- enforce monetary policies
     forging :
-      ∀ c → c ∈ values (forge tx) →
+      ∀ c → c ∈ keys (forge tx) →
         ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
           let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-          in (addresses ‼ address out) ≡ c
+          in (address out) ♯ₐ ≡ c
 
 
 open IsValidTx public

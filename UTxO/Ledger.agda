@@ -3,16 +3,23 @@
 ------------------------------------------------------------------------
 
 open import Data.Bool using (Bool)
+
+open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import UTxO.Types
+open import Hashing.Base
 
-module UTxO.Ledger (addresses : List Address) where
+module UTxO.Ledger
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 
 record TxOutput : Set where
   field
     value   : Value
-    address : Index addresses
+    address : Address
 
     Data       : 𝕌
     dataScript : State → el Data
@@ -30,9 +37,6 @@ open Tx public
 
 Ledger : Set
 Ledger = List Tx
-
-getState : Ledger → State
-getState l = record { height = length l }
 
 runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
 runValidation ptx i o refl st = validator i st (value o) ptx (redeemer i st) (dataScript o st)

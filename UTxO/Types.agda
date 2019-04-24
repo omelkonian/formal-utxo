@@ -6,7 +6,7 @@ module UTxO.Types where
 open import Level     using (Level; 0ℓ)
 open import Data.Bool using (Bool)
 open import Data.Nat  using (ℕ; _≟_)
-open import Data.List using (List)
+open import Data.List using (List; map)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -20,21 +20,21 @@ open import Data.TYPE public
 
 -- Re-export currency maps.
 open import Utilities.Currency public
-  using ( Value; $; _+ᶜ_; sumᶜ; values )
+  using ( Value; $; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
 
 ------------------------------------------------------------------------
 -- Basic types.
 
-Address : Set
-Address = ℕ
-
-Id : Set
-Id = ℕ
+HashId : Set
+HashId = ℕ
 
 record State : Set where
   field
     height : ℕ
 open State public
+
+getState : ∀ {A : Set} → List A → State
+getState l = record { height = length l }
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
@@ -42,19 +42,19 @@ open State public
 record PendingTxInput : Set where
   field
     value         : Value
-    validatorHash : Id
-    redeemerHash  : Id
-    -- dataHash      : Id
+    validatorHash : HashId
+    redeemerHash  : HashId
+    -- dataHash      : HashId
 
 record PendingTxOutput : Set where
   field
     value         : Value
-    dataHash      : Id
-    -- validatorHash : Id
+    dataHash      : HashId
+    -- validatorHash : HashId
 
 record PendingTx : Set where
   field
-    txHash : Id   -- ^ hash of the current validated transaction
+    txHash : HashId   -- ^ hash of the current validated transaction
 
     inputs  : List PendingTxInput
     outputs : List PendingTxOutput
@@ -67,7 +67,7 @@ record PendingTx : Set where
 record TxOutputRef : Set where
   constructor _indexed-at_
   field
-    id    : Id
+    id    : HashId
     index : ℕ
 open TxOutputRef public
 

@@ -3,20 +3,10 @@ module Example.Ledger where
 
 open import Example.Setup
 
-ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₄ ∷ c₁ ∷ [])
+
+ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ [])
 ex-ledger =
     ∙ c₁ ∶- record
-                { validTxRefs          = λ _ ()
-                ; validOutputIndices   = λ _ ()
-                ; validOutputRefs      = λ _ ()
-                ; validDataScriptTypes = λ _ ()
-                ; preservesValues      = refl
-                ; noDoubleSpending     = tt
-                ; allInputsValidate    = λ _ ()
-                ; validateValidHashes  = λ _ ()
-                ; forging              = λ _ ()
-                }
-    ⊕ c₄ ∶- record
                 { validTxRefs          = λ _ ()
                 ; validOutputIndices   = λ _ ()
                 ; validOutputRefs      = λ _ ()
@@ -63,7 +53,7 @@ ex-ledger =
     ⊕ t₄ ∶- record
                 { validTxRefs          = vtr₃
                 ; validOutputIndices   = voi₃
-                ; validOutputRefs      = toWitness {Q = validOutputRefs? t₄ l₃} {!!}
+                ; validOutputRefs      = toWitness {Q = validOutputRefs? t₄ l₃} tt
                 ; validDataScriptTypes = vds₃
                 ; preservesValues      = refl
                 ; noDoubleSpending     = tt
@@ -93,37 +83,50 @@ ex-ledger =
                 ; validateValidHashes  = toWitness {Q = validateValidHashes? t₆ l₅ vtr₅ voi₅} tt
                 ; forging              = λ _ ()
                 }
-
    where
 
-    ----------------------------------------------------------------------------
-
-    l₀ = c₄ ∷ c₁ ∷ []
+    l₀ = c₁ ∷ []
     vtr₀ = toWitness {Q = validTxRefs? t₁ l₀} tt
     voi₀ = toWitness {Q = validOutputIndices? t₁ l₀ vtr₀} tt
     vds₀ = toWitness {Q = validDataScriptTypes? t₁ l₀ vtr₀ voi₀} tt
 
-    l₁ = t₁ ∷ c₄ ∷ c₁ ∷ []
+    l₁ = t₁ ∷ c₁ ∷ []
     vtr₁ = toWitness {Q = validTxRefs? t₂ l₁} tt
     voi₁ = toWitness {Q = validOutputIndices? t₂ l₁ vtr₁} tt
     vds₁ = toWitness {Q = validDataScriptTypes? t₂ l₁ vtr₁ voi₁} tt
 
-    l₂ = t₂ ∷ t₁ ∷ c₄ ∷ c₁ ∷ []
+    l₂ = t₂ ∷ t₁ ∷ c₁ ∷ []
     vtr₂ = toWitness {Q = validTxRefs? t₃ l₂} tt
     voi₂ = toWitness {Q = validOutputIndices? t₃ l₂ vtr₂} tt
     vds₂ = toWitness {Q = validDataScriptTypes? t₃ l₂ vtr₂ voi₂} tt
 
-    l₃ = t₃ ∷ t₂ ∷ t₁ ∷ c₄ ∷ c₁ ∷ []
+    l₃ = t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ []
     vtr₃ = toWitness {Q = validTxRefs? t₄ l₃} tt
     voi₃ = toWitness {Q = validOutputIndices? t₄ l₃ vtr₃} tt
     vds₃ = toWitness {Q = validDataScriptTypes? t₄ l₃ vtr₃ voi₃} tt
 
-    l₄ = t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₄ ∷ c₁ ∷ []
+    l₄ = t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ []
     vtr₄ = toWitness {Q = validTxRefs? t₅ l₄} tt
     voi₄ = toWitness {Q = validOutputIndices? t₅ l₄ vtr₄} tt
     vds₄ = toWitness {Q = validDataScriptTypes? t₅ l₄ vtr₄ voi₄} tt
 
-    l₅ = t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₄ ∷ c₁ ∷ []
+    l₅ = t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ []
     vtr₅ = toWitness {Q = validTxRefs? t₆ l₅} tt
     voi₅ = toWitness {Q = validOutputIndices? t₆ l₅ vtr₅} tt
     vds₅ = toWitness {Q = validDataScriptTypes? t₆ l₅ vtr₅ voi₅} tt
+
+    l₆ = t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ []
+    _ : list (unspentOutputs l₀) ≡ c₁₀ ∷ c₁₁ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₁) ≡ c₁₁ ∷ t₁₀ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₂) ≡ c₁₁ ∷ t₂₀ ∷ t₂₁ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₃) ≡ c₁₁ ∷ t₂₀ ∷ t₃₀ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₄) ≡ t₂₀ ∷ t₄₀ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₅) ≡ t₅₀ ∷ t₅₁ ∷ []
+    _ = refl
+    _ : list (unspentOutputs l₆) ≡ t₆₀ ∷ []
+    _ = refl

@@ -1,18 +1,23 @@
 ------------------------------------------------------------------------
 -- Naive hashing functions for UTxO types.
 ------------------------------------------------------------------------
-open import Data.Fin      using (toℕ)
+open import Relation.Binary                       using (Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_)
 
 open import UTxO.Types
 open import Hashing.Base
 open import Hashing.Types
 
-module Hashing.UTxO (addresses : List Address) where
+module Hashing.UTxO
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 
-open import UTxO.Ledger addresses
+open import UTxO.Ledger Address _♯ₐ _≟ₐ_
 
 _♯ₒ : Hash TxOutput
-o ♯ₒ = merge♯ ((value o) ♯ᵥ ∷ toℕ (address o) ∷ [])
+o ♯ₒ = merge♯ ((value o) ♯ᵥ ∷ (address o) ♯ₐ ∷ [])
 postulate injective♯ₒ : Injective _♯ₒ
 
 _♯ₜₓ : Hash Tx

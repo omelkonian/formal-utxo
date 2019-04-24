@@ -17,8 +17,8 @@ open import Reflection renaming (_≟_ to _`≟_) public
 l₀ : Ledger
 l₀ = c₄ ∷ c₁ ∷ []
 
-infixl 1 _>>=_
-_>>=_ = bindTC
+-- infixl 1 _>>=_
+-- _>>=_ = bindTC
 
 pattern vArg x   = arg (arg-info visible relevant) x
 pattern hArg x   = arg (arg-info hidden relevant) x
@@ -35,7 +35,7 @@ pattern _`≡_ x y = def (quote _≡_) (`0ℓ ∷ hArg `ℕ ∷ vArg x ∷ vArg 
 pattern `TxInput = def (quote TxInput) []
 pattern `≡ₜ_ x = def (quote _≡_) (`0ℓ ∷ hArg `TxInput ∷ vArg x ∷ [])
 
-import UTxO as UX
+import UTxO.Ledger as UX
 pattern `addresses = def (quote addresses) []
 pattern `Tx = def (quote UX.Tx) (vArg `addresses ∷ [])
 pattern `inputs x = def (quote UX.inputs) (`_ ∷ vArg x ∷ [])
@@ -276,5 +276,5 @@ macro
             { (no _) → typeError [ strErr "no²" ]
             ; (yes p) → quoteTC p >>= unify hole }}
 
-test3 : Any (1 ≡_) (1 ∷ [])
+test3 : Any (1 ≡_) (1 ∷ []) -- 1 ∈ (1 ∷ []) does not work
 test3 = get3 -- get2

@@ -4,7 +4,7 @@
 module Utilities.Currency where
 
 open import Function     using (_∘_)
-open import Data.Product using (_×_; _,_; proj₁)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.Maybe   using (fromMaybe)
 open import Data.Nat     using (ℕ; _+_; _≟_)
 open import Data.List    using (List; _∷_; []; sum; map; foldl)
@@ -38,8 +38,11 @@ c +ᶜ c′ = toList (foldl go (fromList c) c′)
 sumᶜ : List Value → Value
 sumᶜ = foldl _+ᶜ_ []
 
+keys : Value → List ℕ
+keys = map proj₁
+
 values : Value → List ℕ
-values = map proj₁
+values = map proj₂
 
 ex-map : Value
 ex-map = (1 , $ 50)

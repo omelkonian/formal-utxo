@@ -26,15 +26,19 @@ open import Relation.Binary using (Decidable)
 open import Data.List.Relation.Unary.Any using (Any; any; here; there)
 open import Data.List.Membership.Propositional using (_∈_)
 
-open import Utilities.Lists
-open import Utilities.Currency
 open import UTxO.Types
+open import Hashing.Base
 open import Hashing.Types    using (_♯ᵢ)
 open import Hashing.MetaHash using (_♯)
 
-module UTxO.DecisionProcedure (addresses : List Address) where
+module UTxO.DecisionProcedure
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 
-open import UTxO.Validity addresses
+
+open import UTxO.Validity Address _♯ₐ _≟ₐ_
 
 ∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
   → (xs : List A)
@@ -134,26 +138,26 @@ validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            let out : TxOutput
                out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-           in (addresses ‼ (address out)) ≡ (validator i) ♯)
+           in (address out) ♯ₐ ≡ (validator i) ♯)
 validateValidHashes? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
     let out : TxOutput
         out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-    in (addresses ‼ (address out)) ≟ (validator i) ♯
+    in (address out) ♯ₐ ≟ (validator i) ♯
 
 forging? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (∀ c → c ∈ values (forge tx) →
+  → Dec (∀ c → c ∈ keys (forge tx) →
            ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
              let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-             in (addresses ‼ address out) ≡ c)
+             in (address out) ♯ₐ ≡ c)
 forging? tx l v₁ v₂ =
-  ∀? (values (forge tx)) λ c _ →
+  ∀? (keys (forge tx)) λ c _ →
     ∃? (inputs tx) λ i i∈ →
        let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-       in (addresses ‼ address out) ≟ c
+       in (address out) ♯ₐ ≟ c
 
 {-
 isValidTx? : ∀ (tx : Tx) → (l : Ledger) → Dec (IsValidTx tx l)
