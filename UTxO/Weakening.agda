@@ -5,7 +5,6 @@
 open import Function using (_∘_)
 open import Function.Injection using (module Injection; _↣_)
 
-
 open import Data.Unit    using (tt)
 open import Data.Bool    using (T)
 open import Data.Nat     using (_<_)
@@ -14,7 +13,7 @@ open import Data.Product using (_×_; _,_; ∃; ∃-syntax)
 open import Data.Fin using (Fin; toℕ; fromℕ≤; inject≤)
 open import Data.Fin.Properties using (toℕ-injective; toℕ-fromℕ≤; toℕ-inject≤)
 
-open import Data.List.Properties using (length-map; map-compose)
+open import Data.List.Properties using (length-map; map-compose; map-id₂)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
 open import Data.List.Relation.Unary.Any using (Any; here; there)
 open import Data.List.Relation.Pointwise using (Pointwise; Pointwise-≡⇒≡)
@@ -26,7 +25,6 @@ import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; trans; sym; cong)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
-
 open import UTxO.Types
 open import Hashing.Base
 open import Hashing.Types
@@ -35,37 +33,41 @@ open import Hashing.MetaHash
 module UTxO.Weakening
   (𝔸 : Set) (_♯ᵃ : Hash 𝔸) (_≟ᵃ_ : Decidable {A = 𝔸} _≡_) -- smaller address space
   (𝔹 : Set) (_♯ᵇ : Hash 𝔹) (_≟ᵇ_ : Decidable {A = 𝔹} _≡_) -- larger address space
-  (A↣B : 𝔸 ↣ 𝔹)
+  (A↪B : 𝔸 , _♯ᵃ ↪ 𝔹 , _♯ᵇ)
   where
 
-
-_-via-_ : ∀ {A B : Set} → A → A ↣ B → B
-a -via- record {to = record {_⟨$⟩_ = f}} = f a
-
-import UTxO.Validity 𝔸 _♯ᵃ _≟ᵃ_ as A
-import UTxO.DecisionProcedure 𝔸 _♯ᵃ _≟ᵃ_ as DA
+import UTxO.Validity      𝔸 _♯ᵃ _≟ᵃ_ as A
 open import UTxO.Validity 𝔹 _♯ᵇ _≟ᵇ_ as B
-open import UTxO.DecisionProcedure 𝔹 _♯ᵇ _≟ᵇ_ as DB
 
+-- Weakening operations.
 weakenTxOutput : A.TxOutput → B.TxOutput
-weakenTxOutput
-    record { value = v ; dataScript = ds ; address = addr }
-  = record { value = v ; dataScript = ds ; address = addr -via- A↣B}
+weakenTxOutput record { value = v ; dataScript = ds ; address = addr }
+             = record { value = v ; dataScript = ds ; address = A↪B ⟨$⟩ addr}
 
 weakenTx : A.Tx → B.Tx
-weakenTx
-    record { inputs  = inputs
-           ; outputs = outputs
-           ; forge   = forge
-           ; fee     = fee }
-  = record { inputs  = inputs
-           ; outputs = map weakenTxOutput outputs
-           ; forge   = forge
-           ; fee     = fee
-           }
+weakenTx record { inputs  = inputs
+                ; outputs = outputs
+                ; forge   = forge
+                ; fee     = fee }
+       = record { inputs  = inputs
+                ; outputs = map weakenTxOutput outputs
+                ; forge   = forge
+                ; fee     = fee }
 
 weakenLedger : A.Ledger → B.Ledger
 weakenLedger = map weakenTx
+
+-- Hashes should be preserved.
+weakenTxOutput-preserves♯ : ∀ (o : A.TxOutput) → (address (weakenTxOutput o)) ♯ᵇ ≡ (A.address o) ♯ᵃ
+weakenTxOutput-preserves♯ o rewrite (preserves♯ A↪B (A.address o)) = refl
+
+mapWeakenTxOutput-preserves♯ : ∀ (os : List A.TxOutput) → map _♯ₒ (map weakenTxOutput os) ≡ map A._♯ₒ os
+mapWeakenTxOutput-preserves♯ [] = refl
+mapWeakenTxOutput-preserves♯ (o ∷ os)
+  rewrite mapWeakenTxOutput-preserves♯ os | weakenTxOutput-preserves♯ o = refl
+
+weakenTx-preserves♯ : ∀ (tx : A.Tx) → (weakenTx tx) ♯ₜₓ ≡ tx A.♯ₜₓ
+weakenTx-preserves♯ tx rewrite mapWeakenTxOutput-preserves♯ (A.outputs tx) = refl
 
 weakening : ∀ {tx : A.Tx} {l : A.Ledger}
 
@@ -102,13 +104,10 @@ weakening {tx} {l}
 
     ----------------------------------------------------------
 
-    postulate
-      weakenTx-preserves-♯ : ∀ (x : A.Tx) → (weakenTx x) ♯ₜₓ ≡ x A.♯ₜₓ
-
     weaken₀ : ∀ {xs i}
       → Any (λ t → t A.♯ₜₓ ≡ id (outputRef i)) xs
       → Any (λ t → t ♯ₜₓ   ≡ id (outputRef i)) (weakenLedger xs)
-    weaken₀ {x ∷ xs} {i} (here px) = here (trans (weakenTx-preserves-♯ x) px)
+    weaken₀ {x ∷ xs} {i} (here px) = here (trans (weakenTx-preserves♯ x) px)
     weaken₀ {x ∷ xs} {i} (there p) = there (weaken₀ {xs} {i} p)
 
     vtx′ : ∀ i → i ∈ inputs tx′ → Any (λ tx → tx ♯ₜₓ ≡ id (outputRef i)) l′
@@ -148,7 +147,7 @@ weakening {tx} {l}
     weakenUnspentOutputsTx : ∀ {x}
       → unspentOutputsTx (weakenTx x)
       ≡ A.unspentOutputsTx x
-    weakenUnspentOutputsTx {x} rewrite weakenIndices {x} | weakenTx-preserves-♯ x = refl
+    weakenUnspentOutputsTx {x} rewrite weakenIndices {x} | weakenTx-preserves♯ x = refl
 
     weakenUnspentOutputs : ∀ {xs}
       → unspentOutputs (weakenLedger xs)
@@ -413,7 +412,7 @@ weakening {tx} {l}
                         ; forge   = forge tx′
                         ; fee     = fee tx′
                         }
-        helper rewrite weakenTx-preserves-♯ tx
+        helper rewrite weakenTx-preserves♯ tx
                      | pendingOut≡
                      | pendingIn≡
                      = refl
@@ -443,15 +442,12 @@ weakening {tx} {l}
 
     ------------------------------------------------------------------------------------
 
-    postulate
-      weaken-preserves-♯ᵃ : ∀ o → (address (weakenTxOutput o)) ♯ᵇ ≡ (A.address o) ♯ᵃ
-
     vvh′ : ∀ i → (i∈ : i ∈ inputs tx′) →
       let out = lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)
       in (address out) ♯ᵇ ≡ (validator i) ♯
     vvh′ i i∈
       rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
-            | weaken-preserves-♯ᵃ (A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈))
+            | weakenTxOutput-preserves♯ (A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈))
             = vvh i i∈
 
     ------------------------------------------------------------------------------------
@@ -467,5 +463,5 @@ weakening {tx} {l}
         helper : (address (lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈))) ♯ᵇ ≡ c
         helper
           rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
-                | weaken-preserves-♯ᵃ (A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈))
+                | weakenTxOutput-preserves♯ (A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈))
                 = p
