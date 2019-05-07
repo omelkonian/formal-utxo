@@ -17,8 +17,7 @@ open import UTxO.Types hiding ($) public
 open import Hashing.Base public
 open import Hashing.Types public
 open import Hashing.MetaHash public
-open SETₒ using (_∈?_; from↔to; list; noDuplicates; noDuplicates?) public
-  renaming (_∈′_ to _∈ₒ_)
+open SETₒ using (_∈?_; list) public
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈) public
 
 -- available addresses

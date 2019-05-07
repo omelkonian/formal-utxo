@@ -3,29 +3,29 @@
 ------------------------------------------------------------------------
 open import Function using (_∘_; case_of_)
 
+open import Data.Empty   using (⊥-elim)
 open import Data.Bool    using (T)
+open import Data.Sum     using (_⊎_; inj₁; inj₂) renaming (map to map⊎; map₁ to map⊎₁; map₂ to map⊎₂)
 open import Data.Product using (_×_; _,_; map₁; map₂; ∃; ∃-syntax; proj₁; proj₂)
 open import Data.Nat     using (ℕ; suc; _<_)
 
 open import Data.List using (_++_; filter; applyUpTo)
-
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
-
 open import Data.List.Relation.Unary.Any using (Any; there; here)
-
 open import Data.List.Relation.Pointwise using (Pointwise; Pointwise-≡⇒≡; ≡⇒Pointwise-≡)
-
+open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties using (upTo⁺; map⁺)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 import Data.List.Relation.Ternary.Interleaving as I₀
 import Data.List.Relation.Ternary.Interleaving.Properties as IP
 open import Data.List.Relation.Ternary.Interleaving.Propositional as I using (Interleaving; consˡ; consʳ; swap)
-
 open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint; contractₗ; contractᵣ)
 
-open import Relation.Nullary using (yes; no)
+open import Relation.Nullary          using (yes; no)
 open import Relation.Nullary.Negation using (¬?)
-open import Relation.Binary                       using (Decidable)
+open import Relation.Binary           using (Decidable)
+
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; sym; trans; cong)
 open Eq.≡-Reasoning using (begin_; _≡⟨_⟩_; _≡⟨⟩_; _∎)
@@ -41,13 +41,8 @@ module UTxO.Combining
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
-
 sym# : ∀ {A : Set} {l l′ : List A} → Disjoint l l′ → Disjoint l′ l
 sym# {l} {l′} l#l′ (∈l′ , ∈l) = l#l′ (∈l , ∈l′)
-
-
-open import Data.Empty using (⊥-elim)
-open import Data.Sum using (_⊎_; inj₁; inj₂) renaming (map to map⊎; map₁ to map⊎₁; map₂ to map⊎₂)
 
 interleave⊎ : ∀ {A : Set} {l1 l2 l3 : List A}
   → Interleaving l1 l2 l3
@@ -67,6 +62,15 @@ interleave⊆ (consʳ inter) ∈1          = there (interleave⊆ inter ∈1)
 
 open import UTxO.Validity Address _♯ₐ _≟ₐ_
 open SETₒ using (fromList; list; _∈?_)
+
+nd-indices : ∀ {A : Set} {xs : List A}
+  → Unique (indices xs)
+nd-indices {_} {xs} = upTo⁺ (length xs)
+
+nd-map : ∀ {xs tx}
+  → Unique xs
+  → Unique (map ((tx ♯ₜₓ) indexed-at_) xs)
+nd-map {xs} {tx} uniq = map⁺ {f = (tx ♯ₜₓ) indexed-at_} (λ { refl → refl }) uniq
 
 _─_ : List TxOutputRef → List TxOutputRef → List TxOutputRef
 xs ─ ys = filter (¬? ∘ (_∈? ys)) xs
@@ -163,35 +167,6 @@ help-∈″ : ∀ {l a tx₀}
 help-∈ {l = x ∷ l} {tx₀} p with utxo-∈ {x} {l} {tx₀} p
 ... | inj₁ p₁ = map₂ (map₂ there) (help-∈ {l} {tx₀} p₁)
 ... | inj₂ p₂ = help-∈′ {x ∷ l} {x} (here refl) p₂
-
-import Data.Set' as SET
-open import Data.Unit using (⊤; tt)
-open import Data.Nat using (ℕ; _≟_)
-module SETₙ = SET {A = ℕ} _≟_
-
-nd-contract : ∀ {x xs}
-  → SETₙ.noDuplicates (x ∷ xs)
-  → SETₙ.noDuplicates xs
-nd-contract {x} {xs} nd
-  with x SETₙ.∈? xs
-... | yes _ = ⊥-elim nd
-... | no  _ = nd
-
-nd-indices : ∀ {A : Set} {xs : List A}
-  → SETₙ.noDuplicates (indices xs)
-nd-indices {A} {[]} = tt
-nd-indices {A} {x ∷ xs} with 0 SETₙ.∈? applyUpTo ((λ x → x) ∘ suc) (length xs)
-... | yes p = {!!}
-... | no ¬p = {!!} -- nd-contract {0} {applyUpTo ((λ x → x) ∘ suc) (length xs)} (nd-indices {A} {xs})
-
-nd-map : ∀ {xs tx}
-  → SETₙ.noDuplicates xs
-  → SETₒ.noDuplicates (map ((tx ♯ₜₓ) indexed-at_) xs)
-nd-map {[]}     {_}  _ = tt
-nd-map {x ∷ xs} {tx} nd
-  with ((tx ♯ₜₓ) indexed-at x) ∈? map ((tx ♯ₜₓ) indexed-at_) xs
-... | yes p = {!!}
-... | no ¬p = {!!}
 
 valid-∈ : ∀ {l a}
   → a ∈ l
@@ -410,7 +385,7 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
        ≡ fee tx +ᶜ sumᶜ (map value (outputs tx))
     pv rewrite mapLookupValue≡ = pv₀
 
-    nds : SETₒ.noDuplicates (map outputRef (inputs tx))
+    nds : Unique (map outputRef (inputs tx))
     nds = nds₀
 
     ptxIn≡ : ∀ {i i∈} →
@@ -532,8 +507,6 @@ _↔_⊢_,_,_,_ {l′} {tx ∷ l} {tx ∷ l″} v′ v@(v₀ ⊕ _ ∶- vt) (con
           vds = validDataScriptTypes vt i i∈
       in AIVᵣ tx (here refl) {ptx} {i} {out} {vds}
 
-{-
--}
 ----------------------------
 -- Demonstrative example.
 

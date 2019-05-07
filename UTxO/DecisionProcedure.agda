@@ -111,9 +111,9 @@ preservesValues? tx l v₁ v₂ =
   fee tx +ᶜ sumᶜ (map value (outputs tx))
 
 noDoubleSpending? : ∀ (tx : Tx) (l : Ledger)
-  → Dec (SETₒ.noDuplicates (map outputRef (inputs tx)))
+  → Dec (SETₒ.Unique (map outputRef (inputs tx)))
 noDoubleSpending? tx l =
-  SETₒ.noDuplicates? (map outputRef (inputs tx))
+  SETₒ.unique? (map outputRef (inputs tx))
 
 allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)

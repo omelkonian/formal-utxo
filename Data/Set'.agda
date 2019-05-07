@@ -12,14 +12,16 @@ open import Data.Sum      using (_⊎_; inj₁; inj₂; map₁; map₂)
 open import Data.Bool     using (Bool; true; false; T)
 open import Data.Nat      using (ℕ)
 open import Data.List     using (List; []; _∷_; [_]; filter; _++_; length)
-open import Data.List.Any using (Any; any; here; there)
 
+open import Data.List.Relation.Unary.Any using (Any; any; here; there)
+open import Data.List.Relation.Unary.All using (All) renaming ([] to ∀[]; _∷_ to _∀∷_)
+import Data.List.Relation.Unary.Unique.Propositional as Uniq
 open import Data.List.Membership.Propositional.Properties using (∈-filter⁻; ∈-++⁻)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 
 open import Relation.Nullary                      using (Dec; yes; no; ¬_)
 open import Relation.Nullary.Negation             using (contradiction; ¬?)
-open import Relation.Nullary.Decidable            using (True; False; fromWitness; ⌊_⌋)
+open import Relation.Nullary.Decidable            using (True; False; fromWitness; toWitness; ⌊_⌋)
 open import Relation.Unary                        using (Pred)
   renaming (Decidable to UnaryDec)
 open import Relation.Binary                       using (Decidable)
@@ -65,88 +67,42 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
 
   ------------------------------------------------------------------------
   -- Sets as lists with no duplicates.
+  open Uniq {0ℓ} {A} using (Unique) public renaming ([] to U[]; _∷_ to _U∷_)
+  open import Data.List.Relation.Unary.AllPairs using (allPairs?)
 
-  noDuplicates : List A → Set
-  noDuplicates [] = ⊤
-  noDuplicates (x ∷ xs) with x ∈? xs
-  ... | yes _ = ⊥
-  ... | no  _ = noDuplicates xs
-
-  noDuplicates? : (xs : List A) → Dec (noDuplicates xs)
-  noDuplicates? [] = yes tt
-  noDuplicates? (x ∷ xs) with x ∈? xs
-  ... | yes _ = no λ z → z
-  ... | no ¬p = noDuplicates? xs
+  unique? : ∀ xs → Dec (Unique xs)
+  unique? xs = allPairs? (λ x y → ¬? (x ≟ y)) xs
 
   record Set' : Set where
     constructor ⟨_⟩∶-_
     field
-      list   : List A
-      .nodup : noDuplicates list
+      list  : List A
+      .uniq : Unique list
   open Set' public
-
-  -- Set' : Set
-  -- Set' = ∃[ xs ] noDuplicates xs
 
   infix 4 _∈′_
   _∈′_ : A → Set' → Set
   o ∈′ ⟨ os ⟩∶- _ = o ∈ os
 
   ∅ : Set'
-  ∅ = ⟨ [] ⟩∶- tt
+  ∅ = ⟨ [] ⟩∶- U[]
 
   singleton : A → Set'
-  singleton a = ⟨ [ a ] ⟩∶- tt
-
-  doubleton_,_∶-_ : (x : A) → (y : A) → False (x ≟ y) → Set'
-  doubleton x , y ∶- pr with x ∈? [ y ]
-  ... | yes (here refl) = ⊥-elim {!!}
-  ... | yes (there ())
-  ... | no ¬p = ⟨ x ∷ y ∷ [] ⟩∶- {!!}
+  singleton a = ⟨ [ a ] ⟩∶- (∀[] U∷ U[])
 
   ∣_∣ : Set' → ℕ
   ∣_∣ = length ∘ list
 
   infixr 5 _─_
   _─_ : Set' → Set' → Set'
-  ⟨ xs ⟩∶- pxs ─ ⟨ ys ⟩∶- pys = ⟨ zs ⟩∶- lem₂ {as = xs} pxs
-    where
-      zs : List A
-      zs = filter (λ x → ¬? (x ∈? ys)) xs
-
-      lem₁ : ∀ {a as}
-
-           → noDuplicates as
-           → ¬ (a ∈ as)
-             ---------------------
-           → noDuplicates (a ∷ as)
-      lem₁ {a} {as} pas a∉as with a ∈? as
-      ... | yes a∈as = a∉as a∈as
-      ... | no  _    = pas
-
-
-      lem₂ : ∀ {as : List A} {P : Pred A 0ℓ} {P? : UnaryDec P}
-
-         → noDuplicates as
-           ---------------------------
-         → noDuplicates (filter P? as)
-
-      lem₂ {[]}     {P} {P?} pas = tt
-      lem₂ {a ∷ as} {P} {P?} pas with a ∈? as | P? a | a ∈? filter P? as
-      ... | yes _   | _     | _     = ⊥-elim pas
-      ... | no  _   | no  _ | _     = lem₂ {as} pas
-      ... | no _    | yes _ | no ¬p = lem₁ (lem₂ {as} pas) ¬p
-      ... | no a∉as | yes _ | yes p = ⊥-elim (a∉as (proj₁ (∈-filter⁻ P? p)))
+  ⟨ xs ⟩∶- pxs ─ ⟨ ys ⟩∶- pys = ⟨ filter (λ x → ¬? (x ∈? ys)) xs ⟩∶- {!!}
 
   infixr 4 _∪_
   _∪_ : Set' → Set' → Set'
-  x@(⟨ xs ⟩∶- pxs) ∪ y@(⟨ ys ⟩∶- pys) = ⟨ xs ++ list z ⟩∶- {!!}
-    where
-      z : Set'
-      z = y ─ x
+  x@(⟨ xs ⟩∶- pxs) ∪ y@(⟨ ys ⟩∶- pys) = ⟨ xs ++ list (y ─ x) ⟩∶- {!!}
 
   fromList : List A → Set'
-  fromList [] = ⟨ [] ⟩∶- tt
+  fromList [] = ⟨ [] ⟩∶- U[]
   fromList (x ∷ xs) with x ∈? xs
   ... | yes _ = fromList xs
   ... | no  _ = ⟨ x ∷ list (fromList xs) ⟩∶- {!!}
@@ -163,19 +119,19 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
   ∅─-identityʳ {x} = {!!}
 
   ∅∪-identityˡ : ∀ {x} → (∅ ∪ x) ≡ x
-  ∅∪-identityˡ {x} rewrite ∅─-identityʳ {x} = {!!}
+  ∅∪-identityˡ {x} rewrite ∅─-identityʳ {x} = refl
 
   ∅─∅≡∅ : ∅ ─ ∅ ≡ ∅
   ∅─∅≡∅ = ∅─-identityʳ {∅}
 
   from↔to : ∀ {xs}
-    → noDuplicates xs
+    → Unique xs
     → list (fromList xs) ≡ xs
-  from↔to {[]} nodup = refl
-  from↔to {x ∷ xs} nodup with x ∈? xs
-  ... | yes _ = ⊥-elim nodup
-  ... | no  _ = cong (x ∷_) (from↔to nodup)
-
+  from↔to {[]} uniq = refl
+  from↔to {x ∷ xs} uniq with x ∈? xs
+  ... | no  _ = cong (x ∷_) (from↔to (Uniq.tail {0ℓ} {A} {0ℓ} {0ℓ} uniq))
+  ... | yes p with uniq
+  ... | p1 U∷ p2 = {!!}
 
   ∈-─ : ∀ {x : A} {xs ys : Set'}
     → x ∈′ (xs ─ ys)

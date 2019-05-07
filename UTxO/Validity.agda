@@ -49,7 +49,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
       fee tx +ᶜ sumᶜ (map value (outputs tx))
 
     noDoubleSpending :
-      SETₒ.noDuplicates (map outputRef (inputs tx))
+      SETₒ.Unique (map outputRef (inputs tx))
 
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
