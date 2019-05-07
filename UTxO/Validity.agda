@@ -75,14 +75,12 @@ open IsValidTx public
 -- List notation for constructing valid ledgers.
 data ValidLedger : Ledger → Set where
 
-  ∙_∶-_ : (t : Tx)
-       → .(IsValidTx t [])
-       → ValidLedger [ t ]
+  ∙ : ValidLedger []
 
   _⊕_∶-_ : ∀ {l}
          → ValidLedger l
          → (t : Tx)
-         → .(IsValidTx t l)
+         → (IsValidTx t l)
          → ValidLedger (t ∷ l)
 
 infixl 5 _⊕_∶-_

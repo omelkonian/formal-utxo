@@ -7,13 +7,15 @@ open import Level         using (0ℓ)
 open import Function      using (_∘_)
 open import Data.Unit     using (⊤; tt)
 open import Data.Empty    using (⊥; ⊥-elim)
+open import Data.Product  using (_×_; ∃-syntax; proj₁; proj₂; _,_; Σ)
+open import Data.Sum      using (_⊎_; inj₁; inj₂; map₁; map₂)
 open import Data.Bool     using (Bool; true; false; T)
 open import Data.Nat      using (ℕ)
 open import Data.List     using (List; []; _∷_; [_]; filter; _++_; length)
 open import Data.List.Any using (Any; any; here; there)
-open import Data.Product  using (_×_; ∃-syntax; proj₁; proj₂; _,_; Σ)
 
-open import Data.List.Membership.Propositional.Properties using (∈-filter⁻)
+open import Data.List.Membership.Propositional.Properties using (∈-filter⁻; ∈-++⁻)
+open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 
 open import Relation.Nullary                      using (Dec; yes; no; ¬_)
 open import Relation.Nullary.Negation             using (contradiction; ¬?)
@@ -22,7 +24,6 @@ open import Relation.Unary                        using (Pred)
   renaming (Decidable to UnaryDec)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; cong; inspect)
-
 
 module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
 
@@ -45,8 +46,6 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
   ------------------------------------------------------------------------
   -- Subset relation.
 
-  open import Data.List.Relation.Binary.Subset.Propositional {A = A} using (_⊆_) public
-
   _⊆?_ : List A → List A → Set
   []       ⊆? _  = ⊤
   (x ∷ xs) ⊆? ys with x ∈? ys
@@ -60,7 +59,7 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
                     ; (there y∈xs) → (sound-⊆ {p = xs⊆?ys}) y∈xs }
   ... | no  x∉ys = ⊥-elim xs⊆?ys
 
-  head⊆ : ∀ {x xs} → [ x ] ⊆ x ∷ xs
+  head⊆ : ∀ {x : A} {xs : List A} → [ x ] ⊆ x ∷ xs
   head⊆ {x} {xs} (here refl) = here refl
   head⊆ {x} {xs} (there ())
 
@@ -176,3 +175,14 @@ module Data.Set' {A : Set} (_≟_ : Decidable (_≡_ {A = A})) where
   from↔to {x ∷ xs} nodup with x ∈? xs
   ... | yes _ = ⊥-elim nodup
   ... | no  _ = cong (x ∷_) (from↔to nodup)
+
+
+  ∈-─ : ∀ {x : A} {xs ys : Set'}
+    → x ∈′ (xs ─ ys)
+    → x ∈′ xs
+  ∈-─ {x} {xs} {ys} x∈ = proj₁ (∈-filter⁻ (λ x → ¬? (x ∈? list ys)) x∈)
+
+  ∈-∪ : ∀ {x : A} {xs ys : Set'}
+    → x ∈′ (xs ∪ ys)
+    → x ∈′ xs ⊎ x ∈′ ys
+  ∈-∪ {x} {xs} {ys} x∈ = map₂ (∈-─ {x} {ys} {xs}) (∈-++⁻ {v = x} (list xs) {ys = list (ys ─ xs)} x∈)

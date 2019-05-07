@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
--- Weakening.
+-- Weakening: Translating a valid ledger to a "larger" address space.
 ------------------------------------------------------------------------
 
 open import Function using (_∘_)
@@ -274,10 +274,10 @@ weakening {tx} {l}
 
 
     map∈-cong : ∀ {A : Set} {xs : List TxInput}
-                  → (f : ∀ {i} → i ∈ xs → A)
-                  → (g : ∀ {i} → i ∈ xs → A)
-                  → (∀ {i} → (i∈ : i ∈ xs) → f i∈ ≡ g i∈)
-                  → Pointwise _≡_ (mapWith∈ xs f) (mapWith∈ xs g)
+      → (f : ∀ {i} → i ∈ xs → A)
+      → (g : ∀ {i} → i ∈ xs → A)
+      → (∀ {i} → (i∈ : i ∈ xs) → f i∈ ≡ g i∈)
+      → Pointwise _≡_ (mapWith∈ xs f) (mapWith∈ xs g)
     map∈-cong {xs = []}     f g cong = Pointwise.[]
     map∈-cong {xs = x ∷ xs} f g cong =
       cong (here refl)

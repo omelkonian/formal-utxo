@@ -7,6 +7,7 @@ module Utilities.Lists where
 open import Function      using (_∋_; case_of_)
 open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Unit     using (⊤; tt)
+open import Data.Product  using (_×_)
 open import Data.Maybe    using (Maybe; just; nothing)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤; inject≤)
   renaming (zero to fzero; suc to fsuc)
@@ -14,18 +15,12 @@ open import Data.Nat      using (ℕ; zero; suc; _≤_; z≤n; s≤s; pred)
 open import Data.Nat.Properties using (suc-injective)
 open import Data.List.Properties using (length-map)
 
-open import Relation.Nullary.Decidable using (True)
+open import Relation.Nullary using (¬_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; sym)
 
 open import Data.List public
   using (List; []; [_]; _∷_; _∷ʳ_; map; concatMap; length; sum; upTo; lookup)
-
-------------------------------------------------------------------------
--- Sums.
-
--- Σ-sum-syntax : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → List A → ℕ
--- Σ-sum-syntax f xs = sum (map f xs)
--- syntax Σ-sum-syntax f xs = Σ[ f ∈ xs ]
+open import Data.List.Membership.Propositional using (_∈_)
 
 ------------------------------------------------------------------------
 -- Indexed operations.
@@ -110,15 +105,3 @@ toℕ-cast {_} {_} {fsuc fm} refl = cong suc (toℕ-cast refl)
 ⁉→‼ {_} {A} {x ∷ xs} {y ∷ ys}  {fsuc ix} len≡ eq
   rewrite ‼-suc {_} {A} {x} {xs} {ix}
         = ⁉→‼ {_} {A} {xs} {ys} {ix} (suc-injective len≡) eq
-
-------------------------------------------------------------------------
--- Prefix relation.
--- (T0D0: upgrade stdlib and get from Data.List.Relation.Binary.Prefix)
-
-data Prefix {A : Set} : List A → List A → Set where
-  []  : ∀ {bs} → Prefix [] bs
-  _∷_ : ∀ {as bs} → (a : A) → Prefix as bs → Prefix (a ∷ as) (a ∷ bs)
-
-prefix-length : ∀ {A} {as bs : List A} → Prefix as bs → length as ≤ length bs
-prefix-length []       = z≤n
-prefix-length (r ∷ rs) = s≤s (prefix-length rs)

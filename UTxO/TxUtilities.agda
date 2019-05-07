@@ -11,11 +11,11 @@ open import Data.List.Any using (Any)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; setoid)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import Category.Functor       using (RawFunctor)
 open import Data.List.Categorical  renaming (functor to listFunctor)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
+open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 
 
 open import UTxO.Types
@@ -31,7 +31,6 @@ module UTxO.TxUtilities
 
 open import UTxO.Ledger  Address _♯ₐ _≟ₐ_ public
 open import Hashing.UTxO Address _♯ₐ _≟ₐ_ public
-open import Data.List.Membership.Setoid (setoid Tx) using (find)
 
 module _ where
   open SETₒ renaming (fromList to fromListₒ)

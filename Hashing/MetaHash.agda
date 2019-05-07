@@ -91,9 +91,6 @@ showClause (absurd-clause ps) = "absurd-clause" ◇ showPats ps
 
 -- Finally, the meta hashing function.
 
-infixl 1 _>>=_
-_>>=_ = bindTC
-
 -- macro
 --   metaHash : Term → Term → TC ⊤
 --   metaHash (var n []) hole = do
