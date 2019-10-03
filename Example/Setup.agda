@@ -122,7 +122,7 @@ t₃₀ : TxOutputRef
 t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
 
 t₄ : Tx
-t₄ = record { inputs  = (withScripts t₃₀ ∷ withAda c₁₁ ∷ [])
+t₄ = record { inputs  = withScripts t₃₀ ∷ withAda c₁₁ ∷ []
             ; outputs = [ $ 207 at 2ᵃ ]
             ; forge   = $ 10
             ; fee     = $ 2

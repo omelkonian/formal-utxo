@@ -105,3 +105,4 @@ toℕ-cast {_} {_} {fsuc fm} refl = cong suc (toℕ-cast refl)
 ⁉→‼ {_} {A} {x ∷ xs} {y ∷ ys}  {fsuc ix} len≡ eq
   rewrite ‼-suc {_} {A} {x} {xs} {ix}
         = ⁉→‼ {_} {A} {xs} {ys} {ix} (suc-injective len≡) eq
+

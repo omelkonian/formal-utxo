@@ -80,7 +80,7 @@ data ValidLedger : Ledger → Set where
   _⊕_∶-_ : ∀ {l}
          → ValidLedger l
          → (t : Tx)
-         → (IsValidTx t l)
+         → IsValidTx t l
          → ValidLedger (t ∷ l)
 
 infixl 5 _⊕_∶-_

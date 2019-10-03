@@ -11,11 +11,11 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; setoid) pu
 open import Relation.Nullary using (Dec) public
 open import Data.List.Relation.Unary.Any using (any) public
 
-open import Agda.Builtin.Reflection public
+-- open import Agda.Builtin.Reflection public
 open import Reflection renaming (_≟_ to _`≟_) public
 
 l₀ : Ledger
-l₀ = c₄ ∷ c₁ ∷ []
+l₀ = c₁ ∷ []
 
 -- infixl 1 _>>=_
 -- _>>=_ = bindTC
