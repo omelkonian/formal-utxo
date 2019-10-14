@@ -1,0 +1,5 @@
+name: formal-utxo
+depend:
+  standard-library
+  my-agda-prelude
+include: .

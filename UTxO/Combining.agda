@@ -278,9 +278,9 @@ any≡ {l} {l″} o p″ p = injective♯ₜₓ eq♯
     eq♯ : (proj₁ (find p″)) ♯ₜₓ ≡ (proj₁ (find p)) ♯ₜₓ
     eq♯ rewrite find≡ {l″} {o} {(_≡ id o) ∘ _♯ₜₓ} p″ | find≡ {l} {o} {P = (_≡ id o) ∘ _♯ₜₓ} p = refl
 
-open import Data.List.Relation.Binary.Prefix.Heterogeneous as Pr using () renaming (Prefix to Prefix′)
-Prefix : ∀ {A : Set} → List A → List A → Set
-Prefix {A} = Prefix′ {A = A} {B = A} _≡_
+-- open import Data.List.Relation.Binary.Prefix.Heterogeneous as Pr using () renaming (Prefix to Prefix′)
+-- Prefix : ∀ {A : Set} → List A → List A → Set
+-- Prefix {A} = Prefix′ {A = A} {B = A} _≡_
 
 ∈-tail : ∀ {A : Set} {P : A → Set} {xs : List A}
   → Any P xs

@@ -19,7 +19,7 @@ open import Utilities.Lists public
 open import Data.TYPE public
 
 -- Re-export currency maps.
-open import Utilities.Currency public
+open import Data.Currency public
   using ( Value; $; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
 
 ------------------------------------------------------------------------
