@@ -65,9 +65,6 @@ withAda tin = record { outputRef = tin
 $ : ℕ → Value
 $ v = [ (adaᵃ , v) ]
 
-$0 : Value
-$0 = []
-
 _at_ : Value → Address → TxOutput
 v at addr = record { value      = v
                    ; address    = addr

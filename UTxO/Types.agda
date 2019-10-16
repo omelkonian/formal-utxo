@@ -20,7 +20,7 @@ open import Data.TYPE public
 
 -- Re-export currency maps.
 open import Data.Currency public
-  using ( Value; $; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
+  using ( Value; $; $0; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
 
 ------------------------------------------------------------------------
 -- Basic types.

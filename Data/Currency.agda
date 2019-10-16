@@ -23,6 +23,9 @@ $ v = v
 
 Value = List (ℕ × ℕ)
 
+$0 : Value
+$0 = []
+
 open import Data.AVL <-strictTotalOrder public
   renaming (Tree to Tree'; map to mapValues)
   hiding   (Value)
