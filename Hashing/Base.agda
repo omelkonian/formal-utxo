@@ -6,7 +6,7 @@ open import Function.Injection using (module Injection; _↣_)
 
 open import Data.Product  using (_,_; _×_)
 open import Data.String   using (String; toList)
-open import Data.Char     using (toNat)
+open import Data.Char     using (toℕ)
 open import Data.Nat      using (ℕ; _+_)
 open import Data.Nat.Show using (show)
 open import Data.List     using (List; []; _∷_; map; sum)
@@ -49,4 +49,4 @@ hashPair : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → Hash A → 
 hashPair h₁ h₂ (a , b) = merge♯ (h₁ a ∷ h₂ b ∷ [])
 
 _♯ₛₜᵣ : String → ℕ
-_♯ₛₜᵣ = hashList toNat ∘ toList
+_♯ₛₜᵣ = hashList toℕ ∘ toList

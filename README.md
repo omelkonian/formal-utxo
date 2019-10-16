@@ -1,4 +1,4 @@
-## Towards a formal (extended) UTxO model
+## Towards a formal (extended) UTxO model [![Build Status](https://travis-ci.com/omelkonian/formal-utxo.svg?branch=master)](https://travis-ci.com/omelkonian/formal-utxo)
 
 Based on:
 > Joachim Zahnentferner, 2018, May.
