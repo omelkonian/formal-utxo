@@ -2,7 +2,7 @@
 {- NB: We use REWRITE rules to help normalization containing calls to the hash
        function _♯, which otherwise would not normalize. -}
 
-module Example.Setup where
+module UTxO.Example.Setup where
 
 open import Data.Unit     using (tt) public
 open import Data.Product  using (_×_; _,_; proj₁; proj₂) public
@@ -14,9 +14,9 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
 open import Relation.Nullary.Decidable            using (toWitness) public
 
 open import UTxO.Types hiding ($) public
-open import Hashing.Base public
-open import Hashing.Types public
-open import Hashing.MetaHash public
+open import UTxO.Hashing.Base public
+open import UTxO.Hashing.Types public
+open import UTxO.Hashing.MetaHash public
 open SETₒ using (_∈?_; list) public
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈) public
 

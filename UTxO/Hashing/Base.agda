@@ -1,4 +1,4 @@
-module Hashing.Base where
+module UTxO.Hashing.Base where
 
 open import Level              using (_⊔_)
 open import Function           using (_∘_)

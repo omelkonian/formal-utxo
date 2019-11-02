@@ -5,10 +5,10 @@ open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
 
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types
 
-module Hashing.UTxO
+module UTxO.Hashing.Tx
   (Address : Set)
   (_♯ₐ : Hash Address)
   (_≟ₐ_ : Decidable {A = Address} _≡_)

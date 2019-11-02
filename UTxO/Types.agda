@@ -13,13 +13,13 @@ open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Re-export list utilities.
-open import Utilities.Lists public
+open import Prelude.Lists public
 
 -- Re-export type universe 𝕌.
-open import Data.TYPE public
+open import UTxO.Data.TYPE public
 
 -- Re-export currency maps.
-open import Data.Currency public
+open import UTxO.Data.Currency public
   using ( Value; $; $0; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
 
 ------------------------------------------------------------------------
@@ -93,7 +93,7 @@ open TxInput public
 ------------------------------------------------------------------------
 -- Set modules/types.
 
-import Data.Set' as SET
+import Prelude.Set' as SET
 
 -- Sets of output references
 _≟ₒ_ : Decidable {A = TxOutputRef} _≡_

@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------
 -- Naive hashing functions for basic types.
 ------------------------------------------------------------------------
-module Hashing.Types where
+module UTxO.Hashing.Types where
 
 open import Data.Product using (_,_)
 open import Data.List    using ([]; _∷_)
 
-open import Hashing.Base
+open import UTxO.Hashing.Base
 open import UTxO.Types
 
 _♯ₛₜ : Hash State

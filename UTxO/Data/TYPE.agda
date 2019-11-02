@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 -- Fixed universe of types used on-chain.
 ------------------------------------------------------------------------
-module Data.TYPE where
+module UTxO.Data.TYPE where
 
 open import Data.Unit    using (⊤)
 open import Data.Product using (_×_)

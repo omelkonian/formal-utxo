@@ -17,11 +17,10 @@ open import Category.Functor       using (RawFunctor)
 open import Data.List.Categorical  renaming (functor to listFunctor)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 
-
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types
-open import Hashing.MetaHash using (_♯)
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types
+open import UTxO.Hashing.MetaHash using (_♯)
 
 module UTxO.TxUtilities
   (Address : Set)
@@ -29,8 +28,8 @@ module UTxO.TxUtilities
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
-open import UTxO.Ledger  Address _♯ₐ _≟ₐ_ public
-open import Hashing.UTxO Address _♯ₐ _≟ₐ_ public
+open import UTxO.Ledger     Address _♯ₐ _≟ₐ_ public
+open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_ public
 
 module _ where
   open SETₒ renaming (fromList to fromListₒ)

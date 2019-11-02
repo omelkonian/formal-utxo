@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 -- Multi-currency support.
 ------------------------------------------------------------------------
-module Data.Currency where
+module UTxO.Data.Currency where
 
 open import Function     using (_∘_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)

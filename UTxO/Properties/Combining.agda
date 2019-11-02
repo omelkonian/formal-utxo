@@ -31,11 +31,11 @@ open Eq using (_≡_; refl; sym; trans; cong)
 open Eq.≡-Reasoning using (begin_; _≡⟨_⟩_; _≡⟨⟩_; _∎)
 
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types
-open import Hashing.MetaHash
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types
+open import UTxO.Hashing.MetaHash
 
-module UTxO.Combining
+module UTxO.Properties.Combining
   (Address : Set)
   (_♯ₐ : Hash Address)
   (_≟ₐ_ : Decidable {A = Address} _≡_)

@@ -8,9 +8,9 @@ open import Relation.Binary.PropositionalEquality using (_≡_)
 open import Data.List.Membership.Propositional    using (_∈_; mapWith∈)
 
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types
-open import Hashing.MetaHash using (_♯)
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types
+open import UTxO.Hashing.MetaHash using (_♯)
 
 module UTxO.Validity
   (Address : Set)

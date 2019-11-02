@@ -26,11 +26,11 @@ open Eq using (_≡_; refl; trans; sym; cong)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types
-open import Hashing.MetaHash
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types
+open import UTxO.Hashing.MetaHash
 
-module UTxO.Weakening
+module UTxO.Properties.Weakening
   (𝔸 : Set) (_♯ᵃ : Hash 𝔸) (_≟ᵃ_ : Decidable {A = 𝔸} _≡_) -- smaller address space
   (𝔹 : Set) (_♯ᵇ : Hash 𝔹) (_≟ᵇ_ : Decidable {A = 𝔹} _≡_) -- larger address space
   (A↪B : 𝔸 , _♯ᵃ ↪ 𝔹 , _♯ᵇ)

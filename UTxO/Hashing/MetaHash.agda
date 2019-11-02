@@ -8,7 +8,7 @@
 --
 -- EDIT: Does not work, since meta-programs are restricted to 2 stages..
 ------------------------------------------------------------------------
-module Hashing.MetaHash where
+module UTxO.Hashing.MetaHash where
 
 open import Function      using (_∘_)
 open import Data.Unit     using (⊤)
@@ -25,7 +25,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_)
 
 open import Reflection
 
-open import Hashing.Base
+open import UTxO.Hashing.Base
 
 
 Show : Set → Set

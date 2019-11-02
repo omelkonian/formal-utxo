@@ -1,7 +1,7 @@
 {-# OPTIONS --rewriting #-}
-module Example.Ledger where
+module UTxO.Example.Ledger where
 
-open import Example.Setup
+open import UTxO.Example.Setup
 
 ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ [])
 ex-ledger =

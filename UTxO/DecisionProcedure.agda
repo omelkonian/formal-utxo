@@ -27,9 +27,9 @@ open import Data.List.Relation.Unary.Any using (Any; any; here; there)
 open import Data.List.Membership.Propositional using (_∈_)
 
 open import UTxO.Types
-open import Hashing.Base
-open import Hashing.Types    using (_♯ᵢ)
-open import Hashing.MetaHash using (_♯)
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.Types    using (_♯ᵢ)
+open import UTxO.Hashing.MetaHash using (_♯)
 
 module UTxO.DecisionProcedure
   (Address : Set)

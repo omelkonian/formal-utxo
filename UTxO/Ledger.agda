@@ -8,7 +8,7 @@ open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import UTxO.Types
-open import Hashing.Base
+open import UTxO.Hashing.Base
 
 module UTxO.Ledger
   (Address : Set)
