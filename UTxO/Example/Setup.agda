@@ -8,7 +8,7 @@ open import Data.Unit     using (tt) public
 open import Data.Product  using (_×_; _,_; proj₁; proj₂) public
 open import Data.Bool     using (Bool; true; _∧_; _∨_) public
 open import Data.Nat      using (ℕ; _≟_; _≡ᵇ_) public
-open import Data.List     using (List; []; [_]) public
+open import Data.List     using (List; []; [_]; _∷_) public
 
 open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
 open import Relation.Nullary.Decidable            using (toWitness) public

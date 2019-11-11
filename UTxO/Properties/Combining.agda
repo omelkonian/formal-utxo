@@ -9,7 +9,7 @@ open import Data.Sum     using (_⊎_; inj₁; inj₂) renaming (map to map⊎; 
 open import Data.Product using (_×_; _,_; map₁; map₂; ∃; ∃-syntax; proj₁; proj₂)
 open import Data.Nat     using (ℕ; suc; _<_)
 
-open import Data.List using (_++_; filter; applyUpTo)
+open import Data.List using (List; []; _∷_; length; map; _++_; filter; applyUpTo)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
 open import Data.List.Relation.Unary.Any using (Any; there; here)

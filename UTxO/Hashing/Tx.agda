@@ -1,6 +1,8 @@
 ------------------------------------------------------------------------
 -- Naive hashing functions for UTxO types.
 ------------------------------------------------------------------------
+open import Data.List using ([]; _∷_)
+
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
 

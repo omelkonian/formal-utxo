@@ -7,15 +7,13 @@ open import Data.Bool     using (Bool; T)
 open import Data.Product  using (_×_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
+open import Data.List     using ([]; _∷_; length; map)
 open import Data.List.Any using (Any)
+open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-
-open import Category.Functor       using (RawFunctor)
-open import Data.List.Categorical  renaming (functor to listFunctor)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
 
 open import UTxO.Types
 open import UTxO.Hashing.Base

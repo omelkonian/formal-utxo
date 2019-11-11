@@ -1,6 +1,7 @@
 open import Data.Bool     using (T)
 open import Data.Product  using (∃; ∃-syntax)
 open import Data.Nat      using (_<_)
+open import Data.List     using ([]; _∷_; length; map)
 open import Data.List.Any using (Any)
 
 open import Relation.Binary                       using (Decidable)

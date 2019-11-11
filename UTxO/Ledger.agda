@@ -3,6 +3,7 @@
 ------------------------------------------------------------------------
 
 open import Data.Bool using (Bool)
+open import Data.List using (List)
 
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)

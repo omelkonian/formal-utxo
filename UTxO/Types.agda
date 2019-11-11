@@ -6,7 +6,7 @@ module UTxO.Types where
 open import Level     using (Level; 0ℓ)
 open import Data.Bool using (Bool)
 open import Data.Nat  using (ℕ; _≟_)
-open import Data.List using (List; map)
+open import Data.List using (List; map; length)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)

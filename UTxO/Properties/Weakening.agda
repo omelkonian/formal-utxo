@@ -10,12 +10,13 @@ open import Data.Bool    using (T)
 open import Data.Nat     using (_<_)
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax)
 
-open import Data.Fin using (Fin; toℕ; fromℕ≤; inject≤)
-open import Data.Fin.Properties using (toℕ-injective; toℕ-fromℕ≤; toℕ-inject≤)
+open import Data.Fin using (Fin; toℕ; fromℕ≤; inject≤; cast)
+open import Data.Fin.Properties using (toℕ-injective; toℕ-fromℕ≤; toℕ-inject≤; toℕ-cast)
 
-open import Data.List.Properties using (length-map; map-compose; map-id₂)
+open import Data.List                          using (List; []; _∷_; map; length)
+open import Data.List.Properties               using (length-map; map-compose; map-id₂)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
-open import Data.List.Relation.Unary.Any using (Any; here; there)
+open import Data.List.Relation.Unary.Any       using (Any; here; there)
 open import Data.List.Relation.Pointwise using (Pointwise; Pointwise-≡⇒≡)
 
 open import Relation.Binary using (Decidable)
@@ -237,8 +238,8 @@ weakening {tx} {l}
         index₂ = cast len≡ (fromℕ≤ {index refi} v₁′)
 
         hh : toℕ index₂ ≡ toℕ (cast (sym (outputs≡ {tx₀})) index₀)
-        hh rewrite toℕ-cast {fm = index₁} len≡
-                 | toℕ-cast {fm = index₀} (sym (outputs≡ {tx₀}))
+        hh rewrite toℕ-cast len≡ index₁
+                 | toℕ-cast (sym (outputs≡ {tx₀})) index₀
                  | toℕ-fromℕ≤ v₁′
                  | toℕ-fromℕ≤ v₁
                  = refl
