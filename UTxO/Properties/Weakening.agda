@@ -154,9 +154,17 @@ weakening {tx} {l}
       → unspentOutputs (weakenLedger xs)
       ≡ A.unspentOutputs xs
     weakenUnspentOutputs {[]}     = refl
-    weakenUnspentOutputs {x ∷ xs} rewrite weakenUnspentOutputs {xs}
-                                        | weakenUnspentOutputsTx {x}
-                                        = refl
+    weakenUnspentOutputs {x ∷ xs} =
+      begin
+        unspentOutputs (weakenLedger (x ∷ xs))
+      ≡⟨⟩
+        unspentOutputs (weakenLedger xs) SETₒ.─ A.spentOutputsTx x SETₒ.∪ unspentOutputsTx (weakenTx x)
+      ≡⟨ cong (λ e → e SETₒ.─ A.spentOutputsTx x SETₒ.∪ unspentOutputsTx (weakenTx x)) (weakenUnspentOutputs {xs}) ⟩
+        A.unspentOutputs xs SETₒ.─ A.spentOutputsTx x SETₒ.∪ unspentOutputsTx (weakenTx x)
+      ≡⟨ cong (λ e → A.unspentOutputs xs SETₒ.─ A.spentOutputsTx x SETₒ.∪ e) (weakenUnspentOutputsTx {x}) ⟩
+        A.unspentOutputs xs SETₒ.─ A.spentOutputsTx x SETₒ.∪ A.unspentOutputsTx x
+      ≡⟨⟩
+        A.unspentOutputs (x ∷ xs) ∎
 
     vor′ : ∀ i → i ∈ inputs tx′ → outputRef i SETₒ.∈′ unspentOutputs l′
     vor′ i i∈ rewrite weakenUnspentOutputs {l} = vor i i∈
