@@ -72,7 +72,7 @@ lookupValue l input ∃tx≡id index≤len =
 mkPendingTxOut : TxOutput → PendingTxOutput
 mkPendingTxOut txOut = record
                          { value         = value txOut
-                         ; dataHash      = (dataScript txOut) ♯
+                         ; dataHash      = (dataVal txOut) ♯
                          }
 
 mkPendingTxIn : (l : Ledger)

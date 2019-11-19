@@ -7,6 +7,8 @@ open import Level     using (Level; 0ℓ)
 open import Data.Bool using (Bool)
 open import Data.Nat  using (ℕ; _≟_)
 open import Data.List using (List; map; length)
+open import Data.Integer using (ℤ)
+open import Data.Product using (_×_)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -61,9 +63,15 @@ record PendingTx : Set where
     forge   : Value
     fee     : Value
 
---------------------------------------------------------------------------------------
+--------------------------------------------------------------------------
 -- Output references and inputs.
 
+data DATA : Set where
+ I      : ℤ → DATA
+ LIST   : List DATA → DATA
+ CONSTR : ℕ → List DATA → DATA
+ MAP    : List (DATA × DATA) → DATA
+ 
 record TxOutputRef : Set where
   constructor _indexed-at_
   field
@@ -74,17 +82,12 @@ open TxOutputRef public
 record TxInput : Set where
   field
     outputRef : TxOutputRef
-
-    R         : 𝕌 -- ^ intermediate type used by the redeemer script
-    D         : 𝕌 -- ^ intermediate type used by the data script
-
-    redeemer  : State → el R
-    validator : State     -- ^ current blockchain state
-              → Value     -- ^ output value
+    validator : Value     -- ^ output value
               → PendingTx -- ^ parts of the currently validated transaction
-              → el R      -- ^ result value of the redeemer script
-              → el D      -- ^ result value of the data script
+              → DATA      -- ^ result value of the redeemer script
+              → DATA      -- ^ result value of the data script
               → Bool
+    redeemer  : DATA
 
 open TxInput public
 

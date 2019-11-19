@@ -89,16 +89,6 @@ validOutputRefs? tx l =
   ∀? (inputs tx) λ i _ →
     outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)
 
-validDataScriptTypes? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
-  → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
-            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (∀ i → (i∈ : i ∈ inputs tx) →
-           D i ≡ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)))
-validDataScriptTypes? tx l v₁ v₂ =
-  ∀? (inputs tx) λ i i∈ →
-    D i ≟ᵤ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈))
-
 preservesValues? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
@@ -120,18 +110,15 @@ allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → (v₄ : ∀ i → (i∈ : i ∈ inputs tx) →
-            D i ≡ Data (lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
                ptx = mkPendingTx l tx v₁ v₂
-           in T (runValidation ptx i out (v₄ i i∈) (getState l)))
-allInputsValidate? tx l v₁ v₂ v₄ =
+           in T (runValidation ptx i out))
+allInputsValidate? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
     let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
         ptx = mkPendingTx l tx v₁ v₂
-    in T? (runValidation ptx i out (v₄ i i∈) (getState l))
-
+    in T? (runValidation ptx i out)
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →

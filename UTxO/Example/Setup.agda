@@ -52,23 +52,23 @@ mkValidator tin _ _ _ tin′ _ = (id tin ≡ᵇ proj₁ tin′) ∧ (index tin �
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
-                         ; redeemer  = λ _ → id tin , index tin
-                         ; validator = mkValidator tin
+                         ; redeemer  = {! λ _ → id tin , index tin !}
+                         ; validator = {! mkValidator tin !}
                          }
 
 withAda : TxOutputRef → TxInput
 withAda tin = record { outputRef = tin
-                     ; redeemer  = λ _ → id tin , index tin
-                     ; validator = adaValidator
+                     ; redeemer  = {! λ _ → id tin , index tin !}
+                     ; validator = {! adaValidator !}
                      }
 
 $ : ℕ → Value
 $ v = [ (adaᵃ , v) ]
 
 _at_ : Value → Address → TxOutput
-v at addr = record { value      = v
-                   ; address    = addr
-                   ; dataScript = λ _ → 0
+v at addr = record { value   = v
+                   ; address = addr
+                   ; dataVal = {! λ _ → 0 !}
                    }
 
 -- define transactions
