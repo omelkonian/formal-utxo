@@ -12,7 +12,7 @@ ex-ledger =
                 ; validOutputRefs      = λ _ ()
                 ; validDataScriptTypes = λ _ ()
                 ; preservesValues      = refl
-                ; noDoubleSpending     = SETₒ.U[]
+                ; noDoubleSpending     = toWitness {Q = noDoubleSpending? c₁ []} tt
                 ; allInputsValidate    = λ _ ()
                 ; validateValidHashes  = λ _ ()
                 ; forging              = λ _ ()

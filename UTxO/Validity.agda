@@ -4,9 +4,11 @@ open import Data.Nat      using (_<_)
 open import Data.List     using ([]; _∷_; length; map)
 open import Data.List.Any using (Any)
 
+open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
+open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
+
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
-open import Data.List.Membership.Propositional    using (_∈_; mapWith∈)
 
 open import UTxO.Types
 open import UTxO.Hashing.Base
@@ -50,7 +52,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
       fee tx +ᶜ sumᶜ (map value (outputs tx))
 
     noDoubleSpending :
-      SETₒ.Unique (map outputRef (inputs tx))
+      Unique (map outputRef (inputs tx))
 
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →

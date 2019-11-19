@@ -23,7 +23,6 @@ before_install:
 - make travis-setup
 
 script:
-- curl -L https://raw.githubusercontent.com/MestreLion/git-tools/master/git-restore-mtime | python
 - agda --version
 - make
 

@@ -24,6 +24,7 @@ open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
 open import Relation.Nullary using (Dec; ¬_)
 open import Relation.Binary using (Decidable)
 open import Data.List.Relation.Unary.Any using (Any; any; here; there)
+open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
 open import Data.List.Membership.Propositional using (_∈_)
 
 open import UTxO.Types
@@ -111,7 +112,7 @@ preservesValues? tx l v₁ v₂ =
   fee tx +ᶜ sumᶜ (map value (outputs tx))
 
 noDoubleSpending? : ∀ (tx : Tx) (l : Ledger)
-  → Dec (SETₒ.Unique (map outputRef (inputs tx)))
+  → Dec (Unique (map outputRef (inputs tx)))
 noDoubleSpending? tx l =
   SETₒ.unique? (map outputRef (inputs tx))
 
