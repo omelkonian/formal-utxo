@@ -10,6 +10,7 @@ open import Data.Fin      using (Fin; toℕ; fromℕ≤)
 open import Data.List     using ([]; _∷_; length; map)
 open import Data.List.Any using (Any)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
+open import Data.Maybe using (nothing)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -72,7 +73,7 @@ lookupValue l input ∃tx≡id index≤len =
 mkPendingTxOut : TxOutput → PendingTxOutput
 mkPendingTxOut txOut = record
                          { value         = value txOut
-                         ; dataHash      = (dataScript txOut) ♯
+                         ; dataHash      = (dataVal txOut) ♯
                          }
 
 mkPendingTxIn : (l : Ledger)

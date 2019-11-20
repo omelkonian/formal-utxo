@@ -39,10 +39,6 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
       ∀ i → i ∈ inputs tx →
         outputRef i SETₒ.∈′ unspentOutputs l
 
-    validDataScriptTypes :
-      ∀ i → (i∈ : i ∈ inputs tx) →
-        D i ≡ Data (lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈))
-
     -----------------------------------------------------------------------------------------
 
     preservesValues :
@@ -58,7 +54,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
       ∀ i → (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
             ptx = mkPendingTx l tx validTxRefs validOutputIndices
-        in T (runValidation ptx i out (validDataScriptTypes i i∈) (getState l))
+        in T (runValidation ptx i out)
 
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →

@@ -42,8 +42,8 @@ open import UTxO.Validity 𝔹 _♯ᵇ _≟ᵇ_ as B
 
 -- Weakening operations.
 weakenTxOutput : A.TxOutput → B.TxOutput
-weakenTxOutput record { value = v ; dataScript = ds ; address = addr }
-             = record { value = v ; dataScript = ds ; address = A↪B ⟨$⟩ addr}
+weakenTxOutput record { value = v ; dataVal = ds ; address = addr }
+             = record { value = v ; dataVal = ds ; address = A↪B ⟨$⟩ addr}
 
 weakenTx : A.Tx → B.Tx
 weakenTx record { inputs  = inputs
@@ -81,7 +81,6 @@ weakening {tx} {l}
       { validTxRefs          = vtx
       ; validOutputIndices   = voi
       ; validOutputRefs      = vor
-      ; validDataScriptTypes = vds
       ; preservesValues      = pv
       ; noDoubleSpending     = nds
       ; allInputsValidate    = aiv
@@ -92,7 +91,6 @@ weakening {tx} {l}
       { validTxRefs          = vtx′
       ; validOutputIndices   = voi′
       ; validOutputRefs      = vor′
-      ; validDataScriptTypes = vds′
       ; preservesValues      = pv′
       ; noDoubleSpending     = nds
       ; allInputsValidate    = aiv′
@@ -322,21 +320,11 @@ weakening {tx} {l}
 
     ------------------------------------------------------------------------------------
 
-    vds′ : ∀ i → (i∈ : i ∈ inputs tx′) →
-      D i ≡ Data (lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈))
-    vds′ i i∈ rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈) = vds i i∈
-
-    vds″ : ∀ i → (i∈ : i ∈ inputs tx′) →
-      D i ≡ Data (weakenTxOutput (A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)))
-    vds″ i i∈ = vds i i∈
-
-    ------------------------------------------------------------------------------------
-
     value≡ : ∀ {o} → value (weakenTxOutput o) ≡ A.value o
     value≡ = refl
 
-    dataScript≡ : ∀ {o} → dataScript (weakenTxOutput o) ≡ A.dataScript o
-    dataScript≡ = refl
+    dataVal≡ : ∀ {o} → dataVal (weakenTxOutput o) ≡ A.dataVal o
+    dataVal≡ = refl
 
     mapPending≡ : (map mkPendingTxOut ∘ map weakenTxOutput) (A.outputs tx)
               ≡ map A.mkPendingTxOut (A.outputs tx)
@@ -429,24 +417,23 @@ weakening {tx} {l}
     state≡ : getState l′ ≡ getState l
     state≡ = cong (λ x → record {height = x}) (length-map weakenTx l)
 
-    weakenRunValidation : ∀ {i i∈ o} {v : D i ≡ A.Data o} {v′ : D i ≡ Data (weakenTxOutput o)} →
-        T (runValidation   ptx′ i (weakenTxOutput o) v′ (getState l′))
-      ≡ T (A.runValidation ptx  i o                  v  (getState l))
-    weakenRunValidation {_} {_} {o} {refl} {refl}
+    weakenRunValidation : ∀ {i i∈ o} → 
+        T (runValidation   ptx′ i (weakenTxOutput o))
+      ≡ T (A.runValidation ptx  i o)
+    weakenRunValidation {_} {_} {o} 
       rewrite state≡
             | sym pendingTx≡
             | value≡      {o}
-            | dataScript≡ {o}
+            | dataVal≡ {o}
             = refl
 
     aiv′ :
       ∀ i → (i∈ : i ∈ inputs tx′) →
         let out = lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)
-        in T (runValidation ptx′ i out (vds′ i i∈) (getState l′))
+        in T (runValidation ptx′ i out)
     aiv′ i i∈
       rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
             | weakenRunValidation {i} {i∈} {A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)}
-                                           {vds i i∈} {vds″ i i∈}
             = aiv i i∈
 
     ------------------------------------------------------------------------------------

@@ -19,11 +19,9 @@ module UTxO.Ledger
 
 record TxOutput : Set where
   field
-    value   : Value
     address : Address
-
-    Data       : 𝕌
-    dataScript : State → el Data
+    value   : Value
+    dataVal : DATA
 
 open TxOutput public
 
@@ -31,13 +29,13 @@ record Tx : Set where
   field
     inputs  : List TxInput -- T0D0: Set⟨TxInput⟩
     outputs : List TxOutput
-    forge   : Value
     fee     : Value
+    forge   : Value
 
 open Tx public
 
 Ledger : Set
 Ledger = List Tx
 
-runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → D i ≡ Data o → State → Bool
-runValidation ptx i o refl st = validator i st (value o) ptx (redeemer i st) (dataScript o st)
+runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → Bool
+runValidation ptx i o = validator i (value o) ptx (redeemer i) (dataVal o)

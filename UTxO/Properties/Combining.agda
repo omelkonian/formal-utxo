@@ -293,19 +293,19 @@ PV l₀ l″₀ inter =
   ∀ tx → (tx∈ : tx ∈ l₀) →
     let l  = ∈-tail tx∈
         l″ = ∈-tail (interleave⊆ inter tx∈)
-    in ∀ {ptx i out vds} →
-         runValidation ptx i out vds (getState l″)
-       ≡ runValidation ptx i out vds (getState l)
+    in ∀ {ptx i out} →
+         runValidation ptx i out
+       ≡ runValidation ptx i out
 
 pv-contract : ∀ {a l l′ l″ inter}
   → PV (a ∷ l) {l′} (a ∷ l″) (consˡ inter)
   → PV l {l′} l″ inter
-pv-contract {a} {l} {l″} {inter} pv tx tx∈ {ptx} {i} {out} {vds} = pv tx (there tx∈) {ptx} {i} {out} {vds}
+pv-contract {a} {l} {l″} {inter} pv tx tx∈ {ptx} {i} {out} = pv tx (there tx∈) {ptx} {i} {out}
 
 pv-contractᵣ : ∀ {a l l′ l″ inter}
   → PV l′ {a ∷ l} (a ∷ l″) (consʳ inter)
   → PV l′ {l} l″ inter
-pv-contractᵣ {a} {l} {l″} {inter} pv tx tx∈ {ptx} {i} {out} {vds} = pv tx tx∈ {ptx} {i} {out} {vds}
+pv-contractᵣ {a} {l} {l″} {inter} pv tx tx∈ {ptx} {i} {out} = pv tx tx∈ {ptx} {i} {out}
 
 combineDisjointLedgers : ∀ {l l′ l″ tx}
   → (d : Disjoint l l′)
@@ -316,14 +316,13 @@ combineDisjointLedgers : ∀ {l l′ l″ tx}
   → (∀ i i∈ →
        let out = lookupOutput l (outputRef i) (validTxRefs v i i∈) (validOutputIndices v i i∈)
            ptx = mkPendingTx l tx (validTxRefs v) (validOutputIndices v)
-       in runValidation ptx i out (validDataScriptTypes v i i∈) (getState l″)
-        ≡ runValidation ptx i out (validDataScriptTypes v i i∈) (getState l))
+       in runValidation ptx i out -- (validDataScriptTypes v i i∈) (getState l″)
+        ≡ runValidation ptx i out) -- (validDataScriptTypes v i i∈) (getState l))
   → IsValidTx tx l″
 combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
     (record { validTxRefs          = vtx₀
             ; validOutputIndices   = voi₀
             ; validOutputRefs      = vor₀
-            ; validDataScriptTypes = vds₀
             ; preservesValues      = pv₀
             ; noDoubleSpending     = nds₀
             ; allInputsValidate    = aiv₀
@@ -333,7 +332,6 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
   = record { validTxRefs          = vtx
            ; validOutputIndices   = voi
            ; validOutputRefs      = vor
-           ; validDataScriptTypes = vds
            ; preservesValues      = pv
            ; noDoubleSpending     = nds
            ; allInputsValidate    = aiv
@@ -352,10 +350,11 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
       outputRef i SETₒ.∈′ unspentOutputs l″
     vor i i∈ = interleave⊆ (utxo-interleave v₀ v′ d inter) (vor₀ i i∈)
 
+{-
     vds : ∀ i → (i∈ : i ∈ inputs tx) →
       D i ≡ Data (lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈))
     vds i i∈ rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = vds₀ i i∈
-
+-}
     lookupValue≡ : ∀ {i i∈} →
         lookupValue l″ i (vtx i i∈) (voi i i∈)
       ≡ lookupValue l i (vtx₀ i i∈) (voi₀ i i∈)
@@ -428,7 +427,7 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
     aiv : ∀ i → (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈)
           ptx = mkPendingTx l″ tx vtx voi
-      in T (runValidation ptx i out (vds i i∈) (getState l″))
+      in T (runValidation ptx i out)
     aiv i i∈ rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈)
                    | ptx≡
                    | AIV i i∈
@@ -478,14 +477,12 @@ _↔_⊢_,_,_,_ {tx ∷ l} {l′} {tx ∷ l″} v@(v₀ ⊕ _ ∶- vt) v′ (con
     aiv : ∀ (i : TxInput) (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
           ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-          vds = validDataScriptTypes vt i i∈
-      in runValidation ptx i out vds (getState l″)
-       ≡ runValidation ptx i out vds (getState l)
+      in runValidation ptx i out 
+       ≡ runValidation ptx i out 
     aiv i i∈ =
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
           ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-          vds = validDataScriptTypes vt i i∈
-      in AIVₗ tx (here refl) {ptx} {i} {out} {vds}
+      in AIVₗ tx (here refl) {ptx} {i} {out} 
 
 _↔_⊢_,_,_,_ {l′} {tx ∷ l} {tx ∷ l″} v′ v@(v₀ ⊕ _ ∶- vt) (consʳ inter) d AIVₗ AIVᵣ =
     v′ ↔ v₀ ⊢ inter
@@ -498,14 +495,12 @@ _↔_⊢_,_,_,_ {l′} {tx ∷ l} {tx ∷ l″} v′ v@(v₀ ⊕ _ ∶- vt) (con
     aiv : ∀ (i : TxInput) (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
           ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-          vds = validDataScriptTypes vt i i∈
-      in runValidation ptx i out vds (getState l″)
-       ≡ runValidation ptx i out vds (getState l)
+      in runValidation ptx i out
+       ≡ runValidation ptx i out
     aiv i i∈ =
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
           ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-          vds = validDataScriptTypes vt i i∈
-      in AIVᵣ tx (here refl) {ptx} {i} {out} {vds}
+      in AIVᵣ tx (here refl) {ptx} {i} {out}
 
 ----------------------------
 -- Demonstrative example.
