@@ -44,15 +44,8 @@ adaᵃ = 1234 -- ADA identifier
 adaValidator : Value → PendingTx → DATA → DATA → Bool
 adaValidator _ _ _ _ = true
 
---dummyValidator : State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool
---dummyValidator _ _ _ _ _ = true
-
 dummyValidator : Value → PendingTx → DATA → DATA → Bool
 dummyValidator _ _ _ _ = true
-
-
---mkValidator : TxOutputRef → (State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool)
---mkValidator tin _ _ _ tin′ _ = (id tin ≡ᵇ proj₁ tin′) ∧ (index tin ≡ᵇ proj₂ tin′)
 
 mkValidator : TxOutputRef → (Value → PendingTx → DATA → DATA → Bool)
 mkValidator tin _ _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
