@@ -6,9 +6,11 @@ module UTxO.Example.Setup where
 
 open import Data.Unit     using (tt) public
 open import Data.Product  using (_×_; _,_; proj₁; proj₂) public
-open import Data.Bool     using (Bool; true; _∧_; _∨_) public
+open import Data.Bool     using (Bool; true; false; _∧_; _∨_) public
 open import Data.Nat      using (ℕ; _≟_; _≡ᵇ_) public
 open import Data.List     using (List; []; [_]; _∷_) public
+open import Data.Integer  using (ℤ)
+open import Data.Maybe    using (just)
 
 open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
 open import Relation.Nullary.Decidable            using (toWitness) public
@@ -39,27 +41,35 @@ open import UTxO.DecisionProcedure Address (λ x → x) _≟_ public
 adaᵃ : Address
 adaᵃ = 1234 -- ADA identifier
 
--- setup scripts and hash postulates
-adaValidator : State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool
-adaValidator (record {height = h}) _ _ _ _ = (h ≡ᵇ 1) ∨ (h ≡ᵇ 4)
+adaValidator : Value → PendingTx → DATA → DATA → Bool
+adaValidator _ _ _ _ = true
 
-dummyValidator : State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool
-dummyValidator _ _ _ _ _ = true
+--dummyValidator : State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool
+--dummyValidator _ _ _ _ _ = true
 
-mkValidator : TxOutputRef → (State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool)
-mkValidator tin _ _ _ tin′ _ = (id tin ≡ᵇ proj₁ tin′) ∧ (index tin ≡ᵇ proj₂ tin′)
+dummyValidator : Value → PendingTx → DATA → DATA → Bool
+dummyValidator _ _ _ _ = true
+
+
+--mkValidator : TxOutputRef → (State → Value → PendingTx → (ℕ × ℕ) → ℕ → Bool)
+--mkValidator tin _ _ _ tin′ _ = (id tin ≡ᵇ proj₁ tin′) ∧ (index tin ≡ᵇ proj₂ tin′)
+
+mkValidator : TxOutputRef → (Value → PendingTx → DATA → DATA → Bool)
+mkValidator tin _ _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
+mkValidator tin _ _ _ _                                        = false
 
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
-                         ; redeemer  = {! λ _ → id tin , index tin !}
-                         ; validator = {! mkValidator tin !}
+                         ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
+                                       {- λ _ → id tin , index tin -} 
+                         ; validator = mkValidator tin 
                          }
 
 withAda : TxOutputRef → TxInput
 withAda tin = record { outputRef = tin
-                     ; redeemer  = {! λ _ → id tin , index tin !}
-                     ; validator = {! adaValidator !}
+                     ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ [])) 
+                     ; validator = adaValidator 
                      }
 
 $ : ℕ → Value
@@ -68,7 +78,7 @@ $ v = [ (adaᵃ , v) ]
 _at_ : Value → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
-                   ; dataVal = {! λ _ → 0 !}
+                   ; dataVal = I (ℤ.pos 0) 
                    }
 
 -- define transactions
@@ -174,3 +184,4 @@ postulate
 {-# REWRITE validator♯₅₀  #-}
 {-# REWRITE validator♯₅₁  #-}
 {-# REWRITE validator♯₆₀  #-}
+

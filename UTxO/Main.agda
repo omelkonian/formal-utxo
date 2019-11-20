@@ -17,5 +17,5 @@ open import UTxO.DecisionProcedure
 open import UTxO.Properties.Weakening
 open import UTxO.Properties.Combining
 
---open import UTxO.Example.Setup
+open import UTxO.Example.Setup
 --open import UTxO.Example.Ledger

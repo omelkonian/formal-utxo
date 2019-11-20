@@ -9,6 +9,7 @@ open import Data.Nat  using (ℕ; _≟_)
 open import Data.List using (List; map; length)
 open import Data.Integer using (ℤ)
 open import Data.Product using (_×_)
+open import Data.Maybe using (Maybe)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -57,7 +58,6 @@ record PendingTxOutput : Set where
 record PendingTx : Set where
   field
     txHash : HashId   -- ^ hash of the current validated transaction
-
     inputs  : List PendingTxInput
     outputs : List PendingTxOutput
     forge   : Value
@@ -68,6 +68,7 @@ record PendingTx : Set where
 
 data DATA : Set where
  I      : ℤ → DATA
+ H      : HashId → DATA
  LIST   : List DATA → DATA
  CONSTR : ℕ → List DATA → DATA
  MAP    : List (DATA × DATA) → DATA
