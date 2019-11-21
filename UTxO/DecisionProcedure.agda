@@ -112,12 +112,12 @@ allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-               ptx = mkPendingTx l tx v₁ v₂
+               ptx = mkPendingTx l tx i i∈ v₁ v₂
            in T (runValidation ptx i out))
 allInputsValidate? tx l v₁ v₂ =
   ∀? (inputs tx) λ i i∈ →
     let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-        ptx = mkPendingTx l tx v₁ v₂
+        ptx = mkPendingTx l tx i i∈ v₁ v₂
     in T? (runValidation ptx i out)
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)

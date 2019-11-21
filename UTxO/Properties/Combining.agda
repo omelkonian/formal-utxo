@@ -315,9 +315,9 @@ combineDisjointLedgers : ∀ {l l′ l″ tx}
   → (v : IsValidTx tx l)
   → (∀ i i∈ →
        let out = lookupOutput l (outputRef i) (validTxRefs v i i∈) (validOutputIndices v i i∈)
-           ptx = mkPendingTx l tx (validTxRefs v) (validOutputIndices v)
-       in runValidation ptx i out -- (validDataScriptTypes v i i∈) (getState l″)
-        ≡ runValidation ptx i out) -- (validDataScriptTypes v i i∈) (getState l))
+           ptx = mkPendingTx l tx i i∈ (validTxRefs v) (validOutputIndices v)
+       in runValidation ptx i out
+        ≡ runValidation ptx i out)
   → IsValidTx tx l″
 combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
     (record { validTxRefs          = vtx₀
@@ -350,15 +350,20 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
       outputRef i SETₒ.∈′ unspentOutputs l″
     vor i i∈ = interleave⊆ (utxo-interleave v₀ v′ d inter) (vor₀ i i∈)
 
-{-
-    vds : ∀ i → (i∈ : i ∈ inputs tx) →
-      D i ≡ Data (lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈))
-    vds i i∈ rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = vds₀ i i∈
--}
+    lookupOutput≡ : ∀ {i i∈} →
+        lookupOutput l″ (outputRef i) (vtx i i∈)  (voi i i∈)
+      ≡ lookupOutput l  (outputRef i) (vtx₀ i i∈) (voi₀ i i∈)
+    lookupOutput≡ {i} {i∈} rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = refl
+
     lookupValue≡ : ∀ {i i∈} →
-        lookupValue l″ i (vtx i i∈) (voi i i∈)
-      ≡ lookupValue l i (vtx₀ i i∈) (voi₀ i i∈)
-    lookupValue≡ {i} {i∈} rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = refl
+        lookupValue l″ i (vtx i i∈)  (voi i i∈)
+      ≡ lookupValue l  i (vtx₀ i i∈) (voi₀ i i∈)
+    lookupValue≡ {i} {i∈} rewrite lookupOutput≡ {i} {i∈} = refl
+
+    lookupData≡ : ∀ {i i∈} →
+        (dataVal (lookupOutput l″ (outputRef i) (vtx i i∈)  (voi i i∈))) ♯
+      ≡ (dataVal (lookupOutput l  (outputRef i) (vtx₀ i i∈) (voi₀ i i∈))) ♯
+    lookupData≡ {i} {i∈} rewrite lookupOutput≡ {i} {i∈} = refl
 
     map∈-cong : ∀ {A : Set} {xs : List TxInput}
       → (f : ∀ {i} → i ∈ xs → A)
@@ -390,15 +395,25 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
     ptxIn≡ : ∀ {i i∈} →
         mkPendingTxIn l″ i (vtx i i∈) (voi i i∈)
       ≡ mkPendingTxIn l i (vtx₀ i i∈) (voi₀ i i∈)
-    ptxIn≡ {i} {i∈} =
-      begin
+    ptxIn≡ {i} {i∈} -- rewrite lookupOutput≡ {i} {i∈} = refl
+      = begin
         mkPendingTxIn l″ i (vtx i i∈) (voi i i∈)
       ≡⟨ cong (λ x → record { value         = x
                             ; validatorHash = (validator i) ♯
+                            ; dataHash      = (dataVal (lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈))) ♯
                             ; redeemerHash  = (redeemer i) ♯ }
                ) (lookupValue≡ {i} {i∈}) ⟩
+        record { value         = value (lookupOutput l (outputRef i) (vtx₀ i i∈) (voi₀ i i∈))
+               ; validatorHash = (validator i) ♯
+               ; dataHash      = (dataVal (lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈))) ♯
+               ; redeemerHash  = (redeemer i) ♯ }
+      ≡⟨ cong (λ x → record { value         = value (lookupOutput l (outputRef i) (vtx₀ i i∈) (voi₀ i i∈))
+                            ; validatorHash = (validator i) ♯
+                            ; dataHash      = x
+                            ; redeemerHash  = (redeemer i) ♯ }
+               ) (lookupData≡ {i} {i∈}) ⟩
         mkPendingTxIn l i (vtx₀ i i∈) (voi₀ i i∈)
-      ∎ -- rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = {!!}
+      ∎
 
     mapPtxIn≡ :
         mapWith∈ (inputs tx) (λ {i} i∈ → mkPendingTxIn l″ i (vtx i i∈) (voi i i∈))
@@ -409,27 +424,44 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
         (λ {i} i∈ → mkPendingTxIn l i (vtx₀ i i∈) (voi₀ i i∈))
         (λ {i} i∈ → ptxIn≡ {i} {i∈}))
 
-    ptx≡ :
-        mkPendingTx l″ tx vtx voi
-      ≡ mkPendingTx l tx vtx₀ voi₀
-    ptx≡ =
-      begin
-        mkPendingTx l″ tx vtx voi
-      ≡⟨ cong (λ x → record { txHash  = tx ♯ₜₓ
-                             ; inputs  = x
-                             ; outputs = map mkPendingTxOut (outputs tx)
-                             ; forge   = forge tx
-                             ; fee     = fee tx }
+    ptx≡ : ∀ {i i∈} →
+        mkPendingTx l″ tx i i∈ vtx voi
+      ≡ mkPendingTx l tx i i∈ vtx₀ voi₀
+    ptx≡ {i} {i∈} -- rewrite mapPtxIn≡ | ptxIn≡ {i} {i∈} = refl
+      = begin
+        mkPendingTx l″ tx i i∈ vtx voi
+      ≡⟨ cong (λ x → record { inputInfo     = x
+                            ; thisInput     = mkPendingTxIn l″ i (vtx i i∈) (voi i i∈)
+                            ; outputInfo    = map (mkPendingTxOut ((validator i) ♯)) (outputs tx)
+                            ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
+                            ; txHash        = tx ♯ₜₓ
+                            ; forge         = forge tx
+                            ; fee           = fee tx }
                ) mapPtxIn≡ ⟩
-        mkPendingTx l tx vtx₀ voi₀
-      ∎ -- rewrite mapPtxIn≡ = {!!}
+        record { inputInfo     = mapWith∈ (inputs tx) (λ {i} i∈ → mkPendingTxIn l i (vtx₀ i i∈) (voi₀ i i∈))
+               ; thisInput     = mkPendingTxIn l″ i (vtx i i∈) (voi i i∈)
+               ; outputInfo    = map (mkPendingTxOut ((validator i) ♯)) (outputs tx)
+               ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
+               ; txHash        = tx ♯ₜₓ
+               ; forge         = forge tx
+               ; fee           = fee tx }
+      ≡⟨ cong (λ x → record { inputInfo     = mapWith∈ (inputs tx) (λ {i} i∈ → mkPendingTxIn l i (vtx₀ i i∈) (voi₀ i i∈))
+                            ; thisInput     = x
+                            ; outputInfo    = map (mkPendingTxOut ((validator i) ♯)) (outputs tx)
+                            ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
+                            ; txHash        = tx ♯ₜₓ
+                            ; forge         = forge tx
+                            ; fee           = fee tx }
+               ) (ptxIn≡ {i} {i∈}) ⟩
+        mkPendingTx l tx i i∈ vtx₀ voi₀
+      ∎
 
     aiv : ∀ i → (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈)
-          ptx = mkPendingTx l″ tx vtx voi
+          ptx = mkPendingTx l″ tx i i∈ vtx voi
       in T (runValidation ptx i out)
     aiv i i∈ rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈)
-                   | ptx≡
+                   | ptx≡ {i} {i∈}
                    | AIV i i∈
                    = aiv₀ i i∈
 
@@ -476,13 +508,13 @@ _↔_⊢_,_,_,_ {tx ∷ l} {l′} {tx ∷ l″} v@(v₀ ⊕ _ ∶- vt) v′ (con
   where
     aiv : ∀ (i : TxInput) (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
-          ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-      in runValidation ptx i out 
-       ≡ runValidation ptx i out 
+          ptx = mkPendingTx l tx i i∈ (validTxRefs vt) (validOutputIndices vt)
+      in runValidation ptx i out
+       ≡ runValidation ptx i out
     aiv i i∈ =
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
-          ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
-      in AIVₗ tx (here refl) {ptx} {i} {out} 
+          ptx = mkPendingTx l tx i i∈ (validTxRefs vt) (validOutputIndices vt)
+      in AIVₗ tx (here refl) {ptx} {i} {out}
 
 _↔_⊢_,_,_,_ {l′} {tx ∷ l} {tx ∷ l″} v′ v@(v₀ ⊕ _ ∶- vt) (consʳ inter) d AIVₗ AIVᵣ =
     v′ ↔ v₀ ⊢ inter
@@ -494,12 +526,12 @@ _↔_⊢_,_,_,_ {l′} {tx ∷ l} {tx ∷ l″} v′ v@(v₀ ⊕ _ ∶- vt) (con
   where
     aiv : ∀ (i : TxInput) (i∈ : i ∈ inputs tx) →
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
-          ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
+          ptx = mkPendingTx l tx i i∈ (validTxRefs vt) (validOutputIndices vt)
       in runValidation ptx i out
        ≡ runValidation ptx i out
     aiv i i∈ =
       let out = lookupOutput l (outputRef i) (validTxRefs vt i i∈) (validOutputIndices vt i i∈)
-          ptx = mkPendingTx l tx (validTxRefs vt) (validOutputIndices vt)
+          ptx = mkPendingTx l tx i i∈ (validTxRefs vt) (validOutputIndices vt)
       in AIVᵣ tx (here refl) {ptx} {i} {out}
 
 ----------------------------

@@ -1,10 +1,9 @@
-open import Level    using (0ℓ)
 open import Function using (_∘_; _∋_; flip; _$_)
 
 open import Data.Empty    using (⊥; ⊥-elim)
 open import Data.Unit     using (⊤; tt)
 open import Data.Bool     using (Bool; T)
-open import Data.Product  using (_×_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
+open import Data.Product  using (_×_; _,_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin      using (Fin; toℕ; fromℕ≤)
 open import Data.List     using ([]; _∷_; length; map)
@@ -70,33 +69,43 @@ lookupValue l input ∃tx≡id index≤len =
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
-mkPendingTxOut : TxOutput → PendingTxOutput
-mkPendingTxOut txOut = record
-                         { value         = value txOut
-                         ; dataHash      = (dataVal txOut) ♯
-                         }
+mkPendingTxOut : HashId → TxOutput → PendingTxOutput
+mkPendingTxOut validator♯ txOut =
+  record
+    { value         = value txOut
+    ; validatorHash = validator♯
+    ; dataHash      = (dataVal txOut) ♯
+    }
 
 mkPendingTxIn : (l : Ledger)
               → (input : TxInput)
               → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id (outputRef input)) l)
               → index (outputRef input) < length (outputs (lookupTx l (outputRef input) ∃tx≡id))
               → PendingTxInput
-mkPendingTxIn l txIn ∃tx index< = record
-                       { value         = lookupValue l txIn ∃tx index<
-                       ; validatorHash = (validator txIn) ♯
-                       ; redeemerHash  = (redeemer txIn) ♯
-                       }
+mkPendingTxIn l txIn ∃tx index< =
+  record
+    { validatorHash = (validator txIn) ♯
+    ; dataHash      = (dataVal txOut) ♯
+    ; redeemerHash  = (redeemer txIn) ♯
+    ; value         = value txOut
+    }
+    where
+      txOut = lookupOutput l (outputRef txIn) ∃tx index<
 
 mkPendingTx : (l : Ledger)
             → (tx : Tx)
+            → (i : TxInput)
+            → i ∈ inputs tx
             → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
             → (∀ i → (i∈ : i ∈ inputs tx) →
                  index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
             → PendingTx
-mkPendingTx l tx v₁ v₂ =
-  record { txHash  = tx ♯ₜₓ
-         ; inputs  = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
-         ; outputs = map mkPendingTxOut (outputs tx)
-         ; forge   = forge tx
-         ; fee     = fee tx
-         }
+mkPendingTx l tx i i∈ v₁ v₂ =
+   record
+     { inputInfo     = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
+     ; thisInput     = mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
+     ; outputInfo    = map (mkPendingTxOut ((validator i) ♯)) (outputs tx)
+     ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
+     ; txHash        = tx ♯ₜₓ
+     ; fee           = fee tx
+     ; forge         = forge tx }

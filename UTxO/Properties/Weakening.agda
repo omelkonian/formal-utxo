@@ -1,6 +1,7 @@
 ------------------------------------------------------------------------
 -- Weakening: Translating a valid ledger to a "larger" address space.
 ------------------------------------------------------------------------
+{-# OPTIONS --allow-unsolved-metas #-}
 
 open import Function using (_∘_)
 open import Function.Injection using (module Injection; _↣_)
@@ -326,6 +327,13 @@ weakening {tx} {l}
     dataVal≡ : ∀ {o} → dataVal (weakenTxOutput o) ≡ A.dataVal o
     dataVal≡ = refl
 
+    ptx : (i : TxInput) → i ∈ A.inputs tx → PendingTx
+    ptx i i∈ = A.mkPendingTx l tx i i∈ vtx voi
+
+    ptx′ : (i : TxInput) → i ∈ inputs tx′ → PendingTx
+    ptx′ i i∈ = mkPendingTx l′ tx′ i i∈ vtx′ voi′
+
+{-
     mapPending≡ : (map mkPendingTxOut ∘ map weakenTxOutput) (A.outputs tx)
               ≡ map A.mkPendingTxOut (A.outputs tx)
     mapPending≡
@@ -336,7 +344,6 @@ weakening {tx} {l}
                 ≡ map A.mkPendingTxOut (A.outputs tx)
     pendingOut≡ rewrite mapPending≡
                       = refl
-
 
     mkPending≡ : ∀ {i i∈} →
         A.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
@@ -368,61 +375,56 @@ weakening {tx} {l}
         (λ {i} i∈ → A.mkPendingTxIn l i (vtx i i∈) (voi i i∈))
         (λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈))
         (λ {i} i∈ → mkPending≡ {i} {i∈}))
+-}
 
-    ptx : PendingTx
-    ptx = A.mkPendingTx l tx vtx voi
-
-    ptx′ : PendingTx
-    ptx′ = mkPendingTx l′ tx′ vtx′ voi′
-
-    pendingTx≡ : ptx ≡ ptx′
-    pendingTx≡ =
-      begin
-        ptx
-      ≡⟨⟩
-        record { txHash  = tx A.♯ₜₓ
-               ; inputs  = mapWith∈ (A.inputs tx) λ {i} i∈ → A.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
-               ; outputs = map A.mkPendingTxOut (A.outputs tx)
-               ; forge   = A.forge tx
-               ; fee     = A.fee tx
-               }
-      ≡⟨ helper ⟩
-        record { txHash  = tx′ ♯ₜₓ
-               ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
-               ; outputs = map mkPendingTxOut (outputs tx′)
-               ; forge   = forge tx′
-               ; fee     = fee tx′
-               }
-      ≡⟨⟩
-        ptx′
-      ∎
-      where
-        helper : record { txHash  = tx A.♯ₜₓ
-                        ; inputs  = mapWith∈ (A.inputs tx) λ {i} i∈ → A.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
-                        ; outputs = map A.mkPendingTxOut (A.outputs tx)
-                        ; forge   = A.forge tx
-                        ; fee     = A.fee tx
-                        }
-               ≡ record { txHash  = tx′ ♯ₜₓ
-                        ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
-                        ; outputs = map mkPendingTxOut (outputs tx′)
-                        ; forge   = forge tx′
-                        ; fee     = fee tx′
-                        }
-        helper rewrite weakenTx-preserves♯ tx
-                     | pendingOut≡
-                     | pendingIn≡
-                     = refl
+    pendingTx≡ : ∀ {i i∈} → ptx i i∈ ≡ ptx′ i i∈
+    pendingTx≡ {i} {i∈} = {!!}
+      -- begin
+      --   ptx i i∈
+      -- ≡⟨⟩
+      --   record { txHash  = tx A.♯ₜₓ
+      --          ; inputs  = mapWith∈ (A.inputs tx) λ {i} i∈ → A.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+      --          ; outputs = map A.mkPendingTxOut (A.outputs tx)
+      --          ; forge   = A.forge tx
+      --          ; fee     = A.fee tx
+      --          }
+      -- ≡⟨ helper ⟩
+      --   record { txHash  = tx′ ♯ₜₓ
+      --          ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+      --          ; outputs = map mkPendingTxOut (outputs tx′)
+      --          ; forge   = forge tx′
+      --          ; fee     = fee tx′
+      --          }
+      -- ≡⟨⟩
+      --   ptx′
+      -- ∎
+      -- where
+      --   helper : record { txHash  = tx A.♯ₜₓ
+      --                   ; inputs  = mapWith∈ (A.inputs tx) λ {i} i∈ → A.mkPendingTxIn l i (vtx i i∈) (voi i i∈)
+      --                   ; outputs = map A.mkPendingTxOut (A.outputs tx)
+      --                   ; forge   = A.forge tx
+      --                   ; fee     = A.fee tx
+      --                   }
+      --          ≡ record { txHash  = tx′ ♯ₜₓ
+      --                   ; inputs  = mapWith∈ (inputs tx′) λ {i} i∈ → mkPendingTxIn l′ i (vtx′ i i∈) (voi′ i i∈)
+      --                   ; outputs = map mkPendingTxOut (outputs tx′)
+      --                   ; forge   = forge tx′
+      --                   ; fee     = fee tx′
+      --                   }
+      --   helper rewrite weakenTx-preserves♯ tx
+      --                | pendingOut≡
+      --                | pendingIn≡
+      --                = refl
 
     state≡ : getState l′ ≡ getState l
     state≡ = cong (λ x → record {height = x}) (length-map weakenTx l)
 
-    weakenRunValidation : ∀ {i i∈ o} → 
-        T (runValidation   ptx′ i (weakenTxOutput o))
-      ≡ T (A.runValidation ptx  i o)
-    weakenRunValidation {_} {_} {o} 
+    weakenRunValidation : ∀ {i i∈ o} →
+        T (runValidation   (ptx′ i i∈) i (weakenTxOutput o))
+      ≡ T (A.runValidation (ptx i i∈)  i o)
+    weakenRunValidation {i} {i∈} {o}
       rewrite state≡
-            | sym pendingTx≡
+            | sym (pendingTx≡ {i} {i∈})
             | value≡      {o}
             | dataVal≡ {o}
             = refl
@@ -430,7 +432,7 @@ weakening {tx} {l}
     aiv′ :
       ∀ i → (i∈ : i ∈ inputs tx′) →
         let out = lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)
-        in T (runValidation ptx′ i out)
+        in T (runValidation (ptx′ i i∈) i out)
     aiv′ i i∈
       rewrite lookupOutputWeakens {l} {i} (vtx i i∈) (voi i i∈)
             | weakenRunValidation {i} {i∈} {A.lookupOutput l (outputRef i) (vtx i i∈) (voi i i∈)}

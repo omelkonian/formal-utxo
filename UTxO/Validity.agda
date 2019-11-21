@@ -2,10 +2,11 @@ open import Data.Bool     using (T)
 open import Data.Product  using (∃; ∃-syntax)
 open import Data.Nat      using (_<_)
 open import Data.List     using ([]; _∷_; length; map)
-open import Data.List.Any using (Any)
+
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
 open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
+open import Data.List.Relation.Unary.Any                  using (Any)
 
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
@@ -53,7 +54,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-            ptx = mkPendingTx l tx validTxRefs validOutputIndices
+            ptx = mkPendingTx l tx i i∈ validTxRefs validOutputIndices
         in T (runValidation ptx i out)
 
     validateValidHashes :
