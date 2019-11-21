@@ -41,28 +41,28 @@ open import UTxO.DecisionProcedure Address (λ x → x) _≟_ public
 adaᵃ : Address
 adaᵃ = 1234 -- ADA identifier
 
-adaValidator : Value → PendingTx → DATA → DATA → Bool
-adaValidator _ _ _ _ = true
+adaValidator : PendingTx → DATA → DATA → Bool
+adaValidator _ _ _ = true
 
-dummyValidator : Value → PendingTx → DATA → DATA → Bool
-dummyValidator _ _ _ _ = true
+dummyValidator : PendingTx → DATA → DATA → Bool
+dummyValidator _ _ _ = true
 
-mkValidator : TxOutputRef → (Value → PendingTx → DATA → DATA → Bool)
-mkValidator tin _ _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
-mkValidator tin _ _ _ _                                        = false
+mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
+mkValidator tin _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
+mkValidator tin _ _ _                                        = false
 
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
                          ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
-                                       {- λ _ → id tin , index tin -} 
-                         ; validator = mkValidator tin 
+                                       {- λ _ → id tin , index tin -}
+                         ; validator = mkValidator tin
                          }
 
 withAda : TxOutputRef → TxInput
 withAda tin = record { outputRef = tin
-                     ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ [])) 
-                     ; validator = adaValidator 
+                     ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
+                     ; validator = adaValidator
                      }
 
 $ : ℕ → Value
@@ -71,7 +71,7 @@ $ v = [ (adaᵃ , v) ]
 _at_ : Value → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
-                   ; dataVal = I (ℤ.pos 0) 
+                   ; dataVal = I (ℤ.pos 0)
                    }
 
 -- define transactions
@@ -177,4 +177,3 @@ postulate
 {-# REWRITE validator♯₅₀  #-}
 {-# REWRITE validator♯₅₁  #-}
 {-# REWRITE validator♯₆₀  #-}
-

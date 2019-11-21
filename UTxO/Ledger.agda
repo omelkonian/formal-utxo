@@ -38,4 +38,4 @@ Ledger : Set
 Ledger = List Tx
 
 runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → Bool
-runValidation ptx i o = validator i (value o) ptx (redeemer i) (dataVal o)
+runValidation ptx i o = validator i ptx (redeemer i) (dataVal o)

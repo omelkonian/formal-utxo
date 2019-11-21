@@ -22,9 +22,6 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 -- Re-export list utilities.
 open import Prelude.Lists public
 
--- Re-export type universe 𝕌.
-open import UTxO.Data.TYPE public
-
 -- Re-export currency maps.
 open import UTxO.Data.Currency public
   using ( Value; $; $0; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
@@ -100,8 +97,7 @@ open TxOutputRef public
 record TxInput : Set where
   field
     outputRef : TxOutputRef
-    validator : Value     -- ^ output value
-              → PendingTx -- ^ parts of the currently validated transaction
+    validator : PendingTx -- ^ parts of the currently validated transaction
               → DATA      -- ^ result value of the redeemer script
               → DATA      -- ^ result value of the data script
               → Bool

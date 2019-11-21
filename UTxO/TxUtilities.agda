@@ -69,11 +69,11 @@ lookupValue l input ∃tx≡id index≤len =
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
-mkPendingTxOut : HashId → TxOutput → PendingTxOutput
-mkPendingTxOut validator♯ txOut =
+mkPendingTxOut : TxOutput → PendingTxOutput
+mkPendingTxOut txOut =
   record
     { value         = value txOut
-    ; validatorHash = validator♯
+    ; validatorHash = (address txOut) ♯ₐ
     ; dataHash      = (dataVal txOut) ♯
     }
 
@@ -104,7 +104,7 @@ mkPendingTx l tx i i∈ v₁ v₂ =
    record
      { inputInfo     = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; thisInput     = mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
-     ; outputInfo    = map (mkPendingTxOut ((validator i) ♯)) (outputs tx)
+     ; outputInfo    = map mkPendingTxOut (outputs tx)
      ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
      ; txHash        = tx ♯ₜₓ
      ; fee           = fee tx
