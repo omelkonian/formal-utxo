@@ -19,12 +19,9 @@ open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
--- Re-export list utilities.
-open import Prelude.Lists public
-
--- Re-export currency maps.
-open import UTxO.Data.Currency public
-  using ( Value; $; $0; _≟ᶜ_; _+ᶜ_; sumᶜ; keys; values; mapValues )
+-- Re-export multi-currency values.
+open import UTxO.Value public
+  using (Value; $; $0; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_; currencies)
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -212,3 +209,9 @@ findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟
 getContinuingOutputs : PendingTx → List PendingTxOutput
 getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
   = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
+
+ownCurrencySymbol : PendingTx → HashId
+ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
+
+valueSpent : PendingTx → Value
+valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo

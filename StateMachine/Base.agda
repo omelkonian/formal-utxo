@@ -1,4 +1,4 @@
-module StateMachine where
+module StateMachine.Base where
 
 open import Function using (_∘_)
 

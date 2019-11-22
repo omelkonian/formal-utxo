@@ -22,7 +22,7 @@ i ♯ᵢ = (outputRef i) ♯ₒᵣ
 postulate injective♯ᵢ : Injective _♯ᵢ
 
 _♯ᵥ : Hash Value
-_♯ᵥ = hashList (hashPair (λ x → x) (λ x → x))
+_♯ᵥ = hashList (hashPair (λ x → x) (hashList (hashPair (λ x → x) (λ x → x))))
 postulate injective♯ᵥ : Injective _♯ᵥ
 
 infix 9 _♯ₛₜ

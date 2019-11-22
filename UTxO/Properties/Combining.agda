@@ -470,7 +470,7 @@ combineDisjointLedgers {l} {l′} {l″} {tx} d v₀ v′ inter
       in (address out) ♯ₐ ≡ (validator i) ♯
     vvh i i∈ rewrite any≡ (outputRef i) (vtx i i∈) (vtx₀ i i∈) = vvh₀ i i∈
 
-    frg : ∀ c → c ∈ keys (forge tx) →
+    frg : ∀ c → c ∈ currencies (forge tx) →
       ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l″ (outputRef i) (vtx i i∈) (voi i i∈)
         in (address out) ♯ₐ ≡ c

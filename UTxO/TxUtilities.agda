@@ -15,6 +15,8 @@ open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
+open import Prelude.Lists using (indices; _‼_)
+
 open import UTxO.Types
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types

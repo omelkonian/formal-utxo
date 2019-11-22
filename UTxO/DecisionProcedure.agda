@@ -137,12 +137,12 @@ forging? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (∀ c → c ∈ keys (forge tx) →
+  → Dec (∀ c → c ∈ currencies (forge tx) →
            ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
              let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
              in (address out) ♯ₐ ≡ c)
 forging? tx l v₁ v₂ =
-  ∀? (keys (forge tx)) λ c _ →
+  ∀? (currencies (forge tx)) λ c _ →
     ∃? (inputs tx) λ i i∈ →
        let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
        in (address out) ♯ₐ ≟ c

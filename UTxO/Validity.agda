@@ -64,7 +64,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     -- enforce monetary policies
     forging :
-      ∀ c → c ∈ keys (forge tx) →
+      ∀ c → c ∈ currencies (forge tx) →
         ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
           let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
           in (address out) ♯ₐ ≡ c

@@ -438,7 +438,7 @@ weakening {tx} {l}
 
     ------------------------------------------------------------------------------------
 
-    frg′ : ∀ c → c ∈ keys (forge tx′) →
+    frg′ : ∀ c → c ∈ currencies (forge tx′) →
       ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx′) →
         let out = lookupOutput l′ (outputRef i) (vtx′ i i∈) (voi′ i i∈)
         in (address out) ♯ᵇ ≡ c
