@@ -1,36 +1,28 @@
-{-# OPTIONS --rewriting #-}
-{- NB: REWRITE rules may be useful while deciding on something that requires them,
-e.g. calls to postulated hash function _♯. -}
 open import Function using (_∘_; _∋_; flip; _$_)
 
-open import Data.Empty    using (⊥; ⊥-elim)
-open import Data.Unit     using (⊤; tt)
-open import Data.Bool     using (Bool; T)
-open import Data.Bool.Properties using (T?)
-open import Data.Product  using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax; _,_)
-open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_; _<?_)
-open import Data.Fin      using (Fin; toℕ; fromℕ≤)
-open import Data.List     using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
-open import Data.List.Any using (Any)
+open import Data.Empty   using (⊥; ⊥-elim)
+open import Data.Unit    using (⊤; tt)
+open import Data.Bool    using (Bool; T)
+open import Data.Product using (proj₁; ∃; ∃-syntax; Σ; Σ-syntax; _,_)
+open import Data.Nat     using (ℕ; zero; suc; _+_; _<_; _≟_; _<?_)
+open import Data.Fin     using (Fin; toℕ; fromℕ≤)
+open import Data.List    using (List; []; _∷_; _∷ʳ_; [_]; length; sum; map)
 
-open import Relation.Nullary                      using (yes; no)
-open import Relation.Binary                       using (Rel; Setoid)
+open import Data.Bool.Properties using (T?)
+
+open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
+open import Data.List.Relation.Unary.Any                  using (Any; any; here; there)
+open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
+
+open import Relation.Nullary                      using (Dec; ¬_; yes; no)
+open import Relation.Nullary.Decidable            using (True; toWitness)
+open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; setoid)
 
-open import Category.Functor       using (RawFunctor)
-open import Data.List.Categorical  renaming (functor to listFunctor)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
-
-open import Relation.Nullary using (Dec; ¬_)
-open import Relation.Binary using (Decidable)
-open import Data.List.Relation.Unary.Any using (Any; any; here; there)
-open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
-open import Data.List.Membership.Propositional using (_∈_)
-
-open import UTxO.Types
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types    using (_♯ᵢ)
 open import UTxO.Hashing.MetaHash using (_♯)
+open import UTxO.Types
 
 module UTxO.DecisionProcedure
   (Address : Set)
@@ -38,8 +30,10 @@ module UTxO.DecisionProcedure
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
-
-open import UTxO.Validity Address _♯ₐ _≟ₐ_
+open import UTxO.Ledger      Address _♯ₐ _≟ₐ_
+open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_
+open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_ using (_♯ₜₓ)
+open import UTxO.Validity    Address _♯ₐ _≟ₐ_
 
 ∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
   → (xs : List A)
@@ -147,40 +141,25 @@ forging? tx l v₁ v₂ =
        let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
        in (address out) ♯ₐ ≟ c
 
-{-
-isValidTx? : ∀ (tx : Tx) → (l : Ledger) → Dec (IsValidTx tx l)
-isValidTx? tx l
-  with validTxRefs? tx l
-... | no ¬p = no (¬p ∘ validTxRefs)
-... | yes v₁
-  with validOutputIndices? tx l v₁
-... | no ¬p = no λ valid → ¬p (λ v x → {!validOutputIndices valid!})
-... | yes v₂
-  with validOutputRefs? tx l
-... | no ¬p = no (¬p ∘ validOutputRefs)
-... | yes v₃
-  with validDataScriptTypes? tx l v₁ v₂
-... | no ¬p  = no (¬p ∘ {!validDataScriptTypes!})
-... | yes v₄
-   with preservesValues? tx l v₁ v₂
-... | no ¬p = no (¬p ∘ {!preservesValues!})
-... | yes v₅
-  with noDoubleSpending? tx l
-... | no ¬p = no (¬p ∘ noDoubleSpending)
-... | yes v₆
-  with allInputsValidate? tx l v₁ v₂ v₄
-... | no ¬p = no (¬p ∘ {!allInputsValidate!})
-... | yes v₇
-  with validateValidHashes? tx l v₁ v₂
-... | no ¬p = no (¬p ∘ {!validateValidHashes!})
-... | yes v₈ = yes (record
-                      { validTxRefs          = v₁
-                      ; validOutputIndices   = v₂
-                      ; validOutputRefs      = v₃
-                      ; validDataScriptTypes = v₄
-                      ; preservesValues      = v₅
-                      ; noDoubleSpending     = v₆
-                      ; allInputsValidate    = {!!}
-                      ; validateValidHashes  = v₈
-                      })
--}
+infixl 5 _⊕_
+_⊕_ : ∀ {l}
+  → ValidLedger l
+  → (tx : Tx)
+  → {p₁ : True (validTxRefs? tx l)}
+  → {p₂ : True (validOutputIndices? tx l (toWitness p₁))}
+  → {p₃ : True (validOutputRefs? tx l)}
+  → {p₄ : True (preservesValues? tx l (toWitness p₁) (toWitness p₂))}
+  → {p₅ : True (noDoubleSpending? tx l)}
+  → {p₆ : True (allInputsValidate? tx l (toWitness p₁) (toWitness p₂))}
+  → {p₇ : True (validateValidHashes? tx l (toWitness p₁) (toWitness p₂))}
+  → {p₈ : True (forging? tx l (toWitness p₁) (toWitness p₂))}
+  → ValidLedger (tx ∷ l)
+(vl ⊕ tx) {p₁ = p₁} {p₂} {p₃} {p₄} {p₅} {p₆} {p₇} {p₈}
+  = vl ⊕ tx ∶- record { validTxRefs          = toWitness p₁
+                      ; validOutputIndices   = toWitness p₂
+                      ; validOutputRefs      = toWitness p₃
+                      ; preservesValues      = toWitness p₄
+                      ; noDoubleSpending     = toWitness p₅
+                      ; allInputsValidate    = toWitness p₆
+                      ; validateValidHashes  = toWitness p₇
+                      ; forging              = toWitness p₈ }

@@ -4,7 +4,8 @@ open import Function using (_∘_)
 
 open import Data.Product using (proj₁; proj₂)
 open import Data.Bool    using (Bool; true; false; _∧_)
-open import Data.Maybe   using (Maybe; nothing; just; ap; fromMaybe)
+open import Data.Maybe   using (Maybe; nothing; fromMaybe)
+  renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
 open import Data.List    using (List; null; []; _∷_; filter; map)
 open import Data.Nat     using ()
   renaming (_≟_ to _≟ℕ_)
@@ -38,24 +39,20 @@ record StateMachine (S I : Set) : Set where
     -- final (the machine halts in that state).
 
 Validator : Set
-Validator = Value → PendingTx → DATA → DATA → Bool
-
-pure  : ∀ {A : Set} → A → Maybe A
-pure = just
-_<*>_ = ap
+Validator = PendingTx → DATA → DATA → Bool
 
 mkValidator : ∀ {S I : Set}
   → IsData S
   → IsData I
   → StateMachine S I → Validator
-mkValidator {S} {I} ds di (SM[ step , check , final ]) _ ptx currentState′ input′
+mkValidator {S} {I} ds di (SM[ step , check , final ]) ptx input′ currentState′
     = fromMaybe false ⦇ checkOK ∧ stateAndOutputsOK ⦈
   where
     currentState : Maybe S
     currentState = fromData ds currentState′
 
     input : Maybe I
-    input = fromData di currentState′
+    input = fromData di input′
 
     checkOK : Maybe Bool
     checkOK = ⦇ check currentState input (pure ptx) ⦈
@@ -68,5 +65,5 @@ mkValidator {S} {I} ds di (SM[ step , check , final ]) _ ptx currentState′ inp
 
     stateAndOutputsOK : Maybe Bool
     stateAndOutputsOK with ⦇ step currentState input ⦈
-    ... | just (just s) = checkFinal s
+    ... | pure (pure s) = checkFinal s
     ... | _             = nothing

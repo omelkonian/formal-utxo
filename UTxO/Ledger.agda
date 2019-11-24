@@ -8,8 +8,8 @@ open import Data.List using (List)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import UTxO.Types
 open import UTxO.Hashing.Base
+open import UTxO.Types
 
 module UTxO.Ledger
   (Address : Set)

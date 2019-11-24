@@ -7,12 +7,15 @@ open import Function using (_∘_)
 
 open import Data.Bool    using (Bool)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Data.Maybe   using (Maybe; just; nothing)
-open import Data.List    using (List; map; length; []; _∷_; filter)
+open import Data.List    using (List; map; length; []; _∷_; filter; foldr)
+open import Data.Char    using (Char; toℕ; fromℕ)
+open import Data.String  using (String; toList; fromList)
 open import Data.Nat     using (ℕ)
   renaming (_≟_ to _≟ℕ_)
-open import Data.Integer using (ℤ)
+open import Data.Integer using (ℤ; +_; ∣_∣)
   renaming (_≟_ to _≟ℤ_)
+open import Data.Maybe   using (Maybe; nothing)
+  renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
@@ -21,7 +24,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Re-export multi-currency values.
 open import UTxO.Value public
-  using (Value; $; $0; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_; currencies)
+  using (Value; $0; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_; currencies)
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -52,6 +55,24 @@ record IsData (A : Set) : Set where
     toData   : A → DATA
     fromData : DATA → Maybe A
 open IsData public
+
+IsDataˡ : ∀ {A : Set} → IsData A → IsData (List A)
+toData   (IsDataˡ d)           = LIST ∘ map (toData d)
+fromData (IsDataˡ d) (LIST xs) = sequence (map (fromData d) xs)
+  where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
+fromData (IsDataˡ d) _         = nothing
+
+IsDataᶜ : IsData Char
+toData   IsDataᶜ       = I ∘ +_ ∘ toℕ
+fromData IsDataᶜ (I z) = pure (fromℕ ∣ z ∣)
+fromData IsDataᶜ _     = nothing
+
+IsDataᶜˢ : IsData (List Char)
+IsDataᶜˢ = IsDataˡ IsDataᶜ
+
+IsDataˢ : IsData String
+toData   IsDataˢ = toData IsDataᶜˢ ∘ toList
+fromData IsDataˢ = mapₘ fromList ∘ fromData IsDataᶜˢ
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
@@ -204,7 +225,7 @@ findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟
   where
     toMaybe : ∀ {A : Set} → List A → Maybe A
     toMaybe []      = nothing
-    toMaybe (x ∷ _) = just x
+    toMaybe (x ∷ _) = pure x
 
 getContinuingOutputs : PendingTx → List PendingTxOutput
 getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }

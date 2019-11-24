@@ -17,10 +17,10 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import Prelude.Lists using (indices; _‼_)
 
-open import UTxO.Types
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
 open import UTxO.Hashing.MetaHash using (_♯)
+open import UTxO.Types
 
 module UTxO.TxUtilities
   (Address : Set)
@@ -28,8 +28,8 @@ module UTxO.TxUtilities
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
-open import UTxO.Ledger     Address _♯ₐ _≟ₐ_ public
-open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_ public
+open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
+open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
 
 module _ where
   open SETₒ renaming (fromList to fromListₒ)
@@ -76,7 +76,7 @@ mkPendingTxOut txOut =
   record
     { value         = value txOut
     ; validatorHash = (address txOut) ♯ₐ
-    ; dataHash      = (dataVal txOut) ♯
+    ; dataHash      = (dataVal txOut) ♯ᵈ
     }
 
 mkPendingTxIn : (l : Ledger)
@@ -87,8 +87,8 @@ mkPendingTxIn : (l : Ledger)
 mkPendingTxIn l txIn ∃tx index< =
   record
     { validatorHash = (validator txIn) ♯
-    ; dataHash      = (dataVal txOut) ♯
-    ; redeemerHash  = (redeemer txIn) ♯
+    ; dataHash      = (dataVal txOut) ♯ᵈ
+    ; redeemerHash  = (redeemer txIn) ♯ᵈ
     ; value         = value txOut
     }
     where
@@ -107,7 +107,7 @@ mkPendingTx l tx i i∈ v₁ v₂ =
      { inputInfo     = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; thisInput     = mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; outputInfo    = map mkPendingTxOut (outputs tx)
-     ; dataWitnesses = map (λ o → ((dataVal o) ♯) , dataVal o) (outputs tx)
+     ; dataWitnesses = map (λ o → ((dataVal o) ♯ᵈ) , dataVal o) (outputs tx)
      ; txHash        = tx ♯ₜₓ
      ; fee           = fee tx
      ; forge         = forge tx }

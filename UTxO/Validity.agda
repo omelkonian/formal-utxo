@@ -11,10 +11,10 @@ open import Data.List.Relation.Unary.Any                  using (Any)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_)
 
-open import UTxO.Types
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
 open import UTxO.Hashing.MetaHash using (_♯)
+open import UTxO.Types
 
 module UTxO.Validity
   (Address : Set)
@@ -22,7 +22,9 @@ module UTxO.Validity
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
-open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_ public
+open import UTxO.Ledger      Address _♯ₐ _≟ₐ_
+open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_
+open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_
 
 record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
@@ -68,7 +70,6 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
         ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
           let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
           in (address out) ♯ₐ ≡ c
-
 
 open IsValidTx public
 

@@ -2,7 +2,7 @@ module StateMachine.GuessingGame where
 
 open import Function using (_∘_; const; case_of_)
 
-open import Data.Bool    using (Bool; false; _∧_)
+open import Data.Bool    using (Bool; true; false; _∧_)
 open import Data.Product using (_,_)
 open import Data.Maybe   using (Maybe; just; nothing; _>>=_; ap)
   renaming (map to mapₘ)
@@ -18,7 +18,7 @@ open import Relation.Nullary.Decidable using (⌊_⌋)
 open import UTxO.Hashing.Base using (_♯ₛₜᵣ)
 open import UTxO.Types using ( HashId; Value; _≟ᶜ_; _≥ᶜ_; $0
                              ; DATA; I; H; LIST
-                             ; IsData; toData; fromData; _==_
+                             ; IsData; toData; fromData; IsDataˢ
                              ; PendingTx; PendingTxOutput
                              ; findData; getContinuingOutputs; ownCurrencySymbol; valueSpent )
 
@@ -36,35 +36,19 @@ data GameInput : Set where
   ForgeToken : TokenName → GameInput
   Guess      : ClearString → HashedString → GameInput
 
-pure : ∀ {A : Set} → A → Maybe A
-pure  = just
-_<*>_ = ap
+IsDataᵍˢ : IsData GameState
+toData   IsDataᵍˢ (Initialised hs)          = H hs
+toData   IsDataᵍˢ (Locked tn hs)            = LIST (H tn ∷ H hs ∷ [])
+fromData IsDataᵍˢ (H hs)                    = just (Initialised hs)
+fromData IsDataᵍˢ (LIST (H tn ∷ H hs ∷ [])) = just (Locked tn hs)
+fromData IsDataᵍˢ _                         = nothing
 
-dₛ : IsData String
-dₛ = record
-  { toData   = LIST ∘ map (I ∘ +_ ∘ toℕ) ∘ toList
-  ; fromData = λ{ (LIST ls) → mapₘ fromList (go (map (λ{ (I z) → just (fromℕ ∣ z ∣); _ → nothing }) ls))
-               ; _          → nothing }
-  }
-  where go = foldr (λ c cs → ⦇ c ∷ cs ⦈) (just [])
-
-ds : IsData GameState
-ds = record
-  { toData   = λ{ (Initialised hs)          → H hs
-                ; (Locked tn hs)            → LIST (H tn ∷ H hs ∷ []) }
-  ; fromData = λ{ (H hs)                    → just (Initialised hs)
-                ; (LIST (H tn ∷ H hs ∷ [])) → just (Locked tn hs)
-                ; _                         → nothing }
-  }
-
-di : IsData GameInput
-di = record
-  { toData   = λ{ (ForgeToken tn)        → H tn
-                ; (Guess cs hs)          → LIST (toData dₛ cs ∷ H hs ∷ []) }
-  ; fromData = λ{ (H tn)                 → just (ForgeToken tn)
-                ; (LIST (d ∷ H hs ∷ [])) → mapₘ (λ cs → Guess cs hs) (fromData dₛ d)
-                ; _                      → nothing }
-  }
+IsDataᵍⁱ : IsData GameInput
+toData   IsDataᵍⁱ (ForgeToken tn)        = H tn
+toData   IsDataᵍⁱ (Guess cs hs)          = LIST (toData IsDataˢ cs ∷ H hs ∷ [])
+fromData IsDataᵍⁱ (H tn)                 = just (ForgeToken tn)
+fromData IsDataᵍⁱ (LIST (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData IsDataˢ d)
+fromData IsDataᵍⁱ _                      = nothing
 
 step : GameState → GameInput → Maybe GameState
 step (Initialised s) (ForgeToken tn)      = just (Locked tn s)
@@ -75,7 +59,8 @@ checkGuess : HashedString → ClearString → Bool
 checkGuess hashed clear = ⌊ (clear ♯ₛₜᵣ) ≟ℕ hashed ⌋
 
 check : GameState → GameInput → PendingTx → Bool
-check state input ptx = case (state , input) of λ
+check state input ptx =
+  case (state , input) of λ
   { (Initialised _ , ForgeToken tn)    → checkForge (tokenVal tn)
   ; (Locked tn cur , Guess theGuess _) → checkGuess cur theGuess ∧ tokenPresent tn ∧ checkForge $0
   ; _                                  → false }
@@ -90,4 +75,4 @@ check state input ptx = case (state , input) of λ
     checkForge v = ⌊ v ≟ᶜ PendingTx.forge ptx ⌋
 
 mkValidator : Validator
-mkValidator = SM.mkValidator ds di SM[ step , check , const false ]
+mkValidator = SM.mkValidator IsDataᵍˢ IsDataᵍⁱ SM[ step , check , const false ]
