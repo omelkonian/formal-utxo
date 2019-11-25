@@ -11,7 +11,7 @@ open import Data.Integer  using (ℤ)
 open import Data.Maybe    using (just)
 
 open import Relation.Binary.PropositionalEquality using (_≡_)
-
+open import Agda.Builtin.Equality.Rewrite
 open import UTxO.Types
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -155,7 +155,6 @@ postulate
   validator♯₅₁  : (mkValidator t₅₁) ♯ ≡ 3ᵃ
   validator♯₆₀  : (mkValidator t₆₀) ♯ ≡ 3ᵃ
 
-{-# BUILTIN REWRITE _≡_   #-}
 {-# REWRITE adaValidator♯ #-}
 {-# REWRITE validator♯₁₀  #-}
 {-# REWRITE validator♯₂₀  #-}

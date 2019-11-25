@@ -12,6 +12,7 @@ open import Data.Integer  using (ℤ)
 open import Data.Maybe    using (just; is-just)
 
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Agda.Builtin.Equality.Rewrite
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -45,7 +46,6 @@ dataVal (d —→ _ at _) = toData IsDataᵍˢ d
 𝕍 = 3
 postulate
   eq : mkValidator ♯ ≡ 𝕍
-{-# BUILTIN REWRITE _≡_ #-}
 {-# REWRITE eq #-}
 
 tn : TokenName
