@@ -146,3 +146,62 @@ compile t with view t
 
 _ : compile ex-transition ≡ t₃ ∷ t₂ ∷ t₁ ∷ t₀ ∷ []
 _ = refl
+
+{-
+open import Function using (_∘_)
+
+open import Data.Bool    using (T; if_then_else_)
+open import Data.Product using (∃; ∃-syntax; Σ-syntax)
+
+open import Data.List.Relation.Unary.Any using (Any; here; there)
+open import Data.List.Membership.Propositional using (_∈_)
+
+getForge : GameInput → Value
+getForge (ForgeToken tn) = $ 1
+getForge _               = $0
+
+compile : ∀ {s s′ : GameState} {i : GameInput} {l : Ledger} {ptx : PendingTx}
+
+  → ValidLedger l
+  → ∃[ prevTx ] ∃[ j ]
+       ( ( (prevTx ♯ₜₓ) indexed-at j ∈ SETₒ.list (unspentOutputs l) )
+       × ( fromData (dataVal {!!}) ≡ just s ) )
+  -- → Any (_≡ just s′) (outputs tx)
+  → step s i ≡ just s′
+  → T (mkValidator ptx (toData i) (toData s))
+
+    ---------------------------------------------------------------------------------------
+
+  → ∃[ tx ]
+      (Σ[ vtx ∈ IsValidTx tx l ]
+        (ptx ≡ mkPendingTx l tx {!!} {!!} (validTxRefs vtx) (validOutputIndices vtx)))
+
+compile {s} {s′} {i} {l} {ptx} vl (prevTx , j , p∈utxo , ps) st vOK = tx , vtx , ptx≡
+  where
+    v′ : Value
+    v′ = {!!}
+
+    tx : Tx
+    inputs  tx = [ prevTx at j ←— i ]
+    outputs tx = {-if final s′ then [] else-} [ s′ —→ v′ at 𝕍 ]
+    forge   tx = getForge i
+    fee     tx = $0
+
+    vtx : IsValidTx tx l
+    validTxRefs         vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validOutputIndices  vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validOutputRefs     vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    preservesValues     vtx = {!!}
+    noDoubleSpending    vtx = {!!}
+    allInputsValidate   vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validateValidHashes vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    forging             vtx = {!!}
+
+    ptx≡ : ptx ≡ mkPendingTx l tx {!!} {!!} (validTxRefs vtx) (validOutputIndices vtx)
+    ptx≡ = {!!}
+-}
