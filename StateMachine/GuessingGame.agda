@@ -36,19 +36,20 @@ data GameInput : Set where
   ForgeToken : TokenName → GameInput
   Guess      : ClearString → HashedString → GameInput
 
-IsDataᵍˢ : IsData GameState
-toData   IsDataᵍˢ (Initialised hs)          = H hs
-toData   IsDataᵍˢ (Locked tn hs)            = LIST (H tn ∷ H hs ∷ [])
-fromData IsDataᵍˢ (H hs)                    = just (Initialised hs)
-fromData IsDataᵍˢ (LIST (H tn ∷ H hs ∷ [])) = just (Locked tn hs)
-fromData IsDataᵍˢ _                         = nothing
+instance
+  IsDataᵍˢ : IsData GameState
+  toData   {{IsDataᵍˢ}} (Initialised hs)          = H hs
+  toData   {{IsDataᵍˢ}} (Locked tn hs)            = LIST (H tn ∷ H hs ∷ [])
+  fromData {{IsDataᵍˢ}} (H hs)                    = just (Initialised hs)
+  fromData {{IsDataᵍˢ}} (LIST (H tn ∷ H hs ∷ [])) = just (Locked tn hs)
+  fromData {{IsDataᵍˢ}} _                         = nothing
 
-IsDataᵍⁱ : IsData GameInput
-toData   IsDataᵍⁱ (ForgeToken tn)        = H tn
-toData   IsDataᵍⁱ (Guess cs hs)          = LIST (toData IsDataˢ cs ∷ H hs ∷ [])
-fromData IsDataᵍⁱ (H tn)                 = just (ForgeToken tn)
-fromData IsDataᵍⁱ (LIST (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData IsDataˢ d)
-fromData IsDataᵍⁱ _                      = nothing
+  IsDataᵍⁱ : IsData GameInput
+  toData   {{IsDataᵍⁱ}} (ForgeToken tn)        = H tn
+  toData   {{IsDataᵍⁱ}} (Guess cs hs)          = LIST (toData cs ∷ H hs ∷ [])
+  fromData {{IsDataᵍⁱ}} (H tn)                 = just (ForgeToken tn)
+  fromData {{IsDataᵍⁱ}} (LIST (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData d)
+  fromData {{IsDataᵍⁱ}} _                      = nothing
 
 step : GameState → GameInput → Maybe GameState
 step (Initialised s) (ForgeToken tn)      = just (Locked tn s)
@@ -59,8 +60,7 @@ checkGuess : HashedString → ClearString → Bool
 checkGuess hashed clear = ⌊ (clear ♯ₛₜᵣ) ≟ℕ hashed ⌋
 
 check : GameState → GameInput → PendingTx → Bool
-check state input ptx =
-  case (state , input) of λ
+check state input ptx = case (state , input) of λ
   { (Initialised _ , ForgeToken tn)    → checkForge (tokenVal tn)
   ; (Locked tn cur , Guess theGuess _) → checkGuess cur theGuess ∧ tokenPresent tn ∧ checkForge $0
   ; _                                  → false }
@@ -74,5 +74,8 @@ check state input ptx =
     checkForge : Value → Bool
     checkForge v = ⌊ v ≟ᶜ PendingTx.forge ptx ⌋
 
+GameStateMachine : StateMachine GameState GameInput
+GameStateMachine = SM[ step , check , const false ]
+
 mkValidator : Validator
-mkValidator = SM.mkValidator IsDataᵍˢ IsDataᵍⁱ SM[ step , check , const false ]
+mkValidator = SM.mkValidator GameStateMachine

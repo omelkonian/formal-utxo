@@ -22,7 +22,7 @@ open import UTxO.Types using ( HashId; Value
 -- an input, and a checking function that checks the validity of the
 -- transition in the context of the current transaction.
 
-record StateMachine (S I : Set) : Set where
+record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
   field
 
@@ -41,18 +41,16 @@ record StateMachine (S I : Set) : Set where
 Validator : Set
 Validator = PendingTx → DATA → DATA → Bool
 
-mkValidator : ∀ {S I : Set}
-  → IsData S
-  → IsData I
+mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
-mkValidator {S} {I} ds di (SM[ step , check , final ]) ptx input′ currentState′
+mkValidator {S} {I} (SM[ step , check , final ]) ptx input′ currentState′
     = fromMaybe false ⦇ checkOK ∧ stateAndOutputsOK ⦈
   where
     currentState : Maybe S
-    currentState = fromData ds currentState′
+    currentState = fromData currentState′
 
     input : Maybe I
-    input = fromData di input′
+    input = fromData input′
 
     checkOK : Maybe Bool
     checkOK = ⦇ check currentState input (pure ptx) ⦈
@@ -60,7 +58,7 @@ mkValidator {S} {I} ds di (SM[ step , check , final ]) ptx input′ currentState
     checkFinal : S → Maybe Bool
     checkFinal newState with final newState | getContinuingOutputs ptx
     ... | true  | outs     = pure (null outs)
-    ... | false | (o ∷ []) = ⦇ (findData (PendingTxOutput.dataHash o) ptx) == pure (toData ds newState) ⦈
+    ... | false | (o ∷ []) = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData newState) ⦈
     ... | false | _        = pure false
 
     stateAndOutputsOK : Maybe Bool

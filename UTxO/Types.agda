@@ -54,25 +54,22 @@ record IsData (A : Set) : Set where
   field
     toData   : A → DATA
     fromData : DATA → Maybe A
-open IsData public
+open IsData {{...}} public
 
-IsDataˡ : ∀ {A : Set} → IsData A → IsData (List A)
-toData   (IsDataˡ d)           = LIST ∘ map (toData d)
-fromData (IsDataˡ d) (LIST xs) = sequence (map (fromData d) xs)
-  where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
-fromData (IsDataˡ d) _         = nothing
+instance
+  IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
+  toData   {{IsDataˡ}} = LIST ∘ map toData
+  fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
+    where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
 
-IsDataᶜ : IsData Char
-toData   IsDataᶜ       = I ∘ +_ ∘ toℕ
-fromData IsDataᶜ (I z) = pure (fromℕ ∣ z ∣)
-fromData IsDataᶜ _     = nothing
+  IsDataᶜ : IsData Char
+  toData   {{IsDataᶜ}}       = I ∘ +_ ∘ toℕ
+  fromData {{IsDataᶜ}} (I z) = pure (fromℕ ∣ z ∣)
+  fromData {{IsDataᶜ}} _     = nothing
 
-IsDataᶜˢ : IsData (List Char)
-IsDataᶜˢ = IsDataˡ IsDataᶜ
-
-IsDataˢ : IsData String
-toData   IsDataˢ = toData IsDataᶜˢ ∘ toList
-fromData IsDataˢ = mapₘ fromList ∘ fromData IsDataᶜˢ
+  IsDataˢ : IsData String
+  toData   {{IsDataˢ}} = toData ∘ toList
+  fromData {{IsDataˢ}} = mapₘ fromList ∘ fromData
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).

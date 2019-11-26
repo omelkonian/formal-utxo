@@ -26,19 +26,20 @@ open import StateMachine.GuessingGame
 Address = ℕ
 
 open import UTxO.Ledger            Address (λ x → x) _≟ℕ_
+open import UTxO.TxUtilities       Address (λ x → x) _≟ℕ_
 open import UTxO.Hashing.Tx        Address (λ x → x) _≟ℕ_
 open import UTxO.Validity          Address (λ x → x) _≟ℕ_
 open import UTxO.DecisionProcedure Address (λ x → x) _≟ℕ_
 
 _at_←—_ : Tx → ℕ → GameInput → TxInput
 outputRef (t at i ←— _) = (t ♯ₜₓ) indexed-at i
-redeemer  (_ at _ ←— d) = toData IsDataᵍⁱ d
+redeemer  (_ at _ ←— d) = toData d
 validator (_ at _ ←— _) = mkValidator
 
 _—→_at_ : GameState → Value → Address → TxOutput
 value   (_ —→ v at _) = v
 address (_ —→ _ at a) = a
-dataVal (d —→ _ at _) = toData IsDataᵍˢ d
+dataVal (d —→ _ at _) = toData d
 
 -----------------------------------------------------------------------
 

@@ -32,13 +32,13 @@ open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
 open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
 
 module _ where
-  open SETₒ renaming (fromList to fromListₒ)
+  open SETₒ
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromListₒ (map ((tx ♯ₜₓ) indexed-at_) (indices (outputs tx)))
+  unspentOutputsTx tx = fromList (map ((tx ♯ₜₓ) indexed-at_) (indices (outputs tx)))
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  spentOutputsTx tx = fromListₒ (map outputRef (inputs tx))
+  spentOutputsTx tx = fromList (map outputRef (inputs tx))
 
   unspentOutputs : Ledger → Set⟨TxOutputRef⟩
   unspentOutputs []         = ∅
