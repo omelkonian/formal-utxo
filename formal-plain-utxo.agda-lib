@@ -1,4 +1,4 @@
-name: formal-utxo
+name: formal-plain-utxo
 depend:
   standard-library
   formal-prelude

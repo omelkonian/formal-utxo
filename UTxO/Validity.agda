@@ -55,21 +55,12 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
-        let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-            ptx = mkPendingTx l tx i i∈ validTxRefs validOutputIndices
-        in T (runValidation ptx i out)
+        T (runValidation (getState l) i)
 
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
         in (address out) ♯ₐ ≡ (validator i) ♯
-
-    -- enforce monetary policies
-    forging :
-      ∀ c → c ∈ currencies (forge tx) →
-        ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
-          let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-          in (address out) ♯ₐ ≡ c
 
 open IsValidTx public
 

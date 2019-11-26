@@ -21,7 +21,6 @@ record TxOutput : Set where
   field
     address : Address
     value   : Value
-    dataVal : DATA
 
 open TxOutput public
 
@@ -37,5 +36,5 @@ open Tx public
 Ledger : Set
 Ledger = List Tx
 
-runValidation : PendingTx → (i : TxInput) → (o : TxOutput) → Bool
-runValidation ptx i o = validator i ptx (redeemer i) (dataVal o)
+runValidation : State → TxInput → Bool
+runValidation state i = validator i state (redeemer i)

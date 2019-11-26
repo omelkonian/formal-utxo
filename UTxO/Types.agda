@@ -24,7 +24,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Re-export multi-currency values.
 open import UTxO.Value public
-  using (Value; $0; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_; currencies)
+  using (Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -71,34 +71,6 @@ instance
   toData   {{IsDataˢ}} = toData ∘ toList
   fromData {{IsDataˢ}} = mapₘ fromList ∘ fromData
 
---------------------------------------------------------------------------------------
--- Pending transactions (i.e. parts of the transaction being passed to a validator).
-
-record PendingTxInput : Set where
-  field
-    -- outputRef     : OutputRef
-    validatorHash : HashId
-    dataHash      : HashId
-    redeemerHash  : HashId
-    value         : Value
-
-record PendingTxOutput : Set where
-  field
-    value         : Value
-    validatorHash : HashId
-    dataHash      : HashId
-
-record PendingTx : Set where
-  field
-    inputInfo     : List PendingTxInput
-    thisInput     : PendingTxInput
-    outputInfo    : List PendingTxOutput
-    -- validityInterval : SlotRange
-    dataWitnesses : List (HashId × DATA)
-    txHash        : HashId
-    fee           : Value
-    forge         : Value
-
 --------------------------------------------------------------------------
 -- Output references and inputs.
 
@@ -112,9 +84,8 @@ open TxOutputRef public
 record TxInput : Set where
   field
     outputRef : TxOutputRef
-    validator : PendingTx -- ^ parts of the currently validated transaction
-              → DATA      -- ^ result value of the redeemer script
-              → DATA      -- ^ result value of the data script
+    validator : State -- ^ current state of the ledger
+              → DATA  -- ^ result value of the redeemer script
               → Bool
     redeemer  : DATA
 
@@ -214,22 +185,3 @@ Set⟨DATA⟩ = Set' where open SETᵈ
 
 _==_ : DATA → DATA → Bool
 x == y = ⌊ x ≟ᵈ y ⌋
-
--- Utilities for pending transactions.
-
-findData : HashId → PendingTx → Maybe DATA
-findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
-  where
-    toMaybe : ∀ {A : Set} → List A → Maybe A
-    toMaybe []      = nothing
-    toMaybe (x ∷ _) = pure x
-
-getContinuingOutputs : PendingTx → List PendingTxOutput
-getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
-  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
-
-ownCurrencySymbol : PendingTx → HashId
-ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
-
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo

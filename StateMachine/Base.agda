@@ -1,3 +1,4 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module StateMachine.Base where
 
 open import Function using (_∘_)
@@ -5,63 +6,63 @@ open import Function using (_∘_)
 open import Data.Product using (proj₁; proj₂)
 open import Data.Bool    using (Bool; true; false; _∧_)
 open import Data.Maybe   using (Maybe; nothing; fromMaybe)
-  renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
+  renaming (map to _<$>_; just to pure; ap to _<*>_) -- for idiom brackets
 open import Data.List    using (List; null; []; _∷_; filter; map)
 open import Data.Nat     using ()
   renaming (_≟_ to _≟ℕ_)
 
-open import UTxO.Types using ( HashId; Value
-                             ; DATA; IsData; toData; fromData; _==_
-                             ; PendingTx; PendingTxOutput; findData; getContinuingOutputs )
+open import UTxO.Types
 
--- A State Machine library for smart contracts, based on very similar
--- library for Plutus Smart contracts
+data S : Set where
+  -- ADD type of state, e.g. recording values owned by certain hashes?
 
--- Specification of a state machine, consisting of a transition
--- function that determines the next state from the current state and
--- an input, and a checking function that checks the validity of the
--- transition in the context of the current transaction.
+data Move : Set where
+  -- ADD possible moves
 
-record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
+instance
+  IsDataⁱ : IsData Move
+  toData   {{IsDataⁱ}} = {!!}
+  fromData {{IsDataⁱ}} = {!!}
+
+record StateMachine : Set where
   constructor SM[_,_,_]
   field
 
-    smTransition : S → I → Maybe S
+    smTransition : S → Move → Maybe S
     -- ^ The transition function of the state machine. 'nothing'
     -- indicates an invalid transition from the current state.
 
-    smCheck : S → I → PendingTx → Bool
-    -- ^ The condition checking function. Checks whether a given state
-    -- transition is allowed given the 'PendingTx'.
+    smCheck : S → Move → Bool
+    -- ^ The condition checking function. Checks whether a given state is allowed.
 
     smFinal : S → Bool
     -- ^ The final state predicate. Indicates whether a given state is
     -- final (the machine halts in that state).
 
 Validator : Set
-Validator = PendingTx → DATA → DATA → Bool
+Validator = State → DATA → Bool
 
-mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
-  → StateMachine S I → Validator
-mkValidator {S} {I} (SM[ step , check , final ]) ptx input′ currentState′
+mkValidator : StateMachine → Validator
+mkValidator (SM[ step , check , final ]) st input′
     = fromMaybe false ⦇ checkOK ∧ stateAndOutputsOK ⦈
   where
-    currentState : Maybe S
-    currentState = fromData currentState′
+    currentState : S
+    currentState = {!!} -- extract this from the current state of the ledger, etc...
 
-    input : Maybe I
+    input : Maybe Move
     input = fromData input′
 
     checkOK : Maybe Bool
-    checkOK = ⦇ check currentState input (pure ptx) ⦈
+    checkOK = check currentState <$> input
 
     checkFinal : S → Maybe Bool
-    checkFinal newState with final newState | getContinuingOutputs ptx
-    ... | true  | outs     = pure (null outs)
-    ... | false | (o ∷ []) = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData newState) ⦈
-    ... | false | _        = pure false
+    checkFinal newState = {!!}
+    --   with final newState
+    -- ... | true  | outs     = pure (null outs)
+    -- ... | false | (o ∷ []) = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData newState) ⦈
+    -- ... | false | _        = pure false
 
     stateAndOutputsOK : Maybe Bool
-    stateAndOutputsOK with ⦇ step currentState input ⦈
+    stateAndOutputsOK with step currentState <$> input
     ... | pure (pure s) = checkFinal s
     ... | _             = nothing
