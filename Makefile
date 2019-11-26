@@ -22,7 +22,7 @@ $(HOME)/.local/bin/agda:
 	curl -L https://github.com/agda/agda/archive/v$(AGDA_VERSION).zip -o $(HOME)/agda-$(AGDA_VERSION).zip
 	unzip -qq $(HOME)/agda-$(AGDA_VERSION).zip -d $(HOME)
 	cd $(HOME)/agda-$(AGDA_VERSION);\
-		stack install --stack-yaml=stack-8.0.2.yaml
+		stack install --stack-yaml=stack-8.6.5.yaml
 
 $(HOME)/agda-stdlib-$(AGDA_STDLIB_VERSION)/src:
 	curl -L https://github.com/agda/agda-stdlib/archive/v$(AGDA_STDLIB_VERSION).zip -o $(HOME)/agda-stdlib-$(AGDA_STDLIB_VERSION).zip

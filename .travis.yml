@@ -4,7 +4,7 @@ sudo: false
 language: generic
 
 env:
-  - SH=bash AGDA_VERSION=2.6.0 AGDA_STDLIB_VERSION=1.1
+  - SH=bash AGDA_VERSION=2.6.0.1 AGDA_STDLIB_VERSION=1.2
 
 cache:
   directories:

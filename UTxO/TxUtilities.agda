@@ -5,7 +5,7 @@ open import Data.Unit     using (⊤; tt)
 open import Data.Bool     using (Bool; T)
 open import Data.Product  using (_×_; _,_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
 open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
-open import Data.Fin      using (Fin; toℕ; fromℕ≤)
+open import Data.Fin      using (Fin; toℕ; fromℕ<)
 open import Data.List     using ([]; _∷_; length; map)
 open import Data.List.Any using (Any)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
@@ -57,7 +57,7 @@ lookupOutput : (l : Ledger)
              → index out < length (outputs (lookupTx l out ∃tx≡id))
              → TxOutput
 lookupOutput l out ∃tx≡id index≤len =
-  outputs (lookupTx l out ∃tx≡id) ‼ (fromℕ≤ {index out} index≤len)
+  outputs (lookupTx l out ∃tx≡id) ‼ (fromℕ< {index out} index≤len)
 
 lookupValue : (l : Ledger)
             → (input : TxInput)
