@@ -24,7 +24,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Re-export multi-currency values.
 open import UTxO.Value public
-  using (Value; $0; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_; currencies)
+  using (Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
 
 ------------------------------------------------------------------------
 -- Basic types.

@@ -64,13 +64,6 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
         in (address out) ♯ₐ ≡ (validator i) ♯
 
-    -- enforce monetary policies
-    forging :
-      ∀ c → c ∈ currencies (forge tx) →
-        ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
-          let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-          in (address out) ♯ₐ ≡ c
-
 open IsValidTx public
 
 -- List notation for constructing valid ledgers.

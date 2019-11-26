@@ -127,20 +127,6 @@ validateValidHashes? tx l v₁ v₂ =
         out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
     in (address out) ♯ₐ ≟ (validator i) ♯
 
-forging? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
-  → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
-            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (∀ c → c ∈ currencies (forge tx) →
-           ∃[ i ] ∃ λ (i∈ : i ∈ inputs tx) →
-             let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-             in (address out) ♯ₐ ≡ c)
-forging? tx l v₁ v₂ =
-  ∀? (currencies (forge tx)) λ c _ →
-    ∃? (inputs tx) λ i i∈ →
-       let out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
-       in (address out) ♯ₐ ≟ c
-
 infixl 5 _⊕_
 _⊕_ : ∀ {l}
   → ValidLedger l
@@ -152,14 +138,12 @@ _⊕_ : ∀ {l}
   → {p₅ : True (noDoubleSpending? tx l)}
   → {p₆ : True (allInputsValidate? tx l (toWitness p₁) (toWitness p₂))}
   → {p₇ : True (validateValidHashes? tx l (toWitness p₁) (toWitness p₂))}
-  → {p₈ : True (forging? tx l (toWitness p₁) (toWitness p₂))}
   → ValidLedger (tx ∷ l)
-(vl ⊕ tx) {p₁ = p₁} {p₂} {p₃} {p₄} {p₅} {p₆} {p₇} {p₈}
+(vl ⊕ tx) {p₁ = p₁} {p₂} {p₃} {p₄} {p₅} {p₆} {p₇}
   = vl ⊕ tx ∶- record { validTxRefs          = toWitness p₁
                       ; validOutputIndices   = toWitness p₂
                       ; validOutputRefs      = toWitness p₃
                       ; preservesValues      = toWitness p₄
                       ; noDoubleSpending     = toWitness p₅
                       ; allInputsValidate    = toWitness p₆
-                      ; validateValidHashes  = toWitness p₇
-                      ; forging              = toWitness p₈ }
+                      ; validateValidHashes  = toWitness p₇ }

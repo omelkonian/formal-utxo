@@ -34,15 +34,6 @@ open import UTxO.DecisionProcedure Address (λ x → x) _≟_
 3ᵃ : Address
 3ᵃ = 333 -- third address
 
-adaᵃ : Address
-adaᵃ = 1234 -- ADA identifier
-
-adaValidator : PendingTx → DATA → DATA → Bool
-adaValidator _ _ _ = true
-
-dummyValidator : PendingTx → DATA → DATA → Bool
-dummyValidator _ _ _ = true
-
 mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
 mkValidator tin _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
 mkValidator tin _ _ _                                        = false
@@ -55,15 +46,6 @@ withScripts tin = record { outputRef = tin
                          ; validator = mkValidator tin
                          }
 
-withAda : TxOutputRef → TxInput
-withAda tin = record { outputRef = tin
-                     ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
-                     ; validator = adaValidator
-                     }
-
-$ : ℕ → Value
-$ v = [ (adaᵃ , [ 0 , v ]) ]
-
 _at_ : Value → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
@@ -71,20 +53,8 @@ v at addr = record { value   = v
                    }
 
 -- define transactions
-c₁ : Tx
-inputs  c₁ = []
-outputs c₁ = $0 at adaᵃ ∷ $0 at adaᵃ ∷ []
-forge   c₁ = $0
-fee     c₁ = $0
-
-c₁₀ : TxOutputRef
-c₁₀ = (c₁ ♯ₜₓ) indexed-at 0
-
-c₁₁ : TxOutputRef
-c₁₁ = (c₁ ♯ₜₓ) indexed-at 1
-
 t₁ : Tx
-inputs  t₁ = [ withAda c₁₀ ]
+inputs  t₁ = []
 outputs t₁ = [ $ 1000 at 1ᵃ ]
 forge   t₁ = $ 1000
 fee     t₁ = $0
@@ -114,7 +84,7 @@ t₃₀ : TxOutputRef
 t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
 
 t₄ : Tx
-inputs  t₄ = withScripts t₃₀ ∷ withAda c₁₁ ∷ []
+inputs  t₄ = withScripts t₃₀ ∷ []
 outputs t₄ = [ $ 207 at 2ᵃ ]
 forge   t₄ = $ 10
 fee     t₄ = $ 2
@@ -145,7 +115,6 @@ t₆₀ = (t₆ ♯ₜₓ) indexed-at 0
 
 -- hash postulates + rewriting
 postulate
-  adaValidator♯ : adaValidator ♯      ≡ adaᵃ
   validator♯₁₀  : (mkValidator t₁₀) ♯ ≡ 1ᵃ
   validator♯₂₀  : (mkValidator t₂₀) ♯ ≡ 2ᵃ
   validator♯₂₁  : (mkValidator t₂₁) ♯ ≡ 1ᵃ
@@ -155,7 +124,6 @@ postulate
   validator♯₅₁  : (mkValidator t₅₁) ♯ ≡ 3ᵃ
   validator♯₆₀  : (mkValidator t₆₀) ♯ ≡ 3ᵃ
 
-{-# REWRITE adaValidator♯ #-}
 {-# REWRITE validator♯₁₀  #-}
 {-# REWRITE validator♯₂₀  #-}
 {-# REWRITE validator♯₂₁  #-}
@@ -165,5 +133,5 @@ postulate
 {-# REWRITE validator♯₅₁  #-}
 {-# REWRITE validator♯₆₀  #-}
 
-ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ [])
-ex-ledger = ∙ ⊕ c₁ ⊕ t₁ ⊕ t₂ ⊕ t₃ ⊕ t₄ ⊕ t₅ ⊕ t₆
+ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ [])
+ex-ledger = ∙ ⊕ t₁ ⊕ t₂ ⊕ t₃ ⊕ t₄ ⊕ t₅ ⊕ t₆

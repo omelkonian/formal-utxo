@@ -12,11 +12,8 @@ open import UTxO.TxUtilities
 open import UTxO.Validity
 open import UTxO.DecisionProcedure
 
--- open import UTxO.Properties.Weakening
--- open import UTxO.Properties.Combining
-
 open import UTxO.ExampleLedger
 
 open import StateMachine.Base
-open import StateMachine.GuessingGame
-open import StateMachine.ExamplePlay
+-- open import StateMachine.GuessingGame
+-- open import StateMachine.ExamplePlay
