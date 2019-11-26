@@ -48,33 +48,22 @@ ex-map = (1 , (0 , 50) ∷ [])
 
 --------------------------
 -- Implementation
-open import Data.AVL <-strictTotalOrder as AVL
-  using    (Tree; fromList; empty; unionWith)
+open import Data.AVL.Map <-strictTotalOrder
+  using    (Map; fromList; toList; empty; unionWith)
   renaming (map to mapValues)
-
--- T0D0: remove when updating to agda-stdlib-v1.2 --
-Map : Set → Set
-Map v = Tree (AVL.const v)
-
-toList : ∀ {V : Set} → Map V → List (ℕ × V)
-toList = AVL.toList
-
-----------------------------------------------------
 
 TokenMap    = Map Quantity
 CurrencyMap = Map TokenMap
 
-fromMap : CurrencyMap → Value
-fromMap m = toList (mapValues toList m)
+toList² : CurrencyMap → Value
+toList² m = toList (mapValues toList m)
 
-toMap : Value → CurrencyMap
-toMap = fromList ∘ map (map₂ fromList)
+fromList² : Value → CurrencyMap
+fromList² = fromList ∘ map (map₂ fromList)
 
 _+ᶜ_ : Value → Value → Value
-c +ᶜ c′ = fromMap (unionWith (λ v v′ → v +ᶜ′ fromMaybe empty v′) (toMap c) (toMap c′))
+c +ᶜ c′ = toList² (unionWith (λ v v′ → v +ᶜ′ fromMaybe empty v′) (fromList² c) (fromList² c′))
   where
-
-
     _+ᶜ′_ : TokenMap → TokenMap → TokenMap
     _+ᶜ′_ = unionWith (λ v v′ → v + fromMaybe 0 v′)
 
@@ -95,7 +84,7 @@ checkBin {V} ε _⁇_ m m′ = all (mapValues proj₂ mb)
     mb = unionWith (λ v v′ → v , v ⁇ proj₁ (fromMaybe (ε , true) v′)) m (mapValues (_, true) m′)
 
 _≥ᶜ_ : Value → Value → Bool
-c ≥ᶜ c′ = checkBin empty _≥ᶜ′_ (toMap c) (toMap c′)
+c ≥ᶜ c′ = checkBin empty _≥ᶜ′_ (fromList² c) (fromList² c′)
   where
     _≥ᶜ′_ : TokenMap → TokenMap → Bool
     _≥ᶜ′_ = checkBin 0 (λ v v′ → ⌊ v ≥? v′ ⌋)

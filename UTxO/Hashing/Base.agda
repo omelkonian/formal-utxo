@@ -1,8 +1,8 @@
 module UTxO.Hashing.Base where
 
-open import Level              using (_⊔_)
-open import Function           using (_∘_)
-open import Function.Injection using (module Injection; _↣_)
+open import Level            using (_⊔_)
+open import Function         using (_∘_)
+open import Function.Bundles using (module Injection; _↣_)
 
 open import Data.Product  using (_,_; _×_)
 open import Data.String   using (String; toList)
@@ -23,20 +23,20 @@ Injective : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → Set ℓ
 Injective _# = ∀ {x y} → (x #) ≡ (y #) → x ≡ y
 
 _-via-_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} → A → A ↣ B → B
-a -via- record { to = record { _⟨$⟩_ = f } } = f a
+a -via- record { f = f } = f a
 
 -- A hash-preserving injection.
 record _,_↪_,_ {ℓᵃ ℓᵇ} (A : Set ℓᵃ) (_♯ᵃ : Hash A) (B : Set ℓᵇ) (_♯ᵇ : Hash B) : Set (ℓᵃ ⊔ ℓᵇ) where
   field
-    injection  : A ↣ B
-    preserves♯ : ∀ (a : A) → a ♯ᵃ ≡ (a -via- injection) ♯ᵇ
+    A↣B        : A ↣ B
+    preserves♯ : ∀ (a : A) → a ♯ᵃ ≡ (a -via- A↣B) ♯ᵇ
 
 open _,_↪_,_ public
 
 _⟨$⟩_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} {_♯ᵃ : Hash A} {_♯ᵇ : Hash B}
       → A , _♯ᵃ ↪ B , _♯ᵇ
       → A → B
-record {injection = A↣B} ⟨$⟩ a = a -via- A↣B
+inj ⟨$⟩ a = a -via- (A↣B inj)
 
 -- Common hashing utilities.
 merge♯ : List ℕ → ℕ
