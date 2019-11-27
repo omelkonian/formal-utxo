@@ -32,7 +32,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     validTxRefs :
       ∀ i → i ∈ inputs tx →
-        Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l
+        Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l
 
     validOutputIndices :
       ∀ i → (i∈ : i ∈ inputs tx) →
