@@ -42,14 +42,14 @@ withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
                          ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
                                        {- λ _ → id tin , index tin -}
-                         ; dataVal   = {!!}
+                         ; dataVal   = I (ℤ.pos 0)
                          ; validator = mkValidator tin
                          }
 
 _at_ : Quantity → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
-                   ; dataHash = {!0!} -- I (ℤ.pos 0)
+                   ; dataHash = ℤ.pos 0 ♯ℤ
                    }
 
 -- define transactions
