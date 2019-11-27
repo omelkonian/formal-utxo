@@ -11,7 +11,7 @@ open import UTxO.TxUtilities
 open import UTxO.Validity
 open import UTxO.DecisionProcedure
 
---open import UTxO.ExampleLedger
+open import UTxO.ExampleLedger
 
 open import StateMachine.Base
 -- open import StateMachine.GuessingGame
