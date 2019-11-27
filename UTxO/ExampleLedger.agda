@@ -18,7 +18,6 @@ open import UTxO.Hashing.Types
 open import UTxO.Hashing.MetaHash
 
 -- available addresses
-Address = ℕ
 
 open import UTxO.Ledger            Address (λ x → x) _≟_
 open import UTxO.Hashing.Tx        Address (λ x → x) _≟_
@@ -36,26 +35,28 @@ open import UTxO.DecisionProcedure Address (λ x → x) _≟_
 
 mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
 mkValidator tin _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
-mkValidator tin _ _ _                                        = false
+mkValidator tin _ _                                        _ = false
 
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
                          ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
                                        {- λ _ → id tin , index tin -}
+                         ; dataVal   = {!!}
                          ; validator = mkValidator tin
                          }
 
 _at_ : Quantity → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
-                   ; dataVal = I (ℤ.pos 0)
+                   ; dataHash = {!0!} -- I (ℤ.pos 0)
                    }
 
 -- define transactions
 t₁ : Tx
 inputs  t₁ = []
 outputs t₁ = [ 1000 at 1ᵃ ]
+dataWitnesses t₁ = []
 forge   t₁ = 1000
 fee     t₁ = 0
 
@@ -65,6 +66,7 @@ t₁₀ = (t₁ ♯ᵗˣ) indexed-at 0
 t₂ : Tx
 inputs  t₂ = [ withScripts t₁₀ ]
 outputs t₂ = 800 at 2ᵃ ∷ 200 at 1ᵃ ∷ []
+dataWitnesses t₂ = []
 forge   t₂ = 0
 fee     t₂ = 0
 
@@ -77,6 +79,7 @@ t₂₁ = (t₂ ♯ᵗˣ) indexed-at 1
 t₃ : Tx
 inputs  t₃ = [ withScripts t₂₁ ]
 outputs t₃ = [ 199 at 3ᵃ ]
+dataWitnesses t₃ = []
 forge   t₃ = 0
 fee     t₃ = 1
 
@@ -86,6 +89,7 @@ t₃₀ = (t₃ ♯ᵗˣ) indexed-at 0
 t₄ : Tx
 inputs  t₄ = withScripts t₃₀ ∷ []
 outputs t₄ = [ 207 at 2ᵃ ]
+dataWitnesses t₄ = []
 forge   t₄ = 10
 fee     t₄ = 2
 
@@ -95,6 +99,7 @@ t₄₀ = (t₄ ♯ᵗˣ) indexed-at 0
 t₅ : Tx
 inputs  t₅ = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
 outputs t₅ = 500 at 2ᵃ ∷ 500 at 3ᵃ ∷ []
+dataWitnesses t₅ = []
 forge   t₅ = 0
 fee     t₅ = 7
 
@@ -107,6 +112,7 @@ t₅₁ = (t₅ ♯ᵗˣ) indexed-at 1
 t₆ : Tx
 inputs  t₆ = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
 outputs t₆ = [ 999 at 3ᵃ ]
+dataWitnesses t₆ = []
 forge   t₆ = 0
 fee     t₆ = 1
 

@@ -25,15 +25,20 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 ------------------------------------------------------------------------
 -- Basic types.
 
-HashId   = ℕ
+-- TODO Quantity should be ℤ
+
+ℍ        = ℕ
+
 Quantity = ℕ
+Address  = ℍ
+DataHash = ℍ
 
 -----------------------------------------
 -- First-order data values.
 
 data DATA : Set where
  I      : ℤ → DATA
- H      : HashId → DATA
+ H      : ℍ → DATA
  LIST   : List DATA → DATA
  CONSTR : ℕ → List DATA → DATA
  MAP    : List (DATA × DATA) → DATA
@@ -62,19 +67,19 @@ instance
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
-record PendingTxInput : Set where
-  field
-    -- outputRef     : OutputRef
-    validatorHash : HashId
-    dataHash      : HashId
-    redeemerHash  : HashId
-    value         : Quantity
-
 record PendingTxOutput : Set where
   field
     value         : Quantity
-    validatorHash : HashId
-    dataHash      : HashId
+    validatorHash : Address
+    dataHash      : DataHash
+
+record PendingTxInput : Set where
+  field
+    -- outputRef     : OutputRef
+    validatorHash : Address
+    dataHash      : DataHash
+    redeemerHash  : DataHash
+    value         : Quantity
 
 record PendingTx : Set where
   field
@@ -82,8 +87,8 @@ record PendingTx : Set where
     thisInput     : PendingTxInput
     outputInfo    : List PendingTxOutput
     -- validityInterval : SlotRange
-    dataWitnesses : List (HashId × DATA)
-    txHash        : HashId
+    dataWitnesses : List (DataHash × DATA)
+    --txHash        : ℍ
     fee           : Quantity
     forge         : Quantity
 
@@ -93,7 +98,7 @@ record PendingTx : Set where
 record TxOutputRef : Set where
   constructor _indexed-at_
   field
-    id    : HashId
+    id    : ℍ
     index : ℕ
 open TxOutputRef public
 
@@ -104,6 +109,7 @@ record TxInput : Set where
               → DATA      -- ^ result value of the redeemer script
               → DATA      -- ^ result value of the data script
               → Bool
+    dataVal   : DATA
     redeemer  : DATA
 
 open TxInput public
@@ -205,7 +211,7 @@ x == y = ⌊ x ≟ᵈ y ⌋
 
 -- Utilities for pending transactions.
 
-findData : HashId → PendingTx → Maybe DATA
+findData : ℍ → PendingTx → Maybe DATA
 findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
   where
     toMaybe : ∀ {A : Set} → List A → Maybe A
@@ -216,7 +222,7 @@ getContinuingOutputs : PendingTx → List PendingTxOutput
 getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
   = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
 
-ownCurrencySymbol : PendingTx → HashId
+ownCurrencySymbol : PendingTx → ℍ
 ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
 
 valueSpent : PendingTx → Quantity

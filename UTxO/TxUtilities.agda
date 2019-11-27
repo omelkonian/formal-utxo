@@ -76,7 +76,7 @@ mkPendingTxOut txOut =
   record
     { value         = value txOut
     ; validatorHash = (address txOut) ♯ᵃ
-    ; dataHash      = (dataVal txOut) ♯ᵈ
+    ; dataHash      = dataHash txOut
     }
 
 mkPendingTxIn : (l : Ledger)
@@ -87,7 +87,7 @@ mkPendingTxIn : (l : Ledger)
 mkPendingTxIn l txIn ∃tx index< =
   record
     { validatorHash = (validator txIn) ♯
-    ; dataHash      = (dataVal txOut) ♯ᵈ
+    ; dataHash      = dataHash txOut
     ; redeemerHash  = (redeemer txIn) ♯ᵈ
     ; value         = value txOut
     }
@@ -107,7 +107,7 @@ mkPendingTx l tx i i∈ v₁ v₂ =
      { inputInfo     = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; thisInput     = mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; outputInfo    = map mkPendingTxOut (outputs tx)
-     ; dataWitnesses = map (λ o → ((dataVal o) ♯ᵈ) , dataVal o) (outputs tx)
-     ; txHash        = tx ♯ᵗˣ
+     ; dataWitnesses = dataWitnesses tx
+     --; txHash        = tx ♯ᵗˣ
      ; fee           = fee tx
      ; forge         = forge tx }
