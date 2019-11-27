@@ -60,7 +60,7 @@ forge   t₁ = $ 1000
 fee     t₁ = $0
 
 t₁₀ : TxOutputRef
-t₁₀ = (t₁ ♯ₜₓ) indexed-at 0
+t₁₀ = (t₁ ♯ᵗˣ) indexed-at 0
 
 t₂ : Tx
 inputs  t₂ = [ withScripts t₁₀ ]
@@ -69,10 +69,10 @@ forge   t₂ = $0
 fee     t₂ = $0
 
 t₂₀ : TxOutputRef
-t₂₀ = (t₂ ♯ₜₓ) indexed-at 0
+t₂₀ = (t₂ ♯ᵗˣ) indexed-at 0
 
 t₂₁ : TxOutputRef
-t₂₁ = (t₂ ♯ₜₓ) indexed-at 1
+t₂₁ = (t₂ ♯ᵗˣ) indexed-at 1
 
 t₃ : Tx
 inputs  t₃ = [ withScripts t₂₁ ]
@@ -81,7 +81,7 @@ forge   t₃ = $0
 fee     t₃ = $ 1
 
 t₃₀ : TxOutputRef
-t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
+t₃₀ = (t₃ ♯ᵗˣ) indexed-at 0
 
 t₄ : Tx
 inputs  t₄ = withScripts t₃₀ ∷ []
@@ -90,7 +90,7 @@ forge   t₄ = $ 10
 fee     t₄ = $ 2
 
 t₄₀ : TxOutputRef
-t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
+t₄₀ = (t₄ ♯ᵗˣ) indexed-at 0
 
 t₅ : Tx
 inputs  t₅ = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
@@ -99,10 +99,10 @@ forge   t₅ = $0
 fee     t₅ = $ 7
 
 t₅₀ : TxOutputRef
-t₅₀ = (t₅ ♯ₜₓ) indexed-at 0
+t₅₀ = (t₅ ♯ᵗˣ) indexed-at 0
 
 t₅₁ : TxOutputRef
-t₅₁ = (t₅ ♯ₜₓ) indexed-at 1
+t₅₁ = (t₅ ♯ᵗˣ) indexed-at 1
 
 t₆ : Tx
 inputs  t₆ = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
@@ -111,7 +111,7 @@ forge   t₆ = $0
 fee     t₆ = $ 1
 
 t₆₀ : TxOutputRef
-t₆₀ = (t₆ ♯ₜₓ) indexed-at 0
+t₆₀ = (t₆ ♯ᵗˣ) indexed-at 0
 
 -- hash postulates + rewriting
 postulate

@@ -20,7 +20,6 @@ open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; setoid)
 
 open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types    using (_♯ᵢ)
 open import UTxO.Hashing.MetaHash using (_♯)
 open import UTxO.Types
 
@@ -32,7 +31,7 @@ module UTxO.DecisionProcedure
 
 open import UTxO.Ledger      Address _♯ₐ _≟ₐ_
 open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_
-open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_ using (_♯ₜₓ)
+open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_ using (_♯ᵗˣ)
 open import UTxO.Validity    Address _♯ₐ _≟ₐ_
 
 ∀? : ∀ {ℓ ℓ′} {A : Set ℓ}
@@ -64,13 +63,13 @@ open import UTxO.Validity    Address _♯ₐ _≟ₐ_
                                }
 
 validTxRefs? : ∀ (tx : Tx) (l : Ledger)
-  → Dec (∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+  → Dec (∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
 validTxRefs? tx l =
   ∀? (inputs tx) λ i _ →
-    any (λ t → t ♯ₜₓ ≟ id (outputRef i)) l
+    any (λ t → t ♯ᵗˣ ≟ id (outputRef i)) l
 
 validOutputIndices? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
            index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
 validOutputIndices? tx l v₁ =
@@ -84,7 +83,7 @@ validOutputRefs? tx l =
     outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)
 
 preservesValues? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
@@ -101,7 +100,7 @@ noDoubleSpending? tx l =
   SETₒ.unique? (map outputRef (inputs tx))
 
 allInputsValidate? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →
@@ -114,7 +113,7 @@ allInputsValidate? tx l v₁ v₂ =
         ptx = mkPendingTx l tx i i∈ v₁ v₂
     in T? (runValidation ptx i out)
 validateValidHashes? : ∀ (tx : Tx) (l : Ledger)
-  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+  → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
   → Dec (∀ i → (i∈ : i ∈ inputs tx) →

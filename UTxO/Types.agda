@@ -32,14 +32,6 @@ open import UTxO.Value public
 HashId : Set
 HashId = ℕ
 
-record State : Set where
-  field
-    height : ℕ
-open State public
-
-getState : ∀ {A : Set} → List A → State
-getState l = record { height = length l }
-
 -----------------------------------------
 -- First-order data values.
 

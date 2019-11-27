@@ -24,18 +24,18 @@ open import UTxO.Types
 
 module UTxO.TxUtilities
   (Address : Set)
-  (_♯ₐ : Hash Address)
-  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  (_♯ᵃ : Hash Address)
+  (_≟ᵃ_ : Decidable {A = Address} _≡_)
   where
 
-open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
-open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
+open import UTxO.Ledger     Address _♯ᵃ _≟ᵃ_
+open import UTxO.Hashing.Tx Address _♯ᵃ _≟ᵃ_
 
 module _ where
   open SETₒ
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (map ((tx ♯ₜₓ) indexed-at_) (indices (outputs tx)))
+  unspentOutputsTx tx = fromList (map ((tx ♯ᵗˣ) indexed-at_) (indices (outputs tx)))
 
   spentOutputsTx : Tx → Set⟨TxOutputRef⟩
   spentOutputsTx tx = fromList (map outputRef (inputs tx))
@@ -47,13 +47,13 @@ module _ where
 
 lookupTx : (l : Ledger)
          → (out : TxOutputRef)
-         → Any (λ tx → tx ♯ₜₓ ≡ id out) l
+         → Any (λ tx → tx ♯ᵗˣ ≡ id out) l
          → Tx
 lookupTx l out ∃tx≡id = proj₁ (find ∃tx≡id)
 
 lookupOutput : (l : Ledger)
              → (out : TxOutputRef)
-             → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id out) l)
+             → (∃tx≡id : Any (λ tx → tx ♯ᵗˣ ≡ id out) l)
              → index out < length (outputs (lookupTx l out ∃tx≡id))
              → TxOutput
 lookupOutput l out ∃tx≡id index≤len =
@@ -61,7 +61,7 @@ lookupOutput l out ∃tx≡id index≤len =
 
 lookupValue : (l : Ledger)
             → (input : TxInput)
-            → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id (outputRef input)) l)
+            → (∃tx≡id : Any (λ tx → tx ♯ᵗˣ ≡ id (outputRef input)) l)
             → index (outputRef input) <
                 length (outputs (lookupTx l (outputRef input) ∃tx≡id))
             → Value
@@ -75,13 +75,13 @@ mkPendingTxOut : TxOutput → PendingTxOutput
 mkPendingTxOut txOut =
   record
     { value         = value txOut
-    ; validatorHash = (address txOut) ♯ₐ
+    ; validatorHash = (address txOut) ♯ᵃ
     ; dataHash      = (dataVal txOut) ♯ᵈ
     }
 
 mkPendingTxIn : (l : Ledger)
               → (input : TxInput)
-              → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id (outputRef input)) l)
+              → (∃tx≡id : Any (λ tx → tx ♯ᵗˣ ≡ id (outputRef input)) l)
               → index (outputRef input) < length (outputs (lookupTx l (outputRef input) ∃tx≡id))
               → PendingTxInput
 mkPendingTxIn l txIn ∃tx index< =
@@ -98,7 +98,7 @@ mkPendingTx : (l : Ledger)
             → (tx : Tx)
             → (i : TxInput)
             → i ∈ inputs tx
-            → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
+            → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
             → (∀ i → (i∈ : i ∈ inputs tx) →
                  index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
             → PendingTx
@@ -108,6 +108,6 @@ mkPendingTx l tx i i∈ v₁ v₂ =
      ; thisInput     = mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
      ; outputInfo    = map mkPendingTxOut (outputs tx)
      ; dataWitnesses = map (λ o → ((dataVal o) ♯ᵈ) , dataVal o) (outputs tx)
-     ; txHash        = tx ♯ₜₓ
+     ; txHash        = tx ♯ᵗˣ
      ; fee           = fee tx
      ; forge         = forge tx }

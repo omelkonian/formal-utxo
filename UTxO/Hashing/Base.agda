@@ -39,14 +39,18 @@ _⟨$⟩_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} {_♯ᵃ : Has
 inj ⟨$⟩ a = a -via- (A↣B inj)
 
 -- Common hashing utilities.
+
+-- NOTE these hash functions can create collisions and are only for
+-- testing/readability of examples
+
 merge♯ : List ℕ → ℕ
 merge♯ = sum
 
-hashList : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → (List A → ℕ)
+hashList : ∀ {ℓ} {A : Set ℓ} → Hash A → Hash (List A)
 hashList hash1 = merge♯ ∘ map hash1
 
 hashPair : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → Hash A → Hash B → Hash (A × B)
 hashPair h₁ h₂ (a , b) = merge♯ (h₁ a ∷ h₂ b ∷ [])
 
-_♯ₛₜᵣ : String → ℕ
-_♯ₛₜᵣ = hashList toℕ ∘ toList
+_♯ˢᵗʳ : String → ℕ
+_♯ˢᵗʳ = hashList toℕ ∘ toList
