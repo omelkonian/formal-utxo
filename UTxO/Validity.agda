@@ -1,7 +1,7 @@
 open import Data.Bool     using (T)
 open import Data.Product  using (∃; ∃-syntax)
-open import Data.Nat      using (_<_)
-open import Data.List     using ([]; _∷_; length; map)
+open import Data.Nat      using (_<_; _+_)
+open import Data.List     using ([]; _∷_; length; map; sum)
 
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
@@ -45,10 +45,10 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
     -----------------------------------------------------------------------------------------
 
     preservesValues :
-      forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
+      forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ →
                           lookupValue l i (validTxRefs i i∈) (validOutputIndices i i∈))
         ≡
-      fee tx +ᶜ sumᶜ (map value (outputs tx))
+      fee tx + sum (map value (outputs tx))
 
     noDoubleSpending :
       Unique (map outputRef (inputs tx))

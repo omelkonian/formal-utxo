@@ -46,7 +46,7 @@ withScripts tin = record { outputRef = tin
                          ; validator = mkValidator tin
                          }
 
-_at_ : Value → Address → TxOutput
+_at_ : Quantity → Address → TxOutput
 v at addr = record { value   = v
                    ; address = addr
                    ; dataVal = I (ℤ.pos 0)
@@ -55,18 +55,18 @@ v at addr = record { value   = v
 -- define transactions
 t₁ : Tx
 inputs  t₁ = []
-outputs t₁ = [ $ 1000 at 1ᵃ ]
-forge   t₁ = $ 1000
-fee     t₁ = $0
+outputs t₁ = [ 1000 at 1ᵃ ]
+forge   t₁ = 1000
+fee     t₁ = 0
 
 t₁₀ : TxOutputRef
 t₁₀ = (t₁ ♯ᵗˣ) indexed-at 0
 
 t₂ : Tx
 inputs  t₂ = [ withScripts t₁₀ ]
-outputs t₂ = $ 800 at 2ᵃ ∷ $ 200 at 1ᵃ ∷ []
-forge   t₂ = $0
-fee     t₂ = $0
+outputs t₂ = 800 at 2ᵃ ∷ 200 at 1ᵃ ∷ []
+forge   t₂ = 0
+fee     t₂ = 0
 
 t₂₀ : TxOutputRef
 t₂₀ = (t₂ ♯ᵗˣ) indexed-at 0
@@ -76,27 +76,27 @@ t₂₁ = (t₂ ♯ᵗˣ) indexed-at 1
 
 t₃ : Tx
 inputs  t₃ = [ withScripts t₂₁ ]
-outputs t₃ = [ $ 199 at 3ᵃ ]
-forge   t₃ = $0
-fee     t₃ = $ 1
+outputs t₃ = [ 199 at 3ᵃ ]
+forge   t₃ = 0
+fee     t₃ = 1
 
 t₃₀ : TxOutputRef
 t₃₀ = (t₃ ♯ᵗˣ) indexed-at 0
 
 t₄ : Tx
 inputs  t₄ = withScripts t₃₀ ∷ []
-outputs t₄ = [ $ 207 at 2ᵃ ]
-forge   t₄ = $ 10
-fee     t₄ = $ 2
+outputs t₄ = [ 207 at 2ᵃ ]
+forge   t₄ = 10
+fee     t₄ = 2
 
 t₄₀ : TxOutputRef
 t₄₀ = (t₄ ♯ᵗˣ) indexed-at 0
 
 t₅ : Tx
 inputs  t₅ = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
-outputs t₅ = $ 500 at 2ᵃ ∷ $ 500 at 3ᵃ ∷ []
-forge   t₅ = $0
-fee     t₅ = $ 7
+outputs t₅ = 500 at 2ᵃ ∷ 500 at 3ᵃ ∷ []
+forge   t₅ = 0
+fee     t₅ = 7
 
 t₅₀ : TxOutputRef
 t₅₀ = (t₅ ♯ᵗˣ) indexed-at 0
@@ -106,9 +106,9 @@ t₅₁ = (t₅ ♯ᵗˣ) indexed-at 1
 
 t₆ : Tx
 inputs  t₆ = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
-outputs t₆ = [ $ 999 at 3ᵃ ]
-forge   t₆ = $0
-fee     t₆ = $ 1
+outputs t₆ = [ 999 at 3ᵃ ]
+forge   t₆ = 0
+fee     t₆ = 1
 
 t₆₀ : TxOutputRef
 t₆₀ = (t₆ ♯ᵗˣ) indexed-at 0

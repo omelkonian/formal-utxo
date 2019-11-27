@@ -64,7 +64,7 @@ lookupValue : (l : Ledger)
             → (∃tx≡id : Any (λ tx → tx ♯ᵗˣ ≡ id (outputRef input)) l)
             → index (outputRef input) <
                 length (outputs (lookupTx l (outputRef input) ∃tx≡id))
-            → Value
+            → Quantity
 lookupValue l input ∃tx≡id index≤len =
   value (lookupOutput l (outputRef input) ∃tx≡id index≤len)
 

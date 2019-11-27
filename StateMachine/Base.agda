@@ -10,7 +10,7 @@ open import Data.List    using (List; null; []; _∷_; filter; map)
 open import Data.Nat     using ()
   renaming (_≟_ to _≟ℕ_)
 
-open import UTxO.Types using ( HashId; Value
+open import UTxO.Types using ( HashId; Quantity
                              ; DATA; IsData; toData; fromData; _==_
                              ; PendingTx; PendingTxOutput; findData; getContinuingOutputs )
 

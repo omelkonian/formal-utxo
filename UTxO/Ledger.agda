@@ -20,7 +20,7 @@ module UTxO.Ledger
 record TxOutput : Set where
   field
     address : Address
-    value   : Value
+    value   : Quantity
     dataVal : DATA
 
 open TxOutput public
@@ -29,8 +29,8 @@ record Tx : Set where
   field
     inputs  : List TxInput -- T0D0: Set⟨TxInput⟩
     outputs : List TxOutput
-    fee     : Value
-    forge   : Value
+    fee     : Quantity
+    forge   : Quantity
 
 open Tx public
 

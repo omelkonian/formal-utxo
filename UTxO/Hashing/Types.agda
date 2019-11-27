@@ -22,7 +22,7 @@ _♯ⁱ : Hash TxInput
 i ♯ⁱ = (outputRef i) ♯ᵒʳ
 postulate injective♯ⁱ : Injective _♯ⁱ
 
-_♯ᵛ : Hash Value
+_♯ᵛ : Hash Quantity
 _♯ᵛ = λ x → x
 postulate injective♯ᵥ : Injective _♯ᵛ
 

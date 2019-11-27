@@ -7,7 +7,7 @@ open import Function using (_∘_)
 
 open import Data.Bool    using (Bool)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Data.List    using (List; map; length; []; _∷_; filter; foldr)
+open import Data.List    using (List; map; length; []; _∷_; filter; foldr; sum)
 open import Data.Char    using (Char; toℕ; fromℕ)
 open import Data.String  using (String; toList; fromList)
 open import Data.Nat     using (ℕ)
@@ -22,15 +22,11 @@ open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
--- Re-export multi-currency values.
-open import UTxO.Value public
-  using (Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
-
 ------------------------------------------------------------------------
 -- Basic types.
 
-HashId : Set
-HashId = ℕ
+HashId   = ℕ
+Quantity = ℕ
 
 -----------------------------------------
 -- First-order data values.
@@ -72,11 +68,11 @@ record PendingTxInput : Set where
     validatorHash : HashId
     dataHash      : HashId
     redeemerHash  : HashId
-    value         : Value
+    value         : Quantity
 
 record PendingTxOutput : Set where
   field
-    value         : Value
+    value         : Quantity
     validatorHash : HashId
     dataHash      : HashId
 
@@ -88,8 +84,8 @@ record PendingTx : Set where
     -- validityInterval : SlotRange
     dataWitnesses : List (HashId × DATA)
     txHash        : HashId
-    fee           : Value
-    forge         : Value
+    fee           : Quantity
+    forge         : Quantity
 
 --------------------------------------------------------------------------
 -- Output references and inputs.
@@ -223,5 +219,5 @@ getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; out
 ownCurrencySymbol : PendingTx → HashId
 ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
 
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
+valueSpent : PendingTx → Quantity
+valueSpent = sum ∘ map PendingTxInput.value ∘ PendingTx.inputInfo

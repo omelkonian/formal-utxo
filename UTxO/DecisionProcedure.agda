@@ -86,13 +86,13 @@ preservesValues? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ᵗˣ ≡ id (outputRef i)) l)
   → (v₂ : ∀ i → (i∈ : i ∈ inputs tx) →
             index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-  → Dec (forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
+  → Dec (forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
            ≡
-         fee tx +ᶜ sumᶜ (map value (outputs tx)))
+         fee tx + sum (map value (outputs tx)))
 preservesValues? tx l v₁ v₂ =
-  forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
-    ≟ᶜ
-  fee tx +ᶜ sumᶜ (map value (outputs tx))
+  forge tx + sum (mapWith∈ (inputs tx) λ {i} i∈ → lookupValue l i (v₁ i i∈) (v₂ i i∈))
+    ≟
+  fee tx + sum (map value (outputs tx))
 
 noDoubleSpending? : ∀ (tx : Tx) (l : Ledger)
   → Dec (Unique (map outputRef (inputs tx)))

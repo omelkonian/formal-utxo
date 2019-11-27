@@ -5,7 +5,6 @@ open import UTxO.Hashing.Types
 open import UTxO.Hashing.Tx
 open import UTxO.Hashing.MetaHash
 
-open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Ledger
 open import UTxO.TxUtilities
