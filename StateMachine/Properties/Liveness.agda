@@ -1,4 +1,4 @@
-module StateMachine.Properties where
+module StateMachine.Properties.Liveness where
 
 open import Function using (_∘_; case_of_)
 
@@ -28,7 +28,7 @@ open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong
   renaming ([_] to ≡[_])
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
-open import Prelude.Lists -- using (Index; _‼_)
+open import Prelude.Lists
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
