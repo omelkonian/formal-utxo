@@ -1,18 +1,19 @@
 module StateMachine.Base where
 
-open import Function using (_∘_)
+open import Function using (_∘_; case_of_)
 
-open import Data.Product using (proj₁; proj₂)
-open import Data.Bool    using (Bool; true; false; _∧_)
-open import Data.Maybe   using (Maybe; nothing; fromMaybe)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_)
+open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
 open import Data.List    using (List; null; []; _∷_; filter; map)
 open import Data.Nat     using ()
   renaming (_≟_ to _≟ℕ_)
 
-open import UTxO.Types using ( HashId; Value
-                             ; DATA; IsData; toData; fromData; _==_
-                             ; PendingTx; PendingTxOutput; findData; getContinuingOutputs )
+open import Relation.Nullary.Decidable            using (⌊_⌋)
+open import Relation.Binary.PropositionalEquality using (_≡_)
+
+open import UTxO.Types hiding (I)
 
 -- A State Machine library for smart contracts, based on very similar
 -- library for Plutus Smart contracts
@@ -25,43 +26,47 @@ open import UTxO.Types using ( HashId; Value
 record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
   field
+    isInitial : S → Bool
+    isFinal   : S → Bool
+    step      : S → I → Maybe S
 
-    smTransition : S → I → Maybe S
-    -- ^ The transition function of the state machine. 'nothing'
-    -- indicates an invalid transition from the current state.
-
-    smCheck : S → I → PendingTx → Bool
-    -- ^ The condition checking function. Checks whether a given state
-    -- transition is allowed given the 'PendingTx'.
-
-    smFinal : S → Bool
-    -- ^ The final state predicate. Indicates whether a given state is
-    -- final (the machine halts in that state).
+open StateMachine public
 
 Validator : Set
 Validator = PendingTx → DATA → DATA → Bool
 
 mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
-mkValidator {S} {I} (SM[ step , check , final ]) ptx input′ currentState′
-    = fromMaybe false ⦇ checkOK ∧ stateAndOutputsOK ⦈
+mkValidator {S} {I} SM[ _ , final , step ] ptx input state
+    = fromMaybe false (state′ >>= outputsOK)
   where
-    currentState : Maybe S
-    currentState = fromData currentState′
+    state′ : Maybe S
+    state′ with ⦇ step (fromData state) (fromData input) ⦈
+    ... | pure r = r
+    ... | _      = nothing
 
-    input : Maybe I
-    input = fromData input′
+    outs : List PendingTxOutput
+    outs = getContinuingOutputs ptx
 
-    checkOK : Maybe Bool
-    checkOK = ⦇ check currentState input (pure ptx) ⦈
+    outputsOK : S → Maybe Bool
+    outputsOK st =
+      if final st
+        then pure (null outs)
+      else
+        case outs of λ{ (o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
+                      ; _        → pure false }
 
-    checkFinal : S → Maybe Bool
-    checkFinal newState with final newState | getContinuingOutputs ptx
-    ... | true  | outs     = pure (null outs)
-    ... | false | (o ∷ []) = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData newState) ⦈
-    ... | false | _        = pure false
+    -- The following forms break the `liveness` proof, as we can rewrite with the value of `final st`
+    -- Possibly an Agda bug?
 
-    stateAndOutputsOK : Maybe Bool
-    stateAndOutputsOK with ⦇ step currentState input ⦈
-    ... | pure (pure s) = checkFinal s
-    ... | _             = nothing
+    -- (1) using case_of_
+    -- case (final st , getContinuingOutputs ptx) of
+    -- λ { (true  , outs  ) → pure (null outs)
+    --   ; (false , o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
+    --   ; (false , _     ) → pure false }
+
+    -- (2) using with pattern-matching
+    --   with final st | getContinuingOutputs ptx
+    -- ... | true  | outs   = pure (null outs)
+    -- ... | false | o ∷ [] = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
+    -- ... | false | _      = pure false

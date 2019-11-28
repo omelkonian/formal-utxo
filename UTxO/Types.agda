@@ -5,6 +5,7 @@ module UTxO.Types where
 
 open import Function using (_∘_)
 
+open import Data.Empty   using (⊥-elim)
 open import Data.Bool    using (Bool)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.List    using (List; map; length; []; _∷_; filter; foldr)
@@ -54,7 +55,16 @@ record IsData (A : Set) : Set where
   field
     toData   : A → DATA
     fromData : DATA → Maybe A
+    from∘to  : ∀ x → fromData (toData x) ≡ pure x
 open IsData {{...}} public
+
+open import Relation.Binary.PropositionalEquality.TrustMe using (trustMe)
+
+fromℕ∘toℕ : ∀ c → fromℕ (toℕ c) ≡ c
+fromℕ∘toℕ c = trustMe
+
+fromList∘toList : ∀ s → fromList (toList s) ≡ s
+fromList∘toList s = trustMe
 
 instance
   IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
@@ -62,14 +72,21 @@ instance
   fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
     where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
 
+  from∘to  {{IsDataˡ}} []       = refl
+  from∘to  {{IsDataˡ}} (x ∷ xs) rewrite from∘to x | from∘to xs = refl
+
   IsDataᶜ : IsData Char
   toData   {{IsDataᶜ}}       = I ∘ +_ ∘ toℕ
   fromData {{IsDataᶜ}} (I z) = pure (fromℕ ∣ z ∣)
   fromData {{IsDataᶜ}} _     = nothing
 
+  from∘to  {{IsDataᶜ}} c rewrite fromℕ∘toℕ c = refl
+
   IsDataˢ : IsData String
   toData   {{IsDataˢ}} = toData ∘ toList
   fromData {{IsDataˢ}} = mapₘ fromList ∘ fromData
+
+  from∘to  {{IsDataˢ}} xs rewrite from∘to (toList xs) | fromList∘toList xs = refl
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
@@ -98,6 +115,35 @@ record PendingTx : Set where
     txHash        : HashId
     fee           : Value
     forge         : Value
+
+toMaybe : ∀ {A : Set} → List A → Maybe A
+toMaybe []      = nothing
+toMaybe (x ∷ _) = pure x
+
+findData : HashId → PendingTx → Maybe DATA
+findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
+
+getContinuingOutputs : PendingTx → List PendingTxOutput
+getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
+  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
+
+ownHashes : PendingTx → (HashId × HashId × HashId)
+ownHashes record {thisInput = record {validatorHash = h₁; redeemerHash = h₂; dataHash = h₃}} = h₁ , h₂ , h₃
+
+ownHash : PendingTx → HashId
+ownHash = proj₁ ∘ ownHashes
+
+valueSpent : PendingTx → Value
+valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
+
+thisValueSpent : PendingTx → Value
+thisValueSpent = PendingTxInput.value ∘ PendingTx.thisInput
+
+outputsAt : HashId → PendingTx → List PendingTxOutput
+outputsAt h = filter ((_≟ℕ h) ∘ PendingTxOutput.validatorHash) ∘ PendingTx.outputInfo
+
+valueLockedBy : PendingTx → HashId → Value
+valueLockedBy ptx h = sumᶜ (map PendingTxOutput.value (outputsAt h ptx))
 
 --------------------------------------------------------------------------
 -- Output references and inputs.
@@ -215,21 +261,12 @@ Set⟨DATA⟩ = Set' where open SETᵈ
 _==_ : DATA → DATA → Bool
 x == y = ⌊ x ≟ᵈ y ⌋
 
--- Utilities for pending transactions.
+≟ℕ-refl : ∀ {x} → (x ≟ℕ x) ≡ yes refl
+≟ℕ-refl {x} with x ≟ℕ x
+... | no ¬p    = ⊥-elim (¬p refl)
+... | yes refl = refl
 
-findData : HashId → PendingTx → Maybe DATA
-findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
-  where
-    toMaybe : ∀ {A : Set} → List A → Maybe A
-    toMaybe []      = nothing
-    toMaybe (x ∷ _) = pure x
-
-getContinuingOutputs : PendingTx → List PendingTxOutput
-getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
-  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
-
-ownCurrencySymbol : PendingTx → HashId
-ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
-
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
+≟ᵈ-refl : ∀ {x} → (x ≟ᵈ x) ≡ yes refl
+≟ᵈ-refl {x} with x ≟ᵈ x
+... | no ¬p    = ⊥-elim (¬p refl)
+... | yes refl = refl

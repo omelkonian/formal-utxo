@@ -2,8 +2,8 @@ module StateMachine.GuessingGame where
 
 open import Function using (_∘_; const; case_of_)
 
-open import Data.Bool    using (Bool; true; false; _∧_)
-open import Data.Product using (_,_)
+open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_)
+open import Data.Product using (_×_; _,_)
 open import Data.Maybe   using (Maybe; just; nothing; _>>=_; ap)
   renaming (map to mapₘ)
 open import Data.Nat     using ()
@@ -13,69 +13,54 @@ open import Data.Char    using (Char; toℕ; fromℕ)
 open import Data.String  using (String; toList; fromList)
 open import Data.List    using (List; []; _∷_; [_]; foldr; map)
 
-open import Relation.Nullary.Decidable using (⌊_⌋)
+open import Relation.Nullary.Decidable            using (⌊_⌋)
+open import Relation.Binary.PropositionalEquality using (refl)
 
 open import UTxO.Hashing.Base using (_♯ₛₜᵣ)
-open import UTxO.Types using ( HashId; Value; _≟ᶜ_; _≥ᶜ_; $0
-                             ; DATA; I; H; LIST
-                             ; IsData; toData; fromData; IsDataˢ
-                             ; PendingTx; PendingTxOutput
-                             ; findData; getContinuingOutputs; ownCurrencySymbol; valueSpent )
-
-open import StateMachine.Base as SM using (Validator; StateMachine; SM[_,_,_])
+open import UTxO.Types
+open import StateMachine.Base renaming (mkValidator to mkValidator₀)
 
 HashedString = HashId
-TokenName    = HashId
 ClearString  = String
 
 data GameState : Set where
-  Initialised : HashedString → GameState
-  Locked      : TokenName → HashedString → GameState
+  Initialised : GameState
+  Locked      : HashedString → GameState
 
 data GameInput : Set where
-  ForgeToken : TokenName → GameInput
-  Guess      : ClearString → HashedString → GameInput
+  StartGame : HashedString → GameInput
+  Guess     : ClearString → HashedString → GameInput
 
 instance
   IsDataᵍˢ : IsData GameState
-  toData   {{IsDataᵍˢ}} (Initialised hs)          = H hs
-  toData   {{IsDataᵍˢ}} (Locked tn hs)            = LIST (H tn ∷ H hs ∷ [])
-  fromData {{IsDataᵍˢ}} (H hs)                    = just (Initialised hs)
-  fromData {{IsDataᵍˢ}} (LIST (H tn ∷ H hs ∷ [])) = just (Locked tn hs)
-  fromData {{IsDataᵍˢ}} _                         = nothing
+  toData   {{IsDataᵍˢ}} Initialised = LIST []
+  toData   {{IsDataᵍˢ}} (Locked hs) = H hs
+  fromData {{IsDataᵍˢ}} (LIST [])   = just Initialised
+  fromData {{IsDataᵍˢ}} (H hs)      = just (Locked hs)
+  fromData {{IsDataᵍˢ}} _           = nothing
+
+  from∘to  {{IsDataᵍˢ}} Initialised = refl
+  from∘to  {{IsDataᵍˢ}} (Locked _)  = refl
 
   IsDataᵍⁱ : IsData GameInput
-  toData   {{IsDataᵍⁱ}} (ForgeToken tn)        = H tn
+  toData   {{IsDataᵍⁱ}} (StartGame hs)         = H hs
   toData   {{IsDataᵍⁱ}} (Guess cs hs)          = LIST (toData cs ∷ H hs ∷ [])
-  fromData {{IsDataᵍⁱ}} (H tn)                 = just (ForgeToken tn)
+  fromData {{IsDataᵍⁱ}} (H hs)                 = just (StartGame hs)
   fromData {{IsDataᵍⁱ}} (LIST (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData d)
   fromData {{IsDataᵍⁱ}} _                      = nothing
 
-step : GameState → GameInput → Maybe GameState
-step (Initialised s) (ForgeToken tn)      = just (Locked tn s)
-step (Locked tn _)   (Guess _ nextSecret) = just (Locked tn nextSecret)
-step _               _                    = nothing
-
-checkGuess : HashedString → ClearString → Bool
-checkGuess hashed clear = ⌊ (clear ♯ₛₜᵣ) ≟ℕ hashed ⌋
-
-check : GameState → GameInput → PendingTx → Bool
-check state input ptx = case (state , input) of λ
-  { (Initialised _ , ForgeToken tn)    → checkForge (tokenVal tn)
-  ; (Locked tn cur , Guess theGuess _) → checkGuess cur theGuess ∧ tokenPresent tn ∧ checkForge $0
-  ; _                                  → false }
-  where
-    tokenVal : TokenName → Value
-    tokenVal tn = [ ownCurrencySymbol ptx , [ tn , 1 ] ]
-
-    tokenPresent : TokenName → Bool
-    tokenPresent tn = valueSpent ptx ≥ᶜ tokenVal tn
-
-    checkForge : Value → Bool
-    checkForge v = ⌊ v ≟ᶜ PendingTx.forge ptx ⌋
+  from∘to  {{IsDataᵍⁱ}} (StartGame _) = refl
+  from∘to  {{IsDataᵍⁱ}} (Guess cs _)  rewrite from∘to cs = refl
 
 GameStateMachine : StateMachine GameState GameInput
-GameStateMachine = SM[ step , check , const false ]
+isInitial GameStateMachine Initialised = true
+isInitial GameStateMachine (Locked _)  = false
+
+isFinal GameStateMachine = const false
+
+step GameStateMachine Initialised (StartGame hs) = just (Locked hs)
+step GameStateMachine (Locked hs) (Guess cs hs′) = if ⌊ (cs ♯ₛₜᵣ) ≟ℕ hs ⌋ then just (Locked hs′) else nothing
+step GameStateMachine _           _              = nothing
 
 mkValidator : Validator
-mkValidator = SM.mkValidator GameStateMachine
+mkValidator = mkValidator₀ GameStateMachine
