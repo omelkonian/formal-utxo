@@ -99,6 +99,35 @@ record PendingTx : Set where
     fee           : Value
     forge         : Value
 
+findData : HashId → PendingTx → Maybe DATA
+findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
+  where
+    toMaybe : ∀ {A : Set} → List A → Maybe A
+    toMaybe []      = nothing
+    toMaybe (x ∷ _) = pure x
+
+getContinuingOutputs : PendingTx → List PendingTxOutput
+getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
+  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
+
+ownHashes : PendingTx → (HashId × HashId × HashId)
+ownHashes record {thisInput = record {validatorHash = h₁; redeemerHash = h₂; dataHash = h₃}} = h₁ , h₂ , h₃
+
+ownHash : PendingTx → HashId
+ownHash = proj₁ ∘ ownHashes
+
+valueSpent : PendingTx → Value
+valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
+
+thisValueSpent : PendingTx → Value
+thisValueSpent = PendingTxInput.value ∘ PendingTx.thisInput
+
+outputsAt : HashId → PendingTx → List PendingTxOutput
+outputsAt h = filter ((_≟ℕ h) ∘ PendingTxOutput.validatorHash) ∘ PendingTx.outputInfo
+
+valueLockedBy : PendingTx → HashId → Value
+valueLockedBy ptx h = sumᶜ (map PendingTxOutput.value (outputsAt h ptx))
+
 --------------------------------------------------------------------------
 -- Output references and inputs.
 
@@ -214,22 +243,3 @@ Set⟨DATA⟩ = Set' where open SETᵈ
 
 _==_ : DATA → DATA → Bool
 x == y = ⌊ x ≟ᵈ y ⌋
-
--- Utilities for pending transactions.
-
-findData : HashId → PendingTx → Maybe DATA
-findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
-  where
-    toMaybe : ∀ {A : Set} → List A → Maybe A
-    toMaybe []      = nothing
-    toMaybe (x ∷ _) = pure x
-
-getContinuingOutputs : PendingTx → List PendingTxOutput
-getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
-  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
-
-ownCurrencySymbol : PendingTx → HashId
-ownCurrencySymbol = PendingTxInput.validatorHash ∘ PendingTx.thisInput
-
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo

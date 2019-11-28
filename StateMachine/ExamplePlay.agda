@@ -49,37 +49,31 @@ postulate
   eq : mkValidator ♯ ≡ 𝕍
 {-# REWRITE eq #-}
 
-tn : TokenName
-tn = "guess" ♯ₛₜᵣ
-
 -----------------------------------------------------------------------
-
-$ : ℕ → Value
-$ v = [ 𝕍 , [ tn , v ] ]
 
 -- define transactions
 t₀ : Tx
 inputs  t₀ = []
-outputs t₀ = [ Initialised ("zero" ♯ₛₜᵣ) —→ $0 at 𝕍 ]
+outputs t₀ = [ Initialised —→ $0 at 𝕍 ]
 forge   t₀ = $0
 fee     t₀ = $0
 
 t₁ : Tx
-inputs  t₁ = t₀ at 0 ←— ForgeToken tn
+inputs  t₁ = t₀ at 0 ←— StartGame ("zero" ♯ₛₜᵣ)
            ∷ []
-outputs t₁ = [ Locked tn ("zero" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
+outputs t₁ = [ Locked ("zero" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
 forge   t₁ = $ 1
 fee     t₁ = $0
 
 t₂ : Tx
 inputs  t₂ =  [ t₁ at 0 ←— Guess "zero" ("one" ♯ₛₜᵣ) ]
-outputs t₂ =  [ Locked tn ("one" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
+outputs t₂ =  [ Locked ("one" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
 forge   t₂ = $0
 fee     t₂ = $0
 
 t₃ : Tx
 inputs  t₃ =  [ t₂ at 0 ←— Guess "one" ("two" ♯ₛₜᵣ) ]
-outputs t₃ =  [ Locked tn ("two" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
+outputs t₃ =  [ Locked ("two" ♯ₛₜᵣ) —→ $ 1 at 𝕍 ]
 forge   t₃ = $0
 fee     t₃ = $0
 
@@ -88,6 +82,105 @@ ex-ledger = ∙ ⊕ t₀ ⊕ t₁ ⊕ t₂ ⊕ t₃
 
 -----------------------------------------------------------------------
 
+open import Function using (_∘_)
+
+open import Data.Bool    using (T; if_then_else_)
+open import Data.Product using (∃; ∃-syntax; Σ-syntax)
+open import Data.Maybe   using (Is-just)
+open import Data.Fin     using (Fin; toℕ)
+
+open import Data.List.Relation.Unary.Any       using (Any; here; there)
+open import Data.List.Membership.Propositional using (_∈_)
+
+open import Relation.Nullary           using (yes; no)
+open import Relation.Nullary.Decidable using (⌊_⌋)
+
+open import Prelude.Lists using (Index; _‼_)
+
+from∘to : ∀ (x : GameState) → fromData (toData x) ≡ just x
+from∘to x = {!!}
+
+compile : ∀ {s : GameState} {i : GameInput} {s′ : GameState} {l : Ledger} {constraints : TxConstraints}
+            {prevTx : Tx} {j : Index (outputs prevTx)}
+
+    -- `s —→[i] s′` constitutes a valid transition in the state machine (subject to certain constraints)
+  → step s i ≡ just (s′ , constraints)
+
+    -- existing ledger is valid
+  → (vl : ValidLedger l)
+
+  → let prevTxRef = (prevTx ♯ₜₓ) indexed-at (toℕ j) in
+
+    -- there is an unspent output...
+    prevTxRef ∈ SETₒ.list (unspentOutputs l)
+
+    -- ... whose data value is the source state
+  → fromData (dataVal (outputs prevTx ‼ j)) ≡ just s
+
+    ---------------------------------------------------------------------------------------
+
+  → ∃[ tx ]
+       ( -- (1) new transaction is valid
+         IsValidTx tx l
+         -- (2) it contains the source state in its inputs, using the state machine's validator
+       × Any (λ i → (outputRef i ≡ prevTxRef) × ((validator i) ♯ ≡ 𝕍)) (inputs tx)
+         -- (3) it contains the target state in its outputs
+       × Any ((_≡ just s′) ∘ fromData ∘ dataVal) (outputs tx)
+         -- (4) the constraints, imposed by the state machine, are satisfied
+       -- × tx -satisfies- constraints
+       )
+
+compile {s} {i} {s′} {l} {constraints} {prevTx} {j} step≡ vl p∈ data≡
+  with s | i | s′ | constraints | step≡
+... | Initialised | StartGame hs | Locked hs′ | .(forge≡ 1)  | refl
+    = tx , vtx , here (refl , refl) , here {!!}
+    where
+      tx : Tx
+      inputs  tx = [ prevTx at (toℕ j) ←— i ]
+      outputs tx = [ s′ —→ $ 1 at 𝕍 ]
+      forge   tx = $ 1
+      fee     tx = $0
+
+      vtx : IsValidTx tx l
+      validTxRefs         vtx = {!!}
+      validOutputIndices  vtx = {!!}
+      validOutputRefs     vtx = {!!}
+      preservesValues     vtx = {!!}
+      noDoubleSpending    vtx = {!!}
+      allInputsValidate   vtx = {!!}
+      validateValidHashes vtx = {!!}
+
+... | Locked hs   | Guess cs hs′ | _          | constraints′ | step≡′ = {!!}
+
+{-
+compile {s} {i} {s′} {l} {constraints} vl step≡
+  = tx , vtx
+  where
+    v′ : Value
+    v′ = {!!}
+
+    tx : Tx
+    inputs  tx = [ prevTx at j ←— i ]
+    outputs tx = {-if final s′ then [] else-} [ s′ —→ v′ at 𝕍 ]
+    forge   tx = getForge i
+    fee     tx = $0
+
+    vtx : IsValidTx tx l
+    validTxRefs         vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validOutputIndices  vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validOutputRefs     vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    preservesValues     vtx = {!!}
+    noDoubleSpending    vtx = {!!}
+    allInputsValidate   vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+    validateValidHashes vtx = λ{ i (here refl) → {!!}
+                               ; i (there ()) }
+-}
+
+{-
 infix  -2 begin_
 infixr -1 _—→[_]_
 infix  0 _∎
@@ -146,3 +239,4 @@ compile t with view t
 
 _ : compile ex-transition ≡ t₃ ∷ t₂ ∷ t₁ ∷ t₀ ∷ []
 _ = refl
+-}
