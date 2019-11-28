@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module StateMachine.Properties where
 
 open import Function using (_∘_; case_of_)
@@ -29,7 +28,7 @@ open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong
   renaming ([_] to ≡[_])
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
-open import Prelude.Lists using (Index; _‼_)
+open import Prelude.Lists -- using (Index; _‼_)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -43,34 +42,6 @@ open import UTxO.Ledger      Address (λ x → x) _≟ℕ_
 open import UTxO.TxUtilities Address (λ x → x) _≟ℕ_
 open import UTxO.Hashing.Tx  Address (λ x → x) _≟ℕ_
 open import UTxO.Validity    Address (λ x → x) _≟ℕ_
-
-toℕ< : ∀ {n} (fin : Fin n) → toℕ fin < n
-toℕ< fzero    = s≤s z≤n
-toℕ< (fsuc f) = s≤s (toℕ< f)
-
-‼-index : ∀ {A : Set} {x : A} {xs : List A} {x∈xs : x ∈ xs}
-  → (xs ‼ Any.index x∈xs) ≡ x
-‼-index = {!!}
-
-‼-fromℕ<∘toℕ< : ∀ {A : Set} {xs : List A} {i : Index xs}
-  → (xs ‼ fromℕ< (toℕ< i)) ≡ (xs ‼ i)
-‼-fromℕ<∘toℕ< = {!!}
-
-proj₁∘find : ∀ {A : Set} {x : A} {xs : List A}
-  → (x∈xs : x ∈ xs)
-  → proj₁ (find x∈xs) ≡ x
-proj₁∘find (here refl) = refl
-proj₁∘find (there x∈)  = proj₁∘find x∈
-
-tx♯∈utxo→tx∈l : ∀ {tx : Tx} {l : Ledger} {j : ℕ}
-  → ((tx ♯ₜₓ) indexed-at j) ∈ SETₒ.list (unspentOutputs l)
-  → tx ∈ l
-tx♯∈utxo→tx∈l {l = []} ()
-tx♯∈utxo→tx∈l {l = tx ∷ txs} tx♯∈ = {!!}
---   with SETₒ.∈-∪ {ys = unspentOutputsTx tx} tx♯∈
--- ... | inj₂ tx♯∈tx  = {!!}
--- ... | inj₁ tx♯∈txs = there {!!}
--- (tx♯∈utxo→tx∈l (SETₒ.∈-─ {xs = unspentOutputs txs SETₒ.─ spentOutputsTx tx} tx♯∈txs))
 
 liveness : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
              {s : S} {i : I} {s′ : S} {l : Ledger}
@@ -137,7 +108,7 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
     fee     tx = $0
 
     prevTx∈ : prevTx ∈ l
-    prevTx∈ = tx♯∈utxo→tx∈l prev∈utxo
+    prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
 
     prevTx♯∈ : Any (λ tx → tx ♯ₜₓ ≡ prevTx ♯ₜₓ) l
     prevTx♯∈ = Any.map (cong _♯ₜₓ ∘ sym) prevTx∈
@@ -159,8 +130,8 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
     lookupPrevOutput≡ : lookupOutput l prevTxRef prevTx♯∈ len< ≡ prevOut
     lookupPrevOutput≡
       rewrite lookupPrevTx≡
-            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} {i = Any.index prevOut∈prevTx}
-            | ‼-index {x∈xs = prevOut∈prevTx}
+            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevOut∈prevTx)
+            | ‼-index prevOut∈prevTx
             = refl
 
     lookupValue≡ : lookupValue l (prevTx at j ←— i) prevTx♯∈ len< ≡ v
@@ -359,7 +330,7 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
     fee     tx = $0
 
     prevTx∈ : prevTx ∈ l
-    prevTx∈ = tx♯∈utxo→tx∈l prev∈utxo
+    prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
 
     prevTx♯∈ : Any (λ tx → tx ♯ₜₓ ≡ prevTx ♯ₜₓ) l
     prevTx♯∈ = Any.map (cong _♯ₜₓ ∘ sym) prevTx∈
@@ -381,8 +352,8 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
     lookupPrevOutput≡ : lookupOutput l prevTxRef prevTx♯∈ len< ≡ prevOut
     lookupPrevOutput≡
       rewrite lookupPrevTx≡
-            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} {i = Any.index prevOut∈prevTx}
-            | ‼-index {x∈xs = prevOut∈prevTx}
+            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevOut∈prevTx)
+            | ‼-index prevOut∈prevTx
             = refl
 
     lookupValue≡ : lookupValue l (prevTx at j ←— i) prevTx♯∈ len< ≡ v
@@ -620,7 +591,7 @@ liveness′ {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ final≡ vl pre
     fee     tx = $0
 
     prevTx∈ : prevTx ∈ l
-    prevTx∈ = tx♯∈utxo→tx∈l prev∈utxo
+    prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
 
     prevTx♯∈ : Any (λ tx → tx ♯ₜₓ ≡ prevTx ♯ₜₓ) l
     prevTx♯∈ = Any.map (cong _♯ₜₓ ∘ sym) prevTx∈
@@ -642,8 +613,8 @@ liveness′ {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ final≡ vl pre
     lookupPrevOutput≡ : lookupOutput l prevTxRef prevTx♯∈ len< ≡ prevOut
     lookupPrevOutput≡
       rewrite lookupPrevTx≡
-            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} {i = Any.index prevOut∈prevTx}
-            | ‼-index {x∈xs = prevOut∈prevTx}
+            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevOut∈prevTx)
+            | ‼-index prevOut∈prevTx
             = refl
 
     lookupValue≡ : lookupValue l (prevTx at j ←— i) prevTx♯∈ len< ≡ v

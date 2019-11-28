@@ -1,17 +1,19 @@
 open import Function using (_∘_; _∋_; flip; _$_)
 
-open import Data.Empty    using (⊥; ⊥-elim)
-open import Data.Unit     using (⊤; tt)
-open import Data.Bool     using (Bool; T)
-open import Data.Product  using (_×_; _,_; proj₁; ∃; ∃-syntax; Σ; Σ-syntax)
-open import Data.Nat      using (ℕ; zero; suc; _+_; _<_; _≟_)
-open import Data.Fin      using (Fin; toℕ; fromℕ<)
-open import Data.List     using ([]; _∷_; length; map)
-open import Data.List.Any using (Any)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈; find)
-open import Data.Maybe using (nothing)
+open import Data.Empty   using (⊥; ⊥-elim)
+open import Data.Unit    using (⊤; tt)
+open import Data.Bool    using (Bool; T)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃; ∃-syntax; Σ; Σ-syntax)
+open import Data.Sum     using (inj₁; inj₂)
+open import Data.Nat     using (ℕ; zero; suc; _+_; _<_; _≟_)
+open import Data.Fin     using (Fin; toℕ; fromℕ<)
+open import Data.Maybe   using (nothing)
+open import Data.List    using ([]; _∷_; length; map)
 
-open import Relation.Nullary                      using (yes; no)
+open import Data.List.Membership.Propositional            using (_∈_; mapWith∈; find)
+open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
+open import Data.List.Relation.Unary.Any                  using (Any; here; there)
+
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
@@ -32,7 +34,7 @@ open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
 open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
 
 module _ where
-  open SETₒ
+  open SETₒ hiding (_∈_)
 
   unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
   unspentOutputsTx tx = fromList (map ((tx ♯ₜₓ) indexed-at_) (indices (outputs tx)))
@@ -44,6 +46,28 @@ module _ where
   unspentOutputs []         = ∅
   unspentOutputs (tx ∷ txs) = unspentOutputs txs ─ spentOutputsTx tx
                             ∪ unspentOutputsTx tx
+
+  -- Properties
+  tx♯∈⇒tx∈ : ∀ {l : Ledger} {tx : Tx} {j : ℕ}
+    → ((tx ♯ₜₓ) indexed-at j) ∈′ unspentOutputs l
+    → tx ∈ l
+  tx♯∈⇒tx∈ {l = tx′ ∷ txs} {tx = tx} {j = j} tx∈
+    with ∈-∪ {xs = unspentOutputs txs ─ spentOutputsTx tx′} {ys = unspentOutputsTx tx′} tx∈
+  ... | inj₁ tx∈ˡ = there (tx♯∈⇒tx∈ (∈-─ {xs = unspentOutputs txs} {ys = spentOutputsTx tx′} tx∈ˡ))
+  ... | inj₂ tx∈ʳ = here (tx♯∈⇒tx≡ tx∈ʳ)
+    where
+      injective-indexed-at : ∀ {x y i j}
+        → x indexed-at i ≡ y indexed-at j
+        → (x ≡ y) × (i ≡ j)
+      injective-indexed-at refl = refl , refl
+
+      tx♯∈⇒tx≡ : ∀ {j tx tx′}
+        → ((tx ♯ₜₓ) indexed-at j) ∈′ unspentOutputsTx tx′
+        → tx ≡ tx′
+      tx♯∈⇒tx≡ {tx′ = tx} = injective♯ₜₓ
+                          ∘ proj₁ ∘ injective-indexed-at
+                          ∘ proj₂ ∘ proj₂ ∘ ∈-map⁻ ((tx ♯ₜₓ) indexed-at_) {xs = indices (outputs tx)}
+                          ∘ ∈-nub
 
 lookupTx : (l : Ledger)
          → (out : TxOutputRef)
