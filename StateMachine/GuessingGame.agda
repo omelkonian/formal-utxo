@@ -18,7 +18,7 @@ open import Relation.Binary.PropositionalEquality using (refl)
 
 open import UTxO.Hashing.Base using (_♯ₛₜᵣ)
 open import UTxO.Types
-open import StateMachine.Base renaming (mkValidator to mkValidator₀)
+open import StateMachine.Base
 
 HashedString = HashId
 ClearString  = String
@@ -62,5 +62,5 @@ step GameStateMachine Initialised (StartGame hs) = just (Locked hs)
 step GameStateMachine (Locked hs) (Guess cs hs′) = if ⌊ (cs ♯ₛₜᵣ) ≟ℕ hs ⌋ then just (Locked hs′) else nothing
 step GameStateMachine _           _              = nothing
 
-mkValidator : Validator
-mkValidator = mkValidator₀ GameStateMachine
+gameValidator : Validator
+gameValidator = mkValidator GameStateMachine

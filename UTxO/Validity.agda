@@ -26,6 +26,8 @@ open import UTxO.Ledger      Address _♯ₐ _≟ₐ_
 open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_
 open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_
 
+open import Data.List using (List)
+
 record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
   field
@@ -38,11 +40,11 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
       ∀ i → (i∈ : i ∈ inputs tx) →
           index (outputRef i) < length (outputs (lookupTx l (outputRef i) (validTxRefs i i∈)))
 
+    -----------------------------------------------------------------------------------------
+
     validOutputRefs :
       ∀ i → i ∈ inputs tx →
         outputRef i SETₒ.∈′ unspentOutputs l
-
-    -----------------------------------------------------------------------------------------
 
     preservesValues :
       forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →

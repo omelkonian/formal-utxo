@@ -155,13 +155,16 @@ record TxOutputRef : Set where
     index : ℕ
 open TxOutputRef public
 
+Validator : Set
+Validator = PendingTx -- ^ parts of the currently validated transaction
+          → DATA      -- ^ result value of the redeemer script
+          → DATA      -- ^ result value of the data script
+          → Bool
+
 record TxInput : Set where
   field
     outputRef : TxOutputRef
-    validator : PendingTx -- ^ parts of the currently validated transaction
-              → DATA      -- ^ result value of the redeemer script
-              → DATA      -- ^ result value of the data script
-              → Bool
+    validator : Validator
     redeemer  : DATA
 
 open TxInput public

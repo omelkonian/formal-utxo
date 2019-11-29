@@ -34,7 +34,7 @@ open import UTxO.DecisionProcedure Address (λ x → x) _≟_
 3ᵃ : Address
 3ᵃ = 333 -- third address
 
-mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
+mkValidator : TxOutputRef → Validator
 mkValidator tin _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
 mkValidator tin _ _ _                                        = false
 
