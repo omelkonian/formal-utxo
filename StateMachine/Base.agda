@@ -50,8 +50,8 @@ mkValidator {S} {I} SM[ _ , final , step ] ptx input state
 
     outputsOK : S → Maybe Bool
     outputsOK st =
-      if final st
-        then pure (null outs)
+      if final st then
+        pure (null outs)
       else
         case outs of λ{ (o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
                       ; _        → pure false }

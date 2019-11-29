@@ -1,18 +1,23 @@
 module StateMachine.Properties.Safety where
 
-open import Data.Bool    using (T)
+open import Data.Unit    using (tt)
+open import Data.Bool    using (Bool; T; true; false; if_then_else_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax)
-open import Data.Maybe   using ()
+open import Data.Maybe   using (Maybe; nothing; Is-just; _>>=_; fromMaybe)
   renaming (just to pure; ap to _<*>_)
-open import Data.Nat     using (ℕ; _<_)
+open import Data.Nat     using (ℕ; _<_; zero; suc; ≤-pred)
   renaming (_≟_ to _≟ℕ_)
 open import Data.Fin     using (toℕ; fromℕ<)
 open import Data.List    using (List; []; _∷_; [_]; map; length)
 
+open import Data.Maybe.Properties using (just-injective)
+
 open import Data.List.Membership.Propositional  using (_∈_; mapWith∈; find)
 open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
 
-open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong; sym; trans)
+open import Relation.Nullary using (yes; no)
+open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong; sym; trans; inspect)
+  renaming ([_] to ≡[_])
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
 open import Prelude.Lists
@@ -30,6 +35,42 @@ open import UTxO.TxUtilities Address (λ x → x) _≟ℕ_
 open import UTxO.Hashing.Tx  Address (λ x → x) _≟ℕ_
 open import UTxO.Validity    Address (λ x → x) _≟ℕ_
 
+module _ {S : Set} {{_ : IsData S}} {x′ : S} where
+
+    T (fromMaybe false (mx >>= k))
+  → ∃[ x ] (mx ≡ pure x)
+           ×
+
+  k : (S → Bool) → S → Maybe Bool
+  k b x =
+    if b x then
+      pure false
+    else
+      pure (toData x′ == toData x)
+
+  h : ∀ {mx : Maybe S} {b : S → Bool}
+    → T (fromMaybe false (mx >>= k b))
+    → ∃[ x ] ( (mx ≡ pure x)
+             × (x′ ≡ x) )
+  h {mx = mx} {b = b} p
+    with mx | p
+  ... | nothing | ()
+  ... | pure x  | p′
+    with k b x | inspect (k b) x | p′
+  ... | nothing    | _       | ()
+  ... | pure false | _       | ()
+  ... | pure true  | ≡[ k≡ ] | p″
+    with b x | k≡
+  ... | true  | ()
+  ... | false | k≡′
+    with toData x′ ≟ᵈ toData x | k≡′
+  ... | no _   | ()
+  ... | yes eq | _
+    with cong (fromData {A = S}) eq
+  ... | eq′
+    rewrite from∘to x | from∘to x′
+      = x , refl , just-injective eq′
+
 
 ∈⇒valid : ∀ {tx l}
   → tx ∈ l
@@ -37,6 +78,21 @@ open import UTxO.Validity    Address (λ x → x) _≟ℕ_
   → ∃[ l′ ] IsValidTx tx l′
 ∈⇒valid (here refl) (vl ⊕ t ∶- vtx) = _ , vtx
 ∈⇒valid (there tx∈) (vl ⊕ t ∶- vtx) = ∈⇒valid tx∈ vl
+
+fromℕ<-≡ : ∀ {A : Set} {xs : List A} {m : ℕ}
+  → (p₁ : m < length xs)
+  → (p₂ : m < length xs)
+  → fromℕ< p₁ ≡ fromℕ< p₂
+fromℕ<-≡ {xs = x ∷ xs} {zero}  p₁ p₂ = refl
+fromℕ<-≡ {xs = x ∷ xs} {suc m} p₁ p₂ rewrite fromℕ<-≡ {xs = xs} {m = m} (≤-pred p₁) (≤-pred p₂) = refl
+
+‼-fromℕ<-≡ : ∀ {A : Set} {xs ys : List A} {m : ℕ}
+  → (p₁ : m < length xs)
+  → (p₂ : m < length ys)
+  → xs ≡ ys
+  → (xs ‼ fromℕ< p₁)
+  ≡ (ys ‼ fromℕ< p₂)
+‼-fromℕ<-≡ {xs = xs} {m = m} p₁ p₂ refl rewrite fromℕ<-≡ {xs = xs} {m = m} p₁ p₂ = refl
 
 safety : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
            {s : S} {i : I} {s′ : S} {l : Ledger}
@@ -63,7 +119,7 @@ safety : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S 
 
   → step sm s i ≡ pure s′
 
-safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
+safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = fin
   where
     ds  = toData s
     di  = toData i
@@ -121,7 +177,8 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
 
     lookupPrevTx≡ : lookupTx l′ prevTxRef ∃tx≡id
                   ≡ prevTx
-    lookupPrevTx≡ =
+    lookupPrevTx≡ = {!!}
+      {-
       -- rewrite proj₁∘find ? = refl
       begin
         lookupTx l′ prevTxRef ∃tx≡id
@@ -130,6 +187,7 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
       ≡⟨ proj₁∘find∘♯ ∃tx≡id ⟩
         prevTx
       ∎
+      -}
 
     len<′ : index prevTxRef < length (outputs (lookupTx l′ prevTxRef ∃tx≡id))
     len<′ = v₂ txIn i∈
@@ -142,7 +200,8 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
 
     lookupOutput≡ : lookupOutput l′ (outputRef txIn) ∃tx≡id len<′
                   ≡ prevOut
-    lookupOutput≡ =
+    lookupOutput≡ = {!!}
+      {-
       -- rewrite lookupPrevTx≡
       --       | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevTxRef∈)
       --       | ‼-index prevTxRef∈
@@ -161,14 +220,14 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
       where
         h₁ : (outputs (lookupTx l′ prevTxRef ∃tx≡id) ‼ (fromℕ< len<′))
            ≡ (outputs prevTx ‼ (fromℕ< len<))
-        h₁ = {!!}
+        h₁ = ‼-fromℕ<-≡ len<′ len< (cong outputs lookupPrevTx≡)
 
         h₂ : (outputs prevTx ‼ (fromℕ< len<))
            ≡ prevOut
         h₂ rewrite ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevTxRef∈)
                  | ‼-index prevTxRef∈
                  = refl
-
+      -}
     open PendingTxInput
     open PendingTxOutput
     open PendingTx
@@ -181,7 +240,8 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
 
     ptxIn≡ : mkPendingTxIn l′ txIn ∃tx≡id len<′
            ≡ ptxIn
-    ptxIn≡ =
+    ptxIn≡ = {!!}
+      {-
       -- rewrite lookupOutput≡ = refl
       begin
         mkPendingTxIn l′ txIn ∃tx≡id len<′
@@ -201,15 +261,12 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
                    ; value         = value (lookupOutput l′ prevTxRef ∃tx≡id len<′) }
           ≡ ptxIn
         h rewrite lookupOutput≡ = refl
+      -}
 
     ptxOut : PendingTxOutput
     value         ptxOut = v
     validatorHash ptxOut = 𝕍
     dataHash      ptxOut = ds′ ♯ᵈ
-
-    ptxOut≡ : mkPendingTxOut txOut
-            ≡ ptxOut
-    ptxOut≡ = refl
 
     ptx : PendingTx
     inputInfo     ptx = [ ptxIn ]
@@ -222,7 +279,8 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
 
     ptx≡ : mkPendingTx l′ tx txIn i∈ v₁ v₂
          ≡ ptx
-    ptx≡ =
+    ptx≡ = {!!}
+    {-
       -- rewrite ptxIn≡ = refl
       begin
         mkPendingTx l′ tx txIn i∈ v₁ v₂
@@ -239,24 +297,47 @@ safety {sm = sm} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = {!!}
                    ; forge         = $ 0 }
           ≡ ptx
         h rewrite ptxIn≡ = refl
+    -}
 
-{-
     validate≡ :
-      let out = lookupOutput l′ (outputRef txIn) ∃tx≡id len<′
-          ptx = mkPendingTx l′ tx txIn i∈ v₁ v₂
-      in T (runValidation ptx txIn out)
-    validate≡ = allInputsValidate vtx txIn i∈
+         T (runValidation (mkPendingTx l′ tx txIn i∈ v₁ v₂) txIn (lookupOutput l′ (outputRef txIn) ∃tx≡id len<′))
+       → T (mkValidator sm ptx (toData i) (toData s))
+    validate≡ = {!!} -- p rewrite ptx≡ | lookupOutput≡ = p
 
-    -- ....
+    k′ : S → Maybe Bool
+    k′ x =
+      if final x then
+        pure false
+      else
+        pure (toData s′ == toData x)
 
-    validator≡ : T (runValidation ptx txIn prevOut)
-               ≡ T (mkValidator sm ptx (toData i) (toData s))
-    validator≡ =
-      begin
-        T (runValidation ptx txIn prevOut)
-      ≡⟨⟩
-        T (validator txIn ptx (redeemer txIn) (dataVal prevOut))
-      ≡⟨⟩
-        T (mkValidator sm ptx (toData i) (toData s))
-      ∎
--}
+    mx′ : Maybe S
+    mx′ with ⦇ step′ (fromData ds) (fromData di) ⦈
+    ... | pure r = r
+    ... | _      = nothing
+
+    step≡ : T (mkValidator sm ptx (toData i) (toData s))
+          → step′ s i ≡ pure s′
+    step≡ p
+      with h {x′ = s′} {mx = mx′} {b = final} p
+    ... | .s′ , p′ , refl  = {!!}
+    --   with mx | p
+    -- ... | nothing | ()
+    -- ... | pure x  | p′
+    --   with k x | inspect k x | p′
+    -- ... | nothing    | _       | ()
+    -- ... | pure false | _       | ()
+    -- ... | pure true  | ≡[ k≡ ] | p″
+    --   with final x | k≡
+    -- ... | true  | ()
+    -- ... | false | k≡′
+    --   with toData s′ ≟ᵈ toData x | k≡′
+    -- ... | no _   | ()
+    -- ... | yes eq | _
+    --   with cong (fromData {A = S}) eq
+    -- ... | eq′
+    --   rewrite from∘to x | from∘to s′
+    --     = x , refl , just-injective eq′
+
+    fin : step sm s i ≡ pure s′
+    fin = {!!} -- step≡ (validate≡ (allInputsValidate vtx txIn i∈))
