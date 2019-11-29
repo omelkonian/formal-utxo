@@ -35,64 +35,6 @@ open import UTxO.TxUtilities Address (λ x → x) _≟ℕ_
 open import UTxO.Hashing.Tx  Address (λ x → x) _≟ℕ_
 open import UTxO.Validity    Address (λ x → x) _≟ℕ_
 
-module _ {S : Set} {{_ : IsData S}} {x′ : S} where
-
-    T (fromMaybe false (mx >>= k))
-  → ∃[ x ] (mx ≡ pure x)
-           ×
-
-  k : (S → Bool) → S → Maybe Bool
-  k b x =
-    if b x then
-      pure false
-    else
-      pure (toData x′ == toData x)
-
-  h : ∀ {mx : Maybe S} {b : S → Bool}
-    → T (fromMaybe false (mx >>= k b))
-    → ∃[ x ] ( (mx ≡ pure x)
-             × (x′ ≡ x) )
-  h {mx = mx} {b = b} p
-    with mx | p
-  ... | nothing | ()
-  ... | pure x  | p′
-    with k b x | inspect (k b) x | p′
-  ... | nothing    | _       | ()
-  ... | pure false | _       | ()
-  ... | pure true  | ≡[ k≡ ] | p″
-    with b x | k≡
-  ... | true  | ()
-  ... | false | k≡′
-    with toData x′ ≟ᵈ toData x | k≡′
-  ... | no _   | ()
-  ... | yes eq | _
-    with cong (fromData {A = S}) eq
-  ... | eq′
-    rewrite from∘to x | from∘to x′
-      = x , refl , just-injective eq′
-
-
-∈⇒valid : ∀ {tx l}
-  → tx ∈ l
-  → ValidLedger l
-  → ∃[ l′ ] IsValidTx tx l′
-∈⇒valid (here refl) (vl ⊕ t ∶- vtx) = _ , vtx
-∈⇒valid (there tx∈) (vl ⊕ t ∶- vtx) = ∈⇒valid tx∈ vl
-
-fromℕ<-≡ : ∀ {A : Set} {xs : List A} {m : ℕ}
-  → (p₁ : m < length xs)
-  → (p₂ : m < length xs)
-  → fromℕ< p₁ ≡ fromℕ< p₂
-fromℕ<-≡ {xs = x ∷ xs} {zero}  p₁ p₂ = refl
-fromℕ<-≡ {xs = x ∷ xs} {suc m} p₁ p₂ rewrite fromℕ<-≡ {xs = xs} {m = m} (≤-pred p₁) (≤-pred p₂) = refl
-
-‼-fromℕ<-≡ : ∀ {A : Set} {xs ys : List A} {m : ℕ}
-  → (p₁ : m < length xs)
-  → (p₂ : m < length ys)
-  → xs ≡ ys
-  → (xs ‼ fromℕ< p₁)
-  ≡ (ys ‼ fromℕ< p₂)
-‼-fromℕ<-≡ {xs = xs} {m = m} p₁ p₂ refl rewrite fromℕ<-≡ {xs = xs} {m = m} p₁ p₂ = refl
 
 safety : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
            {s : S} {i : I} {s′ : S} {l : Ledger}
@@ -150,6 +92,13 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     fee     tx = $ 0
     forge   tx = $ 0
 
+    ∈⇒valid : ∀ {tx l}
+      → tx ∈ l
+      → ValidLedger l
+      → ∃[ l′ ] IsValidTx tx l′
+    ∈⇒valid (here refl) (vl ⊕ t ∶- vtx) = _ , vtx
+    ∈⇒valid (there tx∈) (vl ⊕ t ∶- vtx) = ∈⇒valid tx∈ vl
+
     ∃l′ : ∃[ l′ ] IsValidTx tx l′
     ∃l′ = ∈⇒valid tx∈l vl
 
@@ -177,8 +126,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
 
     lookupPrevTx≡ : lookupTx l′ prevTxRef ∃tx≡id
                   ≡ prevTx
-    lookupPrevTx≡ = {!!}
-      {-
+    lookupPrevTx≡ =
       -- rewrite proj₁∘find ? = refl
       begin
         lookupTx l′ prevTxRef ∃tx≡id
@@ -187,7 +135,6 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
       ≡⟨ proj₁∘find∘♯ ∃tx≡id ⟩
         prevTx
       ∎
-      -}
 
     len<′ : index prevTxRef < length (outputs (lookupTx l′ prevTxRef ∃tx≡id))
     len<′ = v₂ txIn i∈
@@ -200,8 +147,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
 
     lookupOutput≡ : lookupOutput l′ (outputRef txIn) ∃tx≡id len<′
                   ≡ prevOut
-    lookupOutput≡ = {!!}
-      {-
+    lookupOutput≡ =
       -- rewrite lookupPrevTx≡
       --       | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevTxRef∈)
       --       | ‼-index prevTxRef∈
@@ -227,7 +173,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
         h₂ rewrite ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevTxRef∈)
                  | ‼-index prevTxRef∈
                  = refl
-      -}
+
     open PendingTxInput
     open PendingTxOutput
     open PendingTx
@@ -240,8 +186,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
 
     ptxIn≡ : mkPendingTxIn l′ txIn ∃tx≡id len<′
            ≡ ptxIn
-    ptxIn≡ = {!!}
-      {-
+    ptxIn≡ =
       -- rewrite lookupOutput≡ = refl
       begin
         mkPendingTxIn l′ txIn ∃tx≡id len<′
@@ -261,7 +206,6 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
                    ; value         = value (lookupOutput l′ prevTxRef ∃tx≡id len<′) }
           ≡ ptxIn
         h rewrite lookupOutput≡ = refl
-      -}
 
     ptxOut : PendingTxOutput
     value         ptxOut = v
@@ -279,8 +223,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
 
     ptx≡ : mkPendingTx l′ tx txIn i∈ v₁ v₂
          ≡ ptx
-    ptx≡ = {!!}
-    {-
+    ptx≡ =
       -- rewrite ptxIn≡ = refl
       begin
         mkPendingTx l′ tx txIn i∈ v₁ v₂
@@ -297,12 +240,30 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
                    ; forge         = $ 0 }
           ≡ ptx
         h rewrite ptxIn≡ = refl
-    -}
 
     validate≡ :
          T (runValidation (mkPendingTx l′ tx txIn i∈ v₁ v₂) txIn (lookupOutput l′ (outputRef txIn) ∃tx≡id len<′))
-       → T (mkValidator sm ptx (toData i) (toData s))
-    validate≡ = {!!} -- p rewrite ptx≡ | lookupOutput≡ = p
+       → T (mkValidator sm ptx di ds)
+    validate≡ p rewrite ptx≡ | lookupOutput≡ = p
+
+    outs≡ : getContinuingOutputs ptx ≡ [ ptxOut ]
+    outs≡ rewrite ≟ℕ-refl {𝕍} = refl
+
+    findData≡ : findData (ds′ ♯ᵈ) ptx ≡ pure ds′
+    findData≡ rewrite ≟ℕ-refl {ds′ ♯ᵈ} = refl
+
+    fromMaybe≡true : ∀ {S : Set} {mx : Maybe S} {k : S → Maybe Bool}
+      → T (fromMaybe false (mx >>= k))
+      → ∃[ x ] ( (mx  ≡ pure x)
+               × (k x ≡ pure true) )
+    fromMaybe≡true {mx = mx} {k = k} p
+      with mx | p
+    ... | nothing | ()
+    ... | pure x  | p′
+      with k x | inspect k x | p′
+    ... | nothing    | _       | ()
+    ... | pure false | _       | ()
+    ... | pure true  | ≡[ k≡ ] | _  = x , refl , k≡
 
     k′ : S → Maybe Bool
     k′ x =
@@ -316,28 +277,39 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     ... | pure r = r
     ... | _      = nothing
 
-    step≡ : T (mkValidator sm ptx (toData i) (toData s))
+    mx≡′ : ∀ {s″ : S}
+      → mx′ ≡ pure s″
+      → step′ s i ≡ pure s″
+    mx≡′ {s″} mx≡ rewrite from∘to s | from∘to i
+      with step′ s i | mx≡
+    ... | nothing  | ()
+    ... | pure .s″ | refl = refl
+
+    hh : T (mkValidator sm ptx di ds)
+       → T (fromMaybe false (mx′ >>= k′))
+    hh p rewrite from∘to s | from∘to i | outs≡ | findData≡ = p
+
+    step≡ : T (mkValidator sm ptx di ds)
           → step′ s i ≡ pure s′
     step≡ p
-      with h {x′ = s′} {mx = mx′} {b = final} p
-    ... | .s′ , p′ , refl  = {!!}
-    --   with mx | p
-    -- ... | nothing | ()
-    -- ... | pure x  | p′
-    --   with k x | inspect k x | p′
-    -- ... | nothing    | _       | ()
-    -- ... | pure false | _       | ()
-    -- ... | pure true  | ≡[ k≡ ] | p″
-    --   with final x | k≡
-    -- ... | true  | ()
-    -- ... | false | k≡′
-    --   with toData s′ ≟ᵈ toData x | k≡′
-    -- ... | no _   | ()
-    -- ... | yes eq | _
-    --   with cong (fromData {A = S}) eq
-    -- ... | eq′
-    --   rewrite from∘to x | from∘to s′
-    --     = x , refl , just-injective eq′
+      with fromMaybe≡true {mx = mx′} {k = k′} (hh p)
+    ... | s″ , mx≡ , k≡
+      with final s″ | k≡
+    ... | true  | ()
+    ... | false | k≡′
+      with toData s′ ≟ᵈ toData s″ | k≡′
+    ... | no _   | ()
+    ... | yes eq | _
+      with cong (fromData {A = S}) eq
+    ... | eq′
+      rewrite from∘to s″ | from∘to s′ =
+        begin
+          step′ s i
+        ≡⟨ mx≡′ mx≡ ⟩
+           pure s″
+        ≡⟨ sym eq′ ⟩
+           pure s′
+        ∎
 
     fin : step sm s i ≡ pure s′
-    fin = {!!} -- step≡ (validate≡ (allInputsValidate vtx txIn i∈))
+    fin = step≡ (validate≡ (allInputsValidate vtx txIn i∈))
