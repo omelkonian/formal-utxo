@@ -62,21 +62,6 @@ mkValidator {S} {I} SM[ _ , final , step ] ptx input state
         case outs of λ{ (o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
                       ; _        → pure false }
 
-    -- The following forms break the `liveness` proof, as we cannot rewrite with the value of `final st`
-    -- Possibly an Agda bug?
-
-    -- (1) using case_of_
-    -- case (final st , getContinuingOutputs ptx) of
-    -- λ { (true  , outs  ) → pure (null outs)
-    --   ; (false , o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
-    --   ; (false , _     ) → pure false }
-
-    -- (2) using `with`
-    --   with final st | getContinuingOutputs ptx
-    -- ... | true  | outs   = pure (null outs)
-    -- ... | false | o ∷ [] = ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
-    -- ... | false | _      = pure false
-
 -- Create a transaction input.
 infix 5 _←—_,_
 _←—_,_ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}

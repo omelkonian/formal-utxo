@@ -1,4 +1,4 @@
-module StateMachine.Properties.Liveness where
+module StateMachine.Properties.Liveness2 where
 
 open import Function using (_∘_; case_of_)
 
@@ -40,15 +40,15 @@ open PendingTxInput
 open PendingTxOutput
 open PendingTx
 
-liveness : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
-             {s : S} {i : I} {s′ : S} {l : Ledger}
-             {prevTx : Tx} {v : Value}
+liveness′ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
+              {s : S} {i : I} {s′ : S} {l : Ledger}
+              {prevTx : Tx} {v : Value}
 
     -- `s —→[i] s′` constitutes a valid transition in the state machine
   → step sm s i ≡ pure s′
 
-    -- if we are moving to a final state, make sure no value is carried around
-  → (T (isFinal sm s′) → v ≡ 0)
+    -- we are not moving to a final state
+  → isFinal sm s′ ≡ false
 
     -- existing ledger is valid
   → (vl : ValidLedger l)
@@ -69,69 +69,11 @@ liveness : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine 
          -- (2) it contains the source state in its inputs, using the state machine's validator
        × (prevTxRef ←— i , sm ∈ inputs tx)
          -- (3) it contains the target state in its outputs
-       × (¬ T (isFinal sm s′) → s′ —→ $ v at sm ∈ outputs tx)
+       × (s′ —→ $ v at sm ∈ outputs tx)
        )
 
-liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut∈prevTx prev∈utxo
-  with isFinal sm s′ | inspect (isFinal sm) s′
-... | true | ≡[ final≡ ]
-    = tx , vtx , here refl , λ ¬fin → ⊥-elim (¬fin tt)
-  where
-    ds  = toData s
-    di  = toData i
-    ds′ = toData s′
-    𝕍 = (mkValidator sm) ♯
-
-    prevTxRef : TxOutputRef
-    prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈prevTx)
-
-    prevOut : TxOutput
-    value   prevOut = v
-    address prevOut = 𝕍
-    dataVal prevOut = ds
-
-    tx : Tx
-    inputs  tx = [ prevTxRef ←— i , sm ]
-    outputs tx = []
-    forge   tx = $ 0
-    fee     tx = $ 0
-
-    prevTx∈ : prevTx ∈ l
-    prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
-
-    prevTx♯∈ : Any (λ tx → tx ♯ₜₓ ≡ prevTx ♯ₜₓ) l
-    prevTx♯∈ = Any.map (cong _♯ₜₓ ∘ sym) prevTx∈
-
-    lookupPrevTx≡ : lookupTx l prevTxRef prevTx♯∈ ≡ prevTx
-    lookupPrevTx≡
-      rewrite find∘map {Q = λ tx → tx ♯ₜₓ ≡ prevTx ♯ₜₓ} prevTx∈ (cong _♯ₜₓ ∘ sym)
-            | proj₁∘find prevTx∈
-            = refl
-
-    len< : index prevTxRef < length (outputs (lookupTx l prevTxRef prevTx♯∈))
-    len< rewrite lookupPrevTx≡ = toℕ< (Any.index prevOut∈prevTx)
-
-    lookupPrevOutput≡ : lookupOutput l prevTxRef prevTx♯∈ len< ≡ prevOut
-    lookupPrevOutput≡
-      rewrite lookupPrevTx≡
-            | ‼-fromℕ<∘toℕ< {xs = outputs prevTx} (Any.index prevOut∈prevTx)
-            | ‼-index prevOut∈prevTx
-            = refl
-
-    state≡ : ⦇ step (pure sm) (fromData ds) (fromData di) ⦈ ≡ pure (pure s′)
-    state≡ rewrite from∘to s | from∘to i | step≡ = refl
-
-    vtx : IsValidTx tx l
-    validTxRefs         vtx _ (here refl) = prevTx♯∈
-    validOutputIndices  vtx _ (here refl) = len<
-    validOutputRefs     vtx _ (here refl) = prev∈utxo
-    preservesValues     vtx rewrite lookupPrevOutput≡ | final≡ | val≡ tt = refl
-    noDoubleSpending    vtx = [] ∷ []
-    allInputsValidate   vtx _ (here refl) rewrite lookupPrevOutput≡ | state≡ | final≡ = tt
-    validateValidHashes vtx _ (here refl) rewrite lookupPrevOutput≡ = refl
-
-... | false | ≡[ final≡ ]
-    = tx , vtx , here refl , λ _ → here refl
+liveness′ {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ final≡ vl prevOut∈prevTx prev∈utxo
+  = tx , vtx , here refl , here refl
   where
     ds  = toData s
     di  = toData i

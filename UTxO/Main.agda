@@ -19,4 +19,5 @@ open import StateMachine.GuessingGame
 open import StateMachine.ExamplePlay
 
 open import StateMachine.Properties.Liveness
+open import StateMachine.Properties.Liveness2
 open import StateMachine.Properties.Safety
