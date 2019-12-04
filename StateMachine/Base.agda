@@ -3,7 +3,7 @@ module StateMachine.Base where
 open import Function using (_∘_; case_of_)
 
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Data.Bool    using (Bool; true; false; _∧_)
+open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_)
 open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
 open import Data.List    using (List; null; []; _∷_; filter; map)
@@ -24,7 +24,7 @@ open import UTxO.Types hiding (I)
 -- transition in the context of the current transaction.
 
 data TxConstraints : Set where
-
+  nil             : TxConstraints
   forge≡          : Value → TxConstraints
   valueSpent≡     : Value → TxConstraints
   thisValueSpent≡ : Value → TxConstraints
@@ -34,41 +34,76 @@ data TxConstraints : Set where
 infixr 5 _&&_
 
 verifyConstraints : PendingTx → TxConstraints → Bool
+verifyConstraints ptx nil                 = true
 verifyConstraints ptx (forge≡ v)          = ⌊ PendingTx.forge ptx ≟ᶜ v ⌋
 verifyConstraints ptx (valueSpent≡ v)     = ⌊ valueSpent ptx ≟ᶜ v ⌋
 verifyConstraints ptx (thisValueSpent≡ v) = ⌊ thisValueSpent ptx ≟ᶜ v ⌋
-verifyConstraints ptx (valueToOwnHash≡ v) = ⌊ valueLockedBy ptx (ownHash ptx) ≟ᶜ v ⌋
-verifyConstraints ptx (c && c′)           = verifyConstraints ptx c ∧ verifyConstraints ptx c′
+verifyConstraints ptx (valueToOwnHash≡ v) =
+  ⌊ valueLockedBy ptx (ownHash ptx) ≟ᶜ v ⌋
+verifyConstraints ptx (c && c′)           =
+  verifyConstraints ptx c ∧ verifyConstraints ptx c′
 
 -- [_,_]-satisfies-_ : Tx → TxConstraints → Set
 -- [tx , l] -satisfies- constraints =
 --   ∃[ i ] ∃[ i∈ ] T (verifyConstraints (mkPendingTx l tx i i∈ validTxRefs validOutputIndices) constraints)
 
-record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
+-- this is a standard definition of a statemachine
+
+record StateMachine (S I : Set) {- {{_ : IsData S}} {{_ : IsData I}} -} : Set where
   constructor SM[_,_,_]
   field
     isInitial : S → Bool
     isFinal   : S → Bool
-    step      : S → I → Maybe (S × TxConstraints)
+    step      : S → I → Maybe S -- advances the state if the step is valid
 
 Validator : Set
 Validator = PendingTx → DATA → DATA → Bool
 
+-- this is the vanilla mkValidator for arbitrary state machines
+
 mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
-mkValidator {S} {I} (SM[ init , final , step ]) ptx input′ currentState′
+mkValidator {S} {I} SM[ _ , final , step ] ptx input state
+    = fromMaybe false (state′ >>= outputsOK)
+  where
+    state′ : Maybe S
+    state′ with ⦇ step (fromData state) (fromData input) ⦈
+    ... | pure r = r
+    ... | _      = nothing
+
+    outs : List PendingTxOutput
+    outs = getContinuingOutputs ptx
+
+    outputsOK : S → Maybe Bool
+    outputsOK st =
+      if final st then
+        pure (null outs)
+      else
+        case outs of λ{ (o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
+                      ; _        → pure false }
+
+-- this mkValidator works on a more specific state machine which whose
+-- state contains constraints but is still a ordinary state machine
+
+mkValidatorX : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
+  → StateMachine (S × TxConstraints) I → Validator
+mkValidatorX {S} {I} (SM[ init , final , step ]) ptx input′ currentState′
     = fromMaybe false ⦇ constraintsOK ∧ outputsOK ⦈
   where
     next : Maybe (S × TxConstraints)
-    next with ⦇ step (fromData currentState′) (fromData input′) ⦈
-    ... | pure r = r
-    ... | _      = nothing
+    next with fromData currentState′
+    next | nothing = nothing
+    next | pure s with fromData input′
+    next | pure s | nothing = nothing
+    next | pure s | pure i = step (s , nil) i
 
     constraintsOK : Maybe Bool
     constraintsOK = ⦇ verifyConstraints (pure ptx) ⦇ proj₂ next ⦈ ⦈
 
     outputsOK : Maybe Bool
-    outputsOK = ⦇ proj₁ next ⦈ >>= λ st → case (final st , getContinuingOutputs ptx) of
+    outputsOK = next >>= λ st → case (final st , getContinuingOutputs ptx) of
       λ { (true  , outs)   → pure (null outs)
-        ; (false , o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
+        ; (false , o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData (proj₁ st)) ⦈
         ; (false , _     ) → pure false }
+
+-- one could go back and implement mkValidator in terms of mkValidatorX with there are no constraints (nil)
