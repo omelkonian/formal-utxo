@@ -1,4 +1,4 @@
-open import Function using (_∘_; _∋_; flip; _$_)
+open import Function using (_∘_; flip; _$_)
 
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
@@ -24,7 +24,7 @@ open import UTxO.Hashing.Types    using (_♯ᵢ)
 open import UTxO.Hashing.MetaHash using (_♯)
 open import UTxO.Types
 
-module UTxO.DecisionProcedure
+module UTxO.DecValidity
   (Address : Set)
   (_♯ₐ : Hash Address)
   (_≟ₐ_ : Decidable {A = Address} _≡_)
@@ -127,6 +127,10 @@ validateValidHashes? tx l v₁ v₂ =
         out = lookupOutput l (outputRef i) (v₁ i i∈) (v₂ i i∈)
     in (address out) ♯ₐ ≟ (validator i) ♯
 
+validInterval? : ∀ (tx : Tx) (l : Ledger)
+  → Dec (T (range tx ∋ length l))
+validInterval? tx l = T? (range tx ∋ length l)
+
 infixl 5 _⊕_
 _⊕_ : ∀ {l}
   → ValidLedger l
@@ -138,12 +142,14 @@ _⊕_ : ∀ {l}
   → {p₅ : True (noDoubleSpending? tx l)}
   → {p₆ : True (allInputsValidate? tx l (toWitness p₁) (toWitness p₂))}
   → {p₇ : True (validateValidHashes? tx l (toWitness p₁) (toWitness p₂))}
+  → {p₈ : True (validInterval? tx l)}
   → ValidLedger (tx ∷ l)
-(vl ⊕ tx) {p₁ = p₁} {p₂} {p₃} {p₄} {p₅} {p₆} {p₇}
+(vl ⊕ tx) {p₁ = p₁} {p₂} {p₃} {p₄} {p₅} {p₆} {p₇} {p₈}
   = vl ⊕ tx ∶- record { validTxRefs          = toWitness p₁
                       ; validOutputIndices   = toWitness p₂
                       ; validOutputRefs      = toWitness p₃
                       ; preservesValues      = toWitness p₄
                       ; noDoubleSpending     = toWitness p₅
                       ; allInputsValidate    = toWitness p₆
-                      ; validateValidHashes  = toWitness p₇ }
+                      ; validateValidHashes  = toWitness p₇
+                      ; validInterval        = toWitness p₈ }

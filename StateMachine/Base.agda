@@ -18,11 +18,11 @@ open import UTxO.Types hiding (I)
 
 -- For the sake of simplicity, we assume addresses to be just hashes.
 Address = HashId
-open import UTxO.Ledger            Address (λ x → x) _≟ℕ_ public
-open import UTxO.TxUtilities       Address (λ x → x) _≟ℕ_ public
-open import UTxO.Hashing.Tx        Address (λ x → x) _≟ℕ_ public
-open import UTxO.Validity          Address (λ x → x) _≟ℕ_ public
-open import UTxO.DecisionProcedure Address (λ x → x) _≟ℕ_ public
+open import UTxO.Ledger      Address (λ x → x) _≟ℕ_ public
+open import UTxO.TxUtilities Address (λ x → x) _≟ℕ_ public
+open import UTxO.Hashing.Tx  Address (λ x → x) _≟ℕ_ public
+open import UTxO.Validity    Address (λ x → x) _≟ℕ_ public
+open import UTxO.DecValidity Address (λ x → x) _≟ℕ_ public
 
 -- A State Machine library for smart contracts, based on very similar
 -- library for Plutus Smart contracts

@@ -43,24 +43,28 @@ inputs  t₀ = []
 outputs t₀ = [ Initialised —→ $ 0 ]
 forge   t₀ = $ 0
 fee     t₀ = $ 0
+range   t₀ = -∞ ⋯ +∞
 
 t₁ : Tx
 inputs  t₁ = [ t₀ ←— StartGame ("zero" ♯ₛₜᵣ) ]
 outputs t₁ = [ Locked ("zero" ♯ₛₜᵣ) —→ $ 1 ]
 forge   t₁ = $ 1
 fee     t₁ = $ 0
+range   t₁ = -∞ ⋯ +∞
 
 t₂ : Tx
 inputs  t₂ = [ t₁ ←— Guess "zero" ("one" ♯ₛₜᵣ) ]
 outputs t₂ = [ Locked ("one" ♯ₛₜᵣ) —→ $ 1 ]
 forge   t₂ = $ 0
 fee     t₂ = $ 0
+range   t₂ = -∞ ⋯ +∞
 
 t₃ : Tx
 inputs  t₃ = [ t₂ ←— Guess "one" ("two" ♯ₛₜᵣ) ]
 outputs t₃ = [ Locked ("two" ♯ₛₜᵣ) —→ $ 1 ]
 forge   t₃ = $ 0
 fee     t₃ = $ 0
+range   t₃ = -∞ ⋯ +∞
 
 ex-ledger : ValidLedger (t₃ ∷ t₂ ∷ t₁ ∷ t₀ ∷ [])
 ex-ledger = ∙ ⊕ t₀ ⊕ t₁ ⊕ t₂ ⊕ t₃

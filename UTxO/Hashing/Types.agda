@@ -6,13 +6,10 @@ module UTxO.Hashing.Types where
 open import Data.Product using (_×_; _,_)
 open import Data.List    using (List; []; _∷_)
 open import Data.Integer using (ℤ; ∣_∣)
+open import Data.Nat     using (_+_)
 
 open import UTxO.Hashing.Base
 open import UTxO.Types
-
-_♯ₛₜ : Hash State
-st ♯ₛₜ = height st
-postulate injective♯ₛₜ : Injective _♯ₛₜ
 
 _♯ₒᵣ : Hash TxOutputRef
 o ♯ₒᵣ = merge♯ (id o ∷ index o ∷ [])
@@ -28,6 +25,14 @@ postulate injective♯ᵥ : Injective _♯ᵥ
 
 _♯ℤ : Hash ℤ
 _♯ℤ = ∣_∣
+
+_♯ᵇ : Hash Bound
+-∞     ♯ᵇ = 0
++∞     ♯ᵇ = 1
+(t= n) ♯ᵇ = n + 2
+
+_♯ˢ : Hash SlotRange
+(b ⋯ b′) ♯ˢ = merge♯ (b ♯ᵇ ∷ b′ ♯ᵇ ∷ [])
 
 _♯ᵈ : Hash DATA
 _♯ᵈˢ : Hash (List DATA)
@@ -45,7 +50,9 @@ MAP ds′ ♯ᵈ     = ds′ ♯ᵈˢ′
 [] ♯ᵈˢ′              = 0
 ((d , d′) ∷ ds) ♯ᵈˢ′ = merge♯ ((d ♯ᵈ) ∷ (d′ ♯ᵈ) ∷ (ds ♯ᵈˢ′) ∷ [])
 
-infix 9 _♯ₛₜ
+infix 9 _♯ᵇ
+infix 9 _♯ˢ
+infix 9 _♯ℤ
 infix 9 _♯ₒᵣ
 infix 9 _♯ᵢ
 infix 9 _♯ᵥ

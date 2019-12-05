@@ -51,6 +51,7 @@ safety : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S 
                                 ; dataVal = toData s′ } ]
            ; fee     = $ 0
            ; forge   = $ 0
+           ; range   = -∞ ⋯ +∞
            } ∈ l
 
     ---------------------------------------------------------------------------------------
@@ -87,6 +88,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     outputs tx = [ txOut ]
     fee     tx = $ 0
     forge   tx = $ 0
+    range   tx = -∞ ⋯ +∞
 
     ∈⇒valid : ∀ {tx l}
       → tx ∈ l
@@ -174,6 +176,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     txHash        ptx = tx ♯ₜₓ
     fee           ptx = $ 0
     forge         ptx = $ 0
+    range         ptx = -∞ ⋯ +∞
 
     ptx≡ : mkPendingTx l′ tx txIn i∈ v₁ v₂
          ≡ ptx
@@ -185,7 +188,8 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
                    ; dataWitnesses = [ ds′ ♯ᵈ , ds′ ]
                    ; txHash        = tx ♯ₜₓ
                    ; fee           = $ 0
-                   ; forge         = $ 0 }
+                   ; forge         = $ 0
+                   ; range         = -∞ ⋯ +∞ }
           ≡ ptx
         h rewrite ptxIn≡ = refl
 

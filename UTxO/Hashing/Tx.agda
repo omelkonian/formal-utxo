@@ -27,6 +27,7 @@ tx ♯ₜₓ = merge♯ ( (hashList _♯ᵢ) (inputs tx)
                 ∷ (hashList _♯ₒ) (outputs tx)
                 ∷ (forge tx) ♯ᵥ
                 ∷ (fee tx) ♯ᵥ
+                ∷ (range tx) ♯ˢ
                 ∷ []
                 )
 postulate injective♯ₜₓ : Injective _♯ₜₓ

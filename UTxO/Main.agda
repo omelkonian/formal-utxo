@@ -10,7 +10,7 @@ open import UTxO.Types
 open import UTxO.Ledger
 open import UTxO.TxUtilities
 open import UTxO.Validity
-open import UTxO.DecisionProcedure
+open import UTxO.DecValidity
 
 open import UTxO.ExampleLedger
 

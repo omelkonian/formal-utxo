@@ -6,12 +6,12 @@ module UTxO.Types where
 open import Function using (_∘_)
 
 open import Data.Empty   using (⊥-elim)
-open import Data.Bool    using (Bool)
+open import Data.Bool    using (Bool; true; false; _∧_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.List    using (List; map; length; []; _∷_; filter; foldr)
 open import Data.Char    using (Char; toℕ; fromℕ)
 open import Data.String  using (String; toList; fromList)
-open import Data.Nat     using (ℕ)
+open import Data.Nat     using (ℕ; _≤?_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.Integer using (ℤ; +_; ∣_∣)
   renaming (_≟_ to _≟ℤ_)
@@ -33,13 +33,8 @@ open import UTxO.Value public
 HashId : Set
 HashId = ℕ
 
-record State : Set where
-  field
-    height : ℕ
-open State public
-
-getState : ∀ {A : Set} → List A → State
-getState l = record { height = length l }
+Time : Set
+Time = ℕ
 
 -----------------------------------------
 -- First-order data values.
@@ -88,6 +83,30 @@ instance
 
   from∘to  {{IsDataˢ}} xs rewrite from∘to (toList xs) | fromList∘toList xs = refl
 
+
+--------------------------------------------------------------------------------------
+-- Valid intervals (slot ranges).
+
+data Bound : Set where
+  -∞ +∞ : Bound
+  t=_   : Time → Bound
+
+data SlotRange : Set where
+  _⋯_ : Bound → Bound → SlotRange
+
+-- NB: Bounds are inclusive and refer to the length of the existing ledger, before submitting a new transaction.
+_∋_ : SlotRange → ℕ → Bool
++∞   ⋯ _    ∋ _ = false
+_    ⋯ -∞   ∋ _ = false
+-∞   ⋯ +∞   ∋ _ = true
+-∞   ⋯ t= r ∋ n = ⌊ n ≤? r ⌋
+t= l ⋯ +∞   ∋ n = ⌊ l ≤? n ⌋
+t= l ⋯ t= r ∋ n = ⌊ l ≤? n ⌋ ∧ ⌊ n ≤? r ⌋
+
+infix 4 _∋_
+infix 5 _⋯_
+infix 6 t=_
+
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
@@ -110,7 +129,7 @@ record PendingTx : Set where
     inputInfo     : List PendingTxInput
     thisInput     : PendingTxInput
     outputInfo    : List PendingTxOutput
-    -- validityInterval : SlotRange
+    range         : SlotRange
     dataWitnesses : List (HashId × DATA)
     txHash        : HashId
     fee           : Value

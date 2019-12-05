@@ -134,4 +134,5 @@ mkPendingTx l tx i i∈ v₁ v₂ =
      ; dataWitnesses = map (λ o → ((dataVal o) ♯ᵈ) , dataVal o) (outputs tx)
      ; txHash        = tx ♯ₜₓ
      ; fee           = fee tx
-     ; forge         = forge tx }
+     ; forge         = forge tx
+     ; range         = range tx }

@@ -15,6 +15,8 @@ open import Data.Nat     using (ℕ; _<_; z≤n; s≤s)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
 
+open import Data.Bool.Properties using (T?)
+
 open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
 open import Data.List.Membership.Propositional  using (_∈_; find; mapWith∈)
 open import Data.List.Membership.Propositional.Properties  using (find∘map)
@@ -22,7 +24,7 @@ open import Data.List.Relation.Unary.AllPairs   using ([]; _∷_)
 open import Data.List.Relation.Unary.All        using ([]; _∷_)
 
 open import Relation.Nullary                            using (¬_; yes; no)
-open import Relation.Nullary.Decidable                  using (⌊_⌋)
+open import Relation.Nullary.Decidable                  using (⌊_⌋; toWitness)
 open import Relation.Binary                             using (Decidable)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong; trans; sym; inspect)
   renaming ([_] to ≡[_])
@@ -93,6 +95,7 @@ liveness′ {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ final≡ vl pre
     outputs tx = [ s′ —→ $ v at sm ]
     forge   tx = $ 0
     fee     tx = $ 0
+    range   tx = -∞ ⋯ +∞
 
     prevTx∈ : prevTx ∈ l
     prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
@@ -149,3 +152,4 @@ liveness′ {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ final≡ vl pre
     noDoubleSpending    vtx = [] ∷ []
     allInputsValidate   vtx _ (here refl) rewrite lookupPrevOutput≡ | validate≡ = tt
     validateValidHashes vtx _ (here refl) rewrite lookupPrevOutput≡ = refl
+    validInterval       vtx = toWitness {Q = T? (range tx ∋ length l)} tt

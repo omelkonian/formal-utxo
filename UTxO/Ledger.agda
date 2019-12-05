@@ -31,6 +31,7 @@ record Tx : Set where
     outputs : List TxOutput
     fee     : Value
     forge   : Value
+    range   : SlotRange
 
 open Tx public
 

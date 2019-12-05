@@ -20,10 +20,10 @@ open import UTxO.Hashing.MetaHash
 -- available addresses
 Address = ℕ
 
-open import UTxO.Ledger            Address (λ x → x) _≟_
-open import UTxO.Hashing.Tx        Address (λ x → x) _≟_
-open import UTxO.Validity          Address (λ x → x) _≟_
-open import UTxO.DecisionProcedure Address (λ x → x) _≟_
+open import UTxO.Ledger      Address (λ x → x) _≟_
+open import UTxO.Hashing.Tx  Address (λ x → x) _≟_
+open import UTxO.Validity    Address (λ x → x) _≟_
+open import UTxO.DecValidity Address (λ x → x) _≟_
 
 1ᵃ : Address
 1ᵃ = 111 -- first address
@@ -58,6 +58,7 @@ inputs  t₁ = []
 outputs t₁ = [ $ 1000 at 1ᵃ ]
 forge   t₁ = $ 1000
 fee     t₁ = $0
+range   t₁ = t= 0 ⋯ t= 0
 
 t₁₀ : TxOutputRef
 t₁₀ = (t₁ ♯ₜₓ) indexed-at 0
@@ -67,6 +68,7 @@ inputs  t₂ = [ withScripts t₁₀ ]
 outputs t₂ = $ 800 at 2ᵃ ∷ $ 200 at 1ᵃ ∷ []
 forge   t₂ = $0
 fee     t₂ = $0
+range   t₂ = -∞ ⋯ t= 1
 
 t₂₀ : TxOutputRef
 t₂₀ = (t₂ ♯ₜₓ) indexed-at 0
@@ -79,6 +81,7 @@ inputs  t₃ = [ withScripts t₂₁ ]
 outputs t₃ = [ $ 199 at 3ᵃ ]
 forge   t₃ = $0
 fee     t₃ = $ 1
+range   t₃ = -∞ ⋯ +∞
 
 t₃₀ : TxOutputRef
 t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
@@ -88,6 +91,7 @@ inputs  t₄ = withScripts t₃₀ ∷ []
 outputs t₄ = [ $ 207 at 2ᵃ ]
 forge   t₄ = $ 10
 fee     t₄ = $ 2
+range   t₄ = -∞ ⋯ +∞
 
 t₄₀ : TxOutputRef
 t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
@@ -97,6 +101,7 @@ inputs  t₅ = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
 outputs t₅ = $ 500 at 2ᵃ ∷ $ 500 at 3ᵃ ∷ []
 forge   t₅ = $0
 fee     t₅ = $ 7
+range   t₅ = -∞ ⋯ +∞
 
 t₅₀ : TxOutputRef
 t₅₀ = (t₅ ♯ₜₓ) indexed-at 0
@@ -109,6 +114,7 @@ inputs  t₆ = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
 outputs t₆ = [ $ 999 at 3ᵃ ]
 forge   t₆ = $0
 fee     t₆ = $ 1
+range   t₆ = -∞ ⋯ +∞
 
 t₆₀ : TxOutputRef
 t₆₀ = (t₆ ♯ₜₓ) indexed-at 0

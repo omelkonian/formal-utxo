@@ -66,6 +66,9 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
         in (address out) ♯ₐ ≡ (validator i) ♯
 
+    validInterval :
+      T (range tx ∋ length l)
+
 open IsValidTx public
 
 -- List notation for constructing valid ledgers.
