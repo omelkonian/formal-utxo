@@ -283,12 +283,33 @@ Set⟨DATA⟩ = Set' where open SETᵈ
 _==_ : DATA → DATA → Bool
 x == y = ⌊ x ≟ᵈ y ⌋
 
-≟ℕ-refl : ∀ {x} → (x ≟ℕ x) ≡ yes refl
-≟ℕ-refl {x} with x ≟ℕ x
-... | no ¬p    = ⊥-elim (¬p refl)
-... | yes refl = refl
+-- Sets of slot ranges.
 
-≟ᵈ-refl : ∀ {x} → (x ≟ᵈ x) ≡ yes refl
-≟ᵈ-refl {x} with x ≟ᵈ x
+_≟ᵇ_ : Decidable {A = Bound} _≡_
+-∞ ≟ᵇ -∞     = yes refl
+-∞ ≟ᵇ +∞     = no λ()
+-∞ ≟ᵇ (t= _) = no λ()
+
++∞ ≟ᵇ -∞     = no λ()
++∞ ≟ᵇ +∞     = yes refl
++∞ ≟ᵇ (t= _) = no λ()
+
+(t= _) ≟ᵇ -∞ = no λ()
+(t= _) ≟ᵇ +∞ = no λ()
+(t= n) ≟ᵇ (t= n′)
+  with n ≟ℕ n′
+... | no ¬p    = no λ{ refl → ¬p refl }
+... | yes refl = yes refl
+
+_≟ˢ_ : Decidable {A = SlotRange} _≡_
+(l ⋯ r) ≟ˢ (l′ ⋯ r′)
+  with l ≟ᵇ l′ | r ≟ᵇ r′
+... | no ¬p    | _        = no λ{ refl → ¬p refl }
+... | _        | no ¬p    = no λ{ refl → ¬p refl }
+... | yes refl | yes refl = yes refl
+
+≟-refl : ∀ {A : Set} (_≟_ : Decidable {A = A} _≡_) (x : A)
+  → x ≟ x ≡ yes refl
+≟-refl _≟_ x with x ≟ x
 ... | no ¬p    = ⊥-elim (¬p refl)
 ... | yes refl = refl

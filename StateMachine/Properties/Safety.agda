@@ -1,14 +1,17 @@
 module StateMachine.Properties.Safety where
 
+open import Function using (case_of_)
+
+open import Data.Empty   using (⊥-elim)
 open import Data.Unit    using (tt)
-open import Data.Bool    using (Bool; T; true; false; if_then_else_)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax)
+open import Data.Bool    using (Bool; T; true; false; if_then_else_; _∧_)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax; Σ-syntax)
 open import Data.Maybe   using (Maybe; nothing; Is-just; _>>=_; fromMaybe)
   renaming (just to pure; ap to _<*>_)
-open import Data.Nat     using (ℕ; _<_; zero; suc; ≤-pred)
+open import Data.Nat     using (ℕ; _<_; zero; suc; ≤-pred; _+_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.Fin     using (toℕ; fromℕ<)
-open import Data.List    using (List; []; _∷_; [_]; map; length)
+open import Data.List    using (List; []; _∷_; [_]; map; length; null)
 
 open import Data.Maybe.Properties using (just-injective)
 
@@ -34,31 +37,25 @@ open PendingTx
 
 safety : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
            {s : S} {i : I} {s′ : S} {l : Ledger}
-           {prevTx : Tx} {v : Value}
+           {prevTx : Tx} {v f : Value} {r : SlotRange}
 
   → ValidLedger l
 
-  → (prevTxRef∈ : record { address = (mkValidator sm) ♯
-                         ; value   = v
-                         ; dataVal = toData s
-                         } ∈ outputs prevTx)
+  → (prevTxRef∈ : s —→ $ v at sm ∈ outputs prevTx)
 
-  → record { inputs  = [ record { outputRef = (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevTxRef∈))
-                                ; validator = mkValidator sm
-                                ; redeemer  = toData i } ]
-           ; outputs = [ record { address = (mkValidator sm) ♯
-                                ; value = v
-                                ; dataVal = toData s′ } ]
+  → record { inputs  = [ (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevTxRef∈)) ←— i , sm ]
+           ; outputs = [ s′ —→ $ (v + f) at sm ]
            ; fee     = $ 0
-           ; forge   = $ 0
-           ; range   = -∞ ⋯ +∞
+           ; forge   = f
+           ; range   = r
            } ∈ l
 
     ---------------------------------------------------------------------------------------
 
-  → step sm s i ≡ pure s′
+  → ∃[ tx≡ ] (step sm s i ≡ pure (s′ , tx≡))
 
-safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx} {v} vl prevTxRef∈ tx∈l = fin
+safety {S = S} {I = I} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx} {v} {f} {r} vl prevTxRef∈ tx∈l
+  = step≡
   where
     ds  = toData s
     di  = toData i
@@ -66,29 +63,20 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     𝕍 = (mkValidator sm) ♯
 
     prevOut : TxOutput
-    address prevOut = 𝕍
-    value   prevOut = v
-    dataVal prevOut = ds
+    prevOut = s —→ $ v at sm
 
     prevTxRef : TxOutputRef
     prevTxRef = (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevTxRef∈))
 
-    txIn : TxInput
-    outputRef txIn = prevTxRef
-    validator txIn = mkValidator sm
-    redeemer  txIn = di
-
-    txOut : TxOutput
-    address txOut = 𝕍
-    value   txOut = v
-    dataVal txOut = ds′
+    txIn = prevTxRef ←— i , sm
+    txOut = s′ —→ $ (v + f) at sm
 
     tx : Tx
-    inputs tx  = [ txIn ]
+    inputs  tx = [ txIn ]
     outputs tx = [ txOut ]
+    forge   tx = f
     fee     tx = $ 0
-    forge   tx = $ 0
-    range   tx = -∞ ⋯ +∞
+    range   tx = r
 
     ∈⇒valid : ∀ {tx l}
       → tx ∈ l
@@ -164,7 +152,7 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
         h rewrite lookupOutput≡ = refl
 
     ptxOut : PendingTxOutput
-    value         ptxOut = v
+    value         ptxOut = v + f
     validatorHash ptxOut = 𝕍
     dataHash      ptxOut = ds′ ♯ᵈ
 
@@ -175,8 +163,8 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
     dataWitnesses ptx = [ ds′ ♯ᵈ , ds′ ]
     txHash        ptx = tx ♯ₜₓ
     fee           ptx = $ 0
-    forge         ptx = $ 0
-    range         ptx = -∞ ⋯ +∞
+    forge         ptx = f
+    range         ptx = r
 
     ptx≡ : mkPendingTx l′ tx txIn i∈ v₁ v₂
          ≡ ptx
@@ -188,8 +176,8 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
                    ; dataWitnesses = [ ds′ ♯ᵈ , ds′ ]
                    ; txHash        = tx ♯ₜₓ
                    ; fee           = $ 0
-                   ; forge         = $ 0
-                   ; range         = -∞ ⋯ +∞ }
+                   ; forge         = f
+                   ; range         = r }
           ≡ ptx
         h rewrite ptxIn≡ = refl
 
@@ -198,65 +186,30 @@ safety {S = S} {sm = sm@(SM[ _ , final , step′ ])} {s} {i} {s′} {l} {prevTx}
        → T (mkValidator sm ptx di ds)
     validate≡ p rewrite ptx≡ | lookupOutput≡ = p
 
-    fromMaybe≡true : ∀ {S : Set} {mx : Maybe S} {k : S → Maybe Bool}
-      → T (fromMaybe false (mx >>= k))
-      → ∃[ x ] ( (mx  ≡ pure x)
-               × (k x ≡ pure true) )
-    fromMaybe≡true {mx = mx} {k = k} p
-      with mx | p
-    ... | nothing | ()
-    ... | pure x  | p′
-      with k x | inspect k x | p′
-    ... | nothing    | _       | ()
-    ... | pure false | _       | ()
-    ... | pure true  | ≡[ k≡ ] | _  = x , refl , k≡
+    step″ : S → I → Maybe (Maybe (S × TxConstraints))
+    step″ s i = ⦇ step′ (fromData (toData s)) (fromData (toData i)) ⦈
 
-    k′ : S → Maybe Bool
-    k′ x =
-      if final x then
-        pure false
-      else
-        pure (toData s′ == toData x)
-
-    mx′ : Maybe S
-    mx′ with ⦇ step′ (fromData ds) (fromData di) ⦈
-    ... | pure r = r
-    ... | _      = nothing
-
-    mx≡′ : ∀ {s″ : S}
-      → mx′ ≡ pure s″
-      → step′ s i ≡ pure s″
-    mx≡′ {s″} mx≡
-      rewrite from∘to s | from∘to i
-      with step′ s i | mx≡
-    ... | nothing  | ()
-    ... | pure .s″ | refl = refl
-
-    hh : T (mkValidator sm ptx di ds)
-       → T (fromMaybe false (mx′ >>= k′))
-    hh p rewrite from∘to s | from∘to i | ≟ℕ-refl {𝕍} | ≟ℕ-refl {ds′ ♯ᵈ} = p
-
-    step≡ : T (mkValidator sm ptx di ds)
-          → step′ s i ≡ pure s′
-    step≡ p
-      with fromMaybe≡true {mx = mx′} {k = k′} (hh p)
-    ... | s″ , mx≡ , k≡
-      with final s″ | k≡
-    ... | true  | ()
-    ... | false | k≡′
-      with toData s′ ≟ᵈ toData s″ | k≡′
-    ... | no _   | ()
+    step≡ : ∃[ tx≡ ] (step′ s i ≡ pure (s′ , tx≡))
+    step≡
+      with step″ s i | inspect (step″ s) i | validate≡ (allInputsValidate vtx txIn i∈)
+    ... | nothing                | _       | ()
+    ... | pure nothing           | _       | ()
+    ... | pure (pure (s″ , tx≡)) | ≡[ s≡ ] | p
+      rewrite ≟-refl _≟ℕ_ 𝕍 | from∘to s | from∘to i
+      with final s″ | inspect final s″ | p
+    ... | true  | _ | ()
+    ... | false | ≡[ f≡ ] | p′
+      rewrite f≡ | ≟-refl _≟ℕ_ (ds′ ♯ᵈ)
+      with ds′ ≟ᵈ toData s″ | p′
+    ... | no  _  | ()
     ... | yes eq | _
       with cong (fromData {A = S}) eq
     ... | eq′
-      rewrite from∘to s″ | from∘to s′ =
-        begin
-          step′ s i
-        ≡⟨ mx≡′ mx≡ ⟩
-           pure s″
-        ≡⟨ sym eq′ ⟩
-           pure s′
-        ∎
-
-    fin : step sm s i ≡ pure s′
-    fin = step≡ (validate≡ (allInputsValidate vtx txIn i∈))
+      rewrite from∘to s″ | from∘to s′
+        = tx≡ , (begin
+                   step′ s i
+                 ≡⟨ just-injective s≡ ⟩
+                   pure (s″ , tx≡)
+                 ≡⟨ cong (λ x → pure (x , tx≡)) (just-injective (sym eq′)) ⟩
+                   pure (s′ , tx≡)
+                 ∎)

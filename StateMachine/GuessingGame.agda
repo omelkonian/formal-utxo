@@ -58,8 +58,11 @@ isInitial GameStateMachine (Locked _)  = false
 
 isFinal GameStateMachine = const false
 
-step GameStateMachine Initialised (StartGame hs) = just (Locked hs)
-step GameStateMachine (Locked hs) (Guess cs hs′) = if ⌊ (cs ♯ₛₜᵣ) ≟ℕ hs ⌋ then just (Locked hs′) else nothing
+step GameStateMachine Initialised (StartGame hs) = just (Locked hs , record{ forge≡ = just 1; range≡ = nothing })
+step GameStateMachine (Locked hs) (Guess cs hs′) = if ⌊ (cs ♯ₛₜᵣ) ≟ℕ hs ⌋ then
+                                                     just (Locked hs′ , record{ forge≡ = just 0; range≡ = nothing })
+                                                   else
+                                                     nothing
 step GameStateMachine _           _              = nothing
 
 gameValidator : Validator

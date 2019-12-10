@@ -2,16 +2,20 @@ module StateMachine.Base where
 
 open import Function using (_∘_; case_of_)
 
-open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_)
+open import Data.Unit    using (tt)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax)
+open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
 open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
-open import Data.List    using (List; null; []; _∷_; filter; map)
+open import Data.List    using (List; null; []; _∷_; filter; map; length)
 open import Data.Nat     using (ℕ)
   renaming (_≟_ to _≟ℕ_)
 
+open import Data.List.Membership.Propositional using (_∈_)
+
+open import Relation.Nullary                      using (yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import UTxO.Hashing.MetaHash
 open import UTxO.Types hiding (I)
@@ -32,22 +36,58 @@ open import UTxO.DecValidity Address (λ x → x) _≟ℕ_ public
 -- an input, and a checking function that checks the validity of the
 -- transition in the context of the current transaction.
 
+record TxConstraints : Set where
+  field
+    forge≡ : Maybe Value
+    range≡ : Maybe SlotRange
+
+open TxConstraints public
+
+verifyPtx : PendingTx → TxConstraints → Bool
+verifyPtx (record {forge = v; range = s}) c = ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧ ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋
+
+verifyTx : Tx → TxConstraints → Bool
+verifyTx (record {forge = v; range = s}) c = ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧ ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋
+
+verifyTx≡verifyPtx : ∀ tx tx≡ {l i i∈ v₁ v₂}
+  → verifyTx tx tx≡
+  ≡ verifyPtx (mkPendingTx l tx i i∈ v₁ v₂) tx≡
+verifyTx≡verifyPtx tx tx≡ = refl
+
+_-compliesTo-_ : Ledger → TxConstraints → Set
+l -compliesTo- ptx≡ = T (fromMaybe (-∞ ⋯ +∞) (range≡ ptx≡) ∋ length l)
+
+constraint : ∀ (tx≡ : TxConstraints) (tx : Tx) → Σ[ tx ∈ Tx ] (verifyTx tx tx≡ ≡ true)
+constraint tx≡ tx = tx′ , verify≡
+  where
+    tx′ = record tx { forge = fromMaybe (forge tx) (forge≡ tx≡)
+                    ; range = fromMaybe (range tx) (range≡ tx≡) }
+
+    verify≡ : verifyTx tx′ tx≡ ≡ true
+    verify≡ with forge≡ tx≡ | range≡ tx≡
+    ... | nothing | nothing rewrite ≟-refl _≟ᶜ_ (forge tx) | ≟-refl _≟ˢ_ (range tx) = refl
+    ... | pure f  | nothing rewrite ≟-refl _≟ᶜ_ f          | ≟-refl _≟ˢ_ (range tx) = refl
+    ... | nothing | pure r  rewrite ≟-refl _≟ᶜ_ (forge tx) | ≟-refl _≟ˢ_ r          = refl
+    ... | pure f  | pure r  rewrite ≟-refl _≟ᶜ_ f          | ≟-refl _≟ˢ_ r          = refl
+
+
 record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
   field
     isInitial : S → Bool
     isFinal   : S → Bool
-    step      : S → I → Maybe S
+    step      : S → I → Maybe (S × TxConstraints)
 
 open StateMachine public
 
 mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
 mkValidator {S} {I} SM[ _ , final , step ] ptx input state
-    = fromMaybe false (state′ >>= outputsOK)
+    = fromMaybe false do (state′ , ptx≡) ← runStep
+                         ⦇ outputsOK state′ ∧ pure (verifyPtx ptx ptx≡) ⦈
   where
-    state′ : Maybe S
-    state′ with ⦇ step (fromData state) (fromData input) ⦈
+    runStep : Maybe (S × TxConstraints)
+    runStep with ⦇ step (fromData state) (fromData input) ⦈
     ... | pure r = r
     ... | _      = nothing
 

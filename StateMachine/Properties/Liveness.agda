@@ -7,11 +7,11 @@ open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T; true; false; if_then_else_)
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂)
 open import Data.Sum     using (_⊎_; inj₁; inj₂)
-open import Data.Maybe   using (Maybe)
+open import Data.Maybe   using (Maybe; fromMaybe; nothing)
   renaming (just to pure; ap to _<*>_) -- to use idiom brackets
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
   renaming (suc to fsuc; zero to fzero)
-open import Data.Nat     using (ℕ; _<_; z≤n; s≤s)
+open import Data.Nat     using (ℕ; _<_; z≤n; s≤s; _+_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
 
@@ -30,6 +30,7 @@ open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong
   renaming ([_] to ≡[_])
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
+open import Prelude.General
 open import Prelude.Lists
 
 open import UTxO.Hashing.Base
@@ -44,60 +45,62 @@ open PendingTx
 
 liveness : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
              {s : S} {i : I} {s′ : S} {l : Ledger}
-             {prevTx : Tx} {v : Value}
+             {prevTx : Tx} {v : Value} {ptx≡ : TxConstraints}
 
     -- `s —→[i] s′` constitutes a valid transition in the state machine
-  → step sm s i ≡ pure s′
+  → step sm s i ≡ pure (s′ , ptx≡)
 
     -- if we are moving to a final state, make sure no value is carried around
-  → (T (isFinal sm s′) → v ≡ 0)
+  → (T (isFinal sm s′) → (v ≡ 0) × (forge≡ ptx≡ ≡ nothing))
 
     -- existing ledger is valid
   → (vl : ValidLedger l)
+  → l -compliesTo- ptx≡
 
     -- previous output is an element of previous transaction
   → (prevOut∈prevTx : s —→ $ v at sm ∈ outputs prevTx)
 
-  → let prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈prevTx) in
+  → let prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈prevTx)
+        txIn      = prevTxRef ←— i , sm
+        v′        = v + fromMaybe ($ 0) (forge≡ ptx≡)
+    in
 
     -- previous unspent output
     prevTxRef SETₒ.∈′ unspentOutputs l
 
     ---------------------------------------------------------------------------------------
 
-  → ∃[ tx ]
-       ( -- (1) new transaction is valid
-         IsValidTx tx l
-         -- (2) it contains the source state in its inputs, using the state machine's validator
-       × (prevTxRef ←— i , sm ∈ inputs tx)
-         -- (3) it contains the target state in its outputs
-       × (¬ T (isFinal sm s′) → s′ —→ $ v at sm ∈ outputs tx)
-       )
+  → ∃[ tx ](
+      -- (1) new transaction is valid
+      Σ[ vtx ∈ IsValidTx tx l ]
+      -- (2) it contains the source state in its inputs, using the state machine's validator
+      Σ[ i∈  ∈ (txIn ∈ inputs tx) ]
+        let ptx = mkPendingTx l tx txIn i∈ (validTxRefs vtx) (validOutputIndices vtx) in
+      -- (3) it contains the target state in its outputs
+           (¬ T (isFinal sm s′) → s′ —→ $ v′ at sm ∈ outputs tx)
+      -- (4) it satisfied the constraints imposed by the state machine
+         × T (verifyPtx ptx ptx≡))
 
-liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut∈prevTx prev∈utxo
+liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} {ptx≡} step≡ val≡ vl range∋l prevOut∈prevTx prev∈utxo
   with isFinal sm s′ | inspect (isFinal sm) s′
 ... | true | ≡[ final≡ ]
-    = tx , vtx , here refl , λ ¬fin → ⊥-elim (¬fin tt)
+    = tx , vtx , here refl , (λ ¬fin → ⊥-elim (¬fin tt)) , true⇒T verify≡
   where
-    ds  = toData s
-    di  = toData i
-    ds′ = toData s′
     𝕍 = (mkValidator sm) ♯
-
-    prevTxRef : TxOutputRef
     prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈prevTx)
+    prevOut   = s —→ $ v at sm
+    forge′    = fromMaybe ($ 0) (forge≡ ptx≡)
+    range′    = fromMaybe (-∞ ⋯ +∞) (range≡ ptx≡)
 
-    prevOut : TxOutput
-    value   prevOut = v
-    address prevOut = 𝕍
-    dataVal prevOut = ds
+    tx′ : Σ[ tx ∈ Tx ] (verifyTx tx ptx≡ ≡ true)
+    tx′ = constraint ptx≡ record { inputs =  [ prevTxRef ←— i , sm ]
+                                 ; outputs = []
+                                 ; forge   = $ 0
+                                 ; fee     = $ 0
+                                 ; range   = -∞ ⋯ +∞ }
 
-    tx : Tx
-    inputs  tx = [ prevTxRef ←— i , sm ]
-    outputs tx = []
-    forge   tx = $ 0
-    fee     tx = $ 0
-    range   tx = -∞ ⋯ +∞
+    tx      = proj₁ tx′
+    verify≡ = proj₂ tx′
 
     prevTx∈ : prevTx ∈ l
     prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
@@ -121,41 +124,44 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
             | ‼-index prevOut∈prevTx
             = refl
 
-    state≡ : ⦇ step (pure sm) (fromData ds) (fromData di) ⦈ ≡ pure (pure s′)
+    state≡ : ⦇ step (pure sm) (fromData (toData s)) (fromData (toData i)) ⦈ ≡ pure (pure (s′ , ptx≡))
     state≡ rewrite from∘to s | from∘to i | step≡ = refl
 
     vtx : IsValidTx tx l
     validTxRefs         vtx _ (here refl) = prevTx♯∈
     validOutputIndices  vtx _ (here refl) = len<
     validOutputRefs     vtx _ (here refl) = prev∈utxo
-    preservesValues     vtx rewrite lookupPrevOutput≡ | final≡ | val≡ tt = refl
+    preservesValues     vtx rewrite lookupPrevOutput≡ | final≡ | proj₁ (val≡ tt) | proj₂ (val≡ tt) = refl
     noDoubleSpending    vtx = [] ∷ []
-    allInputsValidate   vtx _ (here refl) rewrite lookupPrevOutput≡ | state≡ | final≡ = tt
+    allInputsValidate   vtx _ (here refl) rewrite lookupPrevOutput≡ | state≡ | final≡ | verify≡ = tt
     validateValidHashes vtx _ (here refl) rewrite lookupPrevOutput≡ = refl
-    validInterval       vtx = toWitness {Q = T? (range tx ∋ length l)} tt
-
+    validInterval       vtx = range∋l
 ... | false | ≡[ final≡ ]
-    = tx , vtx , here refl , λ _ → here refl
+    = tx , vtx , here refl , (λ _ → here refl) , true⇒T verify≡
   where
-    ds  = toData s
-    di  = toData i
-    ds′ = toData s′
     𝕍  = (mkValidator sm) ♯
 
     prevTxRef : TxOutputRef
     prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈prevTx)
 
     prevOut : TxOutput
-    value   prevOut = v
-    address prevOut = 𝕍
-    dataVal prevOut = ds
+    prevOut = s —→ $ v at sm
 
-    tx : Tx
-    inputs  tx = [ prevTxRef ←— i , sm ]
-    outputs tx = [ s′ —→ $ v at sm ]
-    forge   tx = $ 0
-    fee     tx = $ 0
-    range   tx = -∞ ⋯ +∞
+    forge′ : Value
+    forge′ = fromMaybe ($ 0) (forge≡ ptx≡)
+
+    range′ : SlotRange
+    range′ = fromMaybe (-∞ ⋯ +∞) (range≡ ptx≡)
+
+    tx′ : Σ[ tx ∈ Tx ] (verifyTx tx ptx≡ ≡ true)
+    tx′ = constraint ptx≡ record { inputs =  [ prevTxRef ←— i , sm ]
+                                 ; outputs = [ s′ —→ $ (v + forge′) at sm ]
+                                 ; forge   = $ 0
+                                 ; fee     = $ 0
+                                 ; range   = -∞ ⋯ +∞ }
+
+    tx      = proj₁ tx′
+    verify≡ = proj₂ tx′
 
     prevTx∈ : prevTx ∈ l
     prevTx∈ = tx♯∈⇒tx∈ prev∈utxo
@@ -188,28 +194,28 @@ liveness {S} {I} {sm} {s} {i} {s′} {l} {prevTx} {v} step≡ val≡ vl prevOut�
     ptx = mkPendingTx l tx (prevTxRef ←— i , sm) (here refl) v₀ v₁
 
     ptxOut : PendingTxOutput
-    value         ptxOut = v
+    value         ptxOut = v + forge′
     validatorHash ptxOut = 𝕍
-    dataHash      ptxOut = ds′ ♯ᵈ
+    dataHash      ptxOut = (toData s′) ♯ᵈ
 
-    state≡ : ⦇ step (pure sm) (fromData ds) (fromData di) ⦈ ≡ pure (pure s′)
+    state≡ : ⦇ step (pure sm) (fromData (toData s)) (fromData (toData i)) ⦈ ≡ pure (pure (s′ , ptx≡))
     state≡ rewrite from∘to s | from∘to i | step≡ = refl
 
     outs≡ : getContinuingOutputs ptx ≡ [ ptxOut ]
-    outs≡ rewrite ≟ℕ-refl {𝕍} = refl
+    outs≡ rewrite ≟-refl _≟ℕ_ 𝕍 = refl
 
-    findData≡ : findData (PendingTxOutput.dataHash ptxOut) ptx ≡ pure ds′
-    findData≡ rewrite ≟ℕ-refl {ds′ ♯ᵈ} = refl
+    findData≡ : findData (PendingTxOutput.dataHash ptxOut) ptx ≡ pure (toData s′)
+    findData≡ rewrite ≟-refl _≟ℕ_ ((toData s′)♯ᵈ) = refl
 
-    validate≡ : mkValidator sm ptx di ds ≡ true
-    validate≡ rewrite state≡ | outs≡ | findData≡ | ≟ᵈ-refl {ds′} | final≡ = refl
+    validate≡ : mkValidator sm ptx (toData i) (toData s) ≡ true
+    validate≡ rewrite state≡ | outs≡ | findData≡ | ≟-refl _≟ᵈ_ (toData s′) | final≡ | verify≡ = refl
 
     vtx : IsValidTx tx l
     validTxRefs         vtx = v₀
     validOutputIndices  vtx = v₁
     validOutputRefs     vtx _ (here refl) = prev∈utxo
-    preservesValues     vtx rewrite lookupPrevOutput≡ = refl
+    preservesValues     vtx rewrite lookupPrevOutput≡ = (x+y+0≡y+x+0 (fromMaybe ($ 0) (forge≡ ptx≡)) v)
     noDoubleSpending    vtx = [] ∷ []
     allInputsValidate   vtx _ (here refl) rewrite lookupPrevOutput≡ | validate≡ = tt
     validateValidHashes vtx _ (here refl) rewrite lookupPrevOutput≡ = refl
-    validInterval       vtx = toWitness {Q = T? (range tx ∋ length l)} tt
+    validInterval       vtx = range∋l
