@@ -1,4 +1,4 @@
-module UTxO.Main where
+module Main where
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -18,6 +18,6 @@ open import StateMachine.Base
 open import StateMachine.GuessingGame
 open import StateMachine.ExamplePlay
 
-open import StateMachine.Properties.Liveness
-open import StateMachine.Properties.Liveness2
-open import StateMachine.Properties.Safety
+open import Bisimulation.Base
+open import Bisimulation.Soundness
+open import Bisimulation.Completeness

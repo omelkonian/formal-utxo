@@ -10,7 +10,9 @@
 ------------------------------------------------------------------------
 module UTxO.Hashing.MetaHash where
 
-open import Function      using (_∘_)
+open import Function             using (_∘_)
+open import Function.Definitions using (Injective)
+
 open import Data.Unit     using (⊤)
 open import Data.Bool     using (Bool; true; false)
 open import Data.Product  using (_×_; _,_)
@@ -27,7 +29,11 @@ open import Reflection
 
 open import UTxO.Hashing.Base
 
+postulate
+  _♯ : ∀ {A : Set} → Hash A
+  ♯-injective : ∀ {A : Set} → Injective {A = A} _≡_ _≡_ _♯
 
+{-
 Show : Set → Set
 Show A = A → String
 
@@ -104,7 +110,4 @@ showClause (absurd-clause ps) = "absurd-clause" ◇ showPats ps
 -- !!! DOES NOT WORK, I need runtime reflection :(
 -- _♯ : ∀ {ℓ} {A : Set ℓ} → Hash A
 -- x ♯ = (metaHash x) ♯ₛₜᵣ
-
-postulate
-  _♯ : ∀ {ℓ} {A : Set ℓ} → Hash A
-  ♯-injective : ∀ {ℓ} {A : Set ℓ} → Injective {ℓ} {A} _♯
+-}

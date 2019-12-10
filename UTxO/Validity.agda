@@ -1,7 +1,10 @@
+open import Function using (_∘_)
+
 open import Data.Bool     using (T)
-open import Data.Product  using (∃; ∃-syntax)
+open import Data.Product  using (∃-syntax)
 open import Data.Nat      using (_<_)
-open import Data.List     using ([]; _∷_; length; map)
+  renaming (_≟_ to _≟ℕ_)
+open import Data.List     using ([]; _∷_; length; map; filter)
 
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
@@ -9,7 +12,7 @@ open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
 open import Data.List.Relation.Unary.Any                  using (Any)
 
 open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -44,7 +47,7 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     validOutputRefs :
       ∀ i → i ∈ inputs tx →
-        outputRef i SETₒ.∈′ unspentOutputs l
+        outputRef i ∈ map outRef (utxo l)
 
     preservesValues :
       forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →

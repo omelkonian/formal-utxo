@@ -1,10 +1,8 @@
-TOP := UTxO
-
 default: site
 
 site:
-	agda --html --html-dir=docs --css=css/Agda.css $(TOP)/Main.agda \
-	  && cp docs/$(TOP).Main.html docs/index.html
+	agda --html --html-dir=docs --css=css/Agda.css Main.agda \
+	  && cp docs/Main.html docs/index.html
 
 clean:
 	rm -f docs/*.html

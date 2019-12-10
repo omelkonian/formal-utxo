@@ -19,9 +19,6 @@ open import Relation.Binary.PropositionalEquality using (_≡_)
 Hash : ∀ {ℓ} → (A : Set ℓ) → Set ℓ
 Hash A = A → ℕ
 
-Injective : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → Set ℓ
-Injective _# = ∀ {x y} → (x #) ≡ (y #) → x ≡ y
-
 _-via-_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} → A → A ↣ B → B
 a -via- record { f = f } = f a
 

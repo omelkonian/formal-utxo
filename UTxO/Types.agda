@@ -1,9 +1,11 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Types where
 
-open import Function using (_∘_)
+open import Function             using (_∘_)
+open import Function.Definitions using (Injective)
 
 open import Data.Empty   using (⊥-elim)
 open import Data.Bool    using (Bool; true; false; _∧_)
@@ -13,15 +15,22 @@ open import Data.Char    using (Char; toℕ; fromℕ)
 open import Data.String  using (String; toList; fromList)
 open import Data.Nat     using (ℕ; _≤?_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.Integer using (ℤ; +_; ∣_∣)
+open import Data.Integer using (ℤ; +_; -[1+_]; ∣_∣)
   renaming (_≟_ to _≟ℤ_)
 open import Data.Maybe   using (Maybe; nothing)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
 
+open import Data.Maybe.Properties using (just-injective)
+
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; sym; cong)
+
+open import Prelude.General
+
+open import UTxO.Hashing.Base
+open import UTxO.Hashing.MetaHash
 
 -- Re-export multi-currency values.
 open import UTxO.Value public
@@ -51,6 +60,7 @@ record IsData (A : Set) : Set where
     toData   : A → DATA
     fromData : DATA → Maybe A
     from∘to  : ∀ x → fromData (toData x) ≡ pure x
+    from-inj : ∀ dx x → fromData dx ≡ pure x → dx ≡ toData x
 open IsData {{...}} public
 
 open import Relation.Binary.PropositionalEquality.TrustMe using (trustMe)
@@ -58,31 +68,55 @@ open import Relation.Binary.PropositionalEquality.TrustMe using (trustMe)
 fromℕ∘toℕ : ∀ c → fromℕ (toℕ c) ≡ c
 fromℕ∘toℕ c = trustMe
 
+toℕ∘fromℕ : ∀ c → toℕ (fromℕ c) ≡ c
+toℕ∘fromℕ c = trustMe
+
 fromList∘toList : ∀ s → fromList (toList s) ≡ s
 fromList∘toList s = trustMe
+
+postulate
+  fromℕ-injective : Injective _≡_ _≡_ fromℕ
 
 instance
   IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
   toData   {{IsDataˡ}} = LIST ∘ map toData
+
   fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
     where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
 
   from∘to  {{IsDataˡ}} []       = refl
   from∘to  {{IsDataˡ}} (x ∷ xs) rewrite from∘to x | from∘to xs = refl
 
+  from-inj {{IsDataˡ}} (LIST xs)    x from≡ = cong LIST {!!}
+  from-inj {{IsDataˡ}} (I _)        _ ()
+  from-inj {{IsDataˡ}} (H _)        _ ()
+  from-inj {{IsDataˡ}} (CONSTR _ _) _ ()
+  from-inj {{IsDataˡ}} (MAP _)      _ ()
+
   IsDataᶜ : IsData Char
-  toData   {{IsDataᶜ}}       = I ∘ +_ ∘ toℕ
-  fromData {{IsDataᶜ}} (I z) = pure (fromℕ ∣ z ∣)
-  fromData {{IsDataᶜ}} _     = nothing
+  toData   {{IsDataᶜ}}           = I ∘ +_ ∘ toℕ
+
+  fromData {{IsDataᶜ}} (I (+ z)) = pure (fromℕ z)
+  fromData {{IsDataᶜ}} _         = nothing
 
   from∘to  {{IsDataᶜ}} c rewrite fromℕ∘toℕ c = refl
 
+  from-inj {{IsDataᶜ}} (I (+ z))      x from≡ = cong (I ∘ +_) (trans (sym (toℕ∘fromℕ z))
+                                                              (cong toℕ (just-injective from≡)))
+  from-inj {{IsDataᶜ}} (I (-[1+ _ ])) _ ()
+  from-inj {{IsDataᶜ}} (H _)          _ ()
+  from-inj {{IsDataᶜ}} (LIST _)       _ ()
+  from-inj {{IsDataᶜ}} (CONSTR _ _)   _ ()
+  from-inj {{IsDataᶜ}} (MAP _)        _ ()
+
   IsDataˢ : IsData String
   toData   {{IsDataˢ}} = toData ∘ toList
+
   fromData {{IsDataˢ}} = mapₘ fromList ∘ fromData
 
   from∘to  {{IsDataˢ}} xs rewrite from∘to (toList xs) | fromList∘toList xs = refl
 
+  from-inj {{IsDataˢ}} dx x from≡ = {!!}
 
 --------------------------------------------------------------------------------------
 -- Valid intervals (slot ranges).
@@ -135,10 +169,6 @@ record PendingTx : Set where
     fee           : Value
     forge         : Value
 
-toMaybe : ∀ {A : Set} → List A → Maybe A
-toMaybe []      = nothing
-toMaybe (x ∷ _) = pure x
-
 findData : HashId → PendingTx → Maybe DATA
 findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
 
@@ -172,6 +202,7 @@ record TxOutputRef : Set where
   field
     id    : HashId
     index : ℕ
+
 open TxOutputRef public
 
 Validator : Set
@@ -201,12 +232,9 @@ x ≟ₒ y with id x ≟ℕ id y | index x ≟ℕ index y
 ... | yes refl | yes refl = yes refl
 
 module SETₒ = SET {A = TxOutputRef} _≟ₒ_
+Set⟨TxOutputRef⟩ = Set' where open SETₒ
 
-Set⟨TxOutputRef⟩ : Set
-Set⟨TxOutputRef⟩ = Set'
-  where open SETₒ
-
--- Sets of DATA.
+-- Sets of DATA
 _≟ᵈ_ : Decidable {A = DATA} _≡_
 _≟ᵈₗ_ : Decidable {A = List DATA} _≡_
 _≟ᵈ×ₗ_ : Decidable {A = List (DATA × DATA)} _≡_
@@ -277,14 +305,12 @@ MAP x ≟ᵈ MAP x₁
 ... | yes refl | yes refl | yes refl = yes refl
 
 module SETᵈ = SET {A = DATA} _≟ᵈ_
-Set⟨DATA⟩ : Set
 Set⟨DATA⟩ = Set' where open SETᵈ
 
 _==_ : DATA → DATA → Bool
 x == y = ⌊ x ≟ᵈ y ⌋
 
--- Sets of slot ranges.
-
+-- Sets of slot ranges
 _≟ᵇ_ : Decidable {A = Bound} _≡_
 -∞ ≟ᵇ -∞     = yes refl
 -∞ ≟ᵇ +∞     = no λ()
@@ -308,6 +334,18 @@ _≟ˢ_ : Decidable {A = SlotRange} _≡_
 ... | _        | no ¬p    = no λ{ refl → ¬p refl }
 ... | yes refl | yes refl = yes refl
 
+-- Sets of inputs
+_≟ᵢ_ : Decidable {A = TxInput} _≡_
+i ≟ᵢ i′
+  with outputRef i ≟ₒ outputRef i′ | ((validator i) ♯) ≟ℕ ((validator i′) ♯) | redeemer i ≟ᵈ redeemer i′
+... | no ¬p    | _     | _        = no λ{ refl → ¬p refl }
+... | _        | no ¬p | _        = no λ{ refl → ¬p refl }
+... | _        | _     | no ¬p    = no λ{ refl → ¬p refl }
+... | yes refl | yes p | yes refl
+  with ♯-injective p
+... | refl = yes refl
+
+-- Properties
 ≟-refl : ∀ {A : Set} (_≟_ : Decidable {A = A} _≡_) (x : A)
   → x ≟ x ≡ yes refl
 ≟-refl _≟_ x with x ≟ x

@@ -7,16 +7,22 @@ open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax)
 open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
 open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
-open import Data.List    using (List; null; []; _∷_; filter; map; length)
+open import Data.List    using (List; null; []; _∷_; [_]; filter; map; length)
 open import Data.Nat     using (ℕ)
   renaming (_≟_ to _≟ℕ_)
+
+open import Data.Maybe.Properties using (just-injective)
 
 open import Data.List.Membership.Propositional using (_∈_)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; trans; sym; cong)
+  renaming ([_] to ≡[_])
 
+open import Prelude.General
+
+open import UTxO.Hashing.Types
 open import UTxO.Hashing.MetaHash
 open import UTxO.Types hiding (I)
 

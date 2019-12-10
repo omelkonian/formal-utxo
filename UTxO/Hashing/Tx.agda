@@ -1,6 +1,8 @@
 ------------------------------------------------------------------------
 -- Naive hashing functions for UTxO types.
 ------------------------------------------------------------------------
+open import Function.Definitions using (Injective)
+
 open import Data.List using ([]; _∷_)
 
 open import Relation.Binary                       using (Decidable)
@@ -20,7 +22,7 @@ open import UTxO.Ledger Address _♯ₐ _≟ₐ_
 
 _♯ₒ : Hash TxOutput
 o ♯ₒ = merge♯ ((value o) ♯ᵥ ∷ (address o) ♯ₐ ∷ [])
-postulate injective♯ₒ : Injective _♯ₒ
+postulate injective♯ₒ : Injective _≡_ _≡_ _♯ₒ
 
 _♯ₜₓ : Hash Tx
 tx ♯ₜₓ = merge♯ ( (hashList _♯ᵢ) (inputs tx)
@@ -30,7 +32,7 @@ tx ♯ₜₓ = merge♯ ( (hashList _♯ᵢ) (inputs tx)
                 ∷ (range tx) ♯ˢ
                 ∷ []
                 )
-postulate injective♯ₜₓ : Injective _♯ₜₓ
+postulate injective♯ₜₓ : Injective _≡_ _≡_ _♯ₜₓ
 
 infix 9 _♯ₒ
 infix 9 _♯ₜₓ

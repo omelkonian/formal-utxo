@@ -78,10 +78,10 @@ validOutputIndices? tx l v₁ =
     index (outputRef i) <? length (outputs (lookupTx l (outputRef i) (v₁ i i∈)))
 
 validOutputRefs? : ∀ (tx : Tx) (l : Ledger)
-  → Dec (∀ i → i ∈ inputs tx → outputRef i SETₒ.∈′ unspentOutputs l)
+  → Dec (∀ i → i ∈ inputs tx → outputRef i ∈ map outRef (utxo l))
 validOutputRefs? tx l =
   ∀? (inputs tx) λ i _ →
-    outputRef i SETₒ.∈? SETₒ.list (unspentOutputs l)
+    outputRef i SETₒ.∈? map outRef (utxo l)
 
 preservesValues? : ∀ (tx : Tx) (l : Ledger)
   → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)

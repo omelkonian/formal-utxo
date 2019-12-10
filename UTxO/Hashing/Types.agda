@@ -3,25 +3,26 @@
 ------------------------------------------------------------------------
 module UTxO.Hashing.Types where
 
+open import Function.Definitions using (Injective)
+
 open import Data.Product using (_×_; _,_)
 open import Data.List    using (List; []; _∷_)
 open import Data.Integer using (ℤ; ∣_∣)
 open import Data.Nat     using (_+_)
+
+open import Relation.Binary.PropositionalEquality using (_≡_)
 
 open import UTxO.Hashing.Base
 open import UTxO.Types
 
 _♯ₒᵣ : Hash TxOutputRef
 o ♯ₒᵣ = merge♯ (id o ∷ index o ∷ [])
-postulate injective♯ₒᵣ : Injective _♯ₒᵣ
 
 _♯ᵢ : Hash TxInput
 i ♯ᵢ = (outputRef i) ♯ₒᵣ
-postulate injective♯ᵢ : Injective _♯ᵢ
 
 _♯ᵥ : Hash Value
 _♯ᵥ = λ x → x
-postulate injective♯ᵥ : Injective _♯ᵥ
 
 _♯ℤ : Hash ℤ
 _♯ℤ = ∣_∣
@@ -57,3 +58,8 @@ infix 9 _♯ₒᵣ
 infix 9 _♯ᵢ
 infix 9 _♯ᵥ
 infix 9 _♯ᵈ
+
+postulate injective♯ₒᵣ : Injective _≡_ _≡_ _♯ₒᵣ
+postulate injective♯ᵢ  : Injective _≡_ _≡_ _♯ᵢ
+postulate injective♯ᵥ  : Injective _≡_ _≡_ _♯ᵥ
+postulate injective♯ᵈ  : Injective _≡_ _≡_ _♯ᵈ

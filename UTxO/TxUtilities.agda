@@ -3,17 +3,18 @@ open import Function using (_∘_; _∋_; flip; _$_)
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃; ∃-syntax; Σ; Σ-syntax)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax; Σ-syntax; map₁)
 open import Data.Sum     using (inj₁; inj₂)
 open import Data.Nat     using (ℕ; zero; suc; _+_; _<_; _≟_)
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
 open import Data.Maybe   using (nothing)
-open import Data.List    using ([]; _∷_; length; map)
+open import Data.List    using (List; []; _∷_; length; map; _++_; filter)
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈; find)
-open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
-open import Data.List.Relation.Unary.Any                  using (Any; here; there)
+open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
+open import Data.List.Relation.Unary.Any as Any           using (Any; here; there)
 
+open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
@@ -33,41 +34,44 @@ module UTxO.TxUtilities
 open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
 open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
 
-module _ where
-  open SETₒ hiding (_∈_)
 
-  unspentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  unspentOutputsTx tx = fromList (map ((tx ♯ₜₓ) indexed-at_) (indices (outputs tx)))
+record UTXO : Set where
+  field
+    outRef   : TxOutputRef
+    out      : TxOutput
+    prevTx   : Tx
 
-  spentOutputsTx : Tx → Set⟨TxOutputRef⟩
-  spentOutputsTx tx = fromList (map outputRef (inputs tx))
+open UTXO public
 
-  unspentOutputs : Ledger → Set⟨TxOutputRef⟩
-  unspentOutputs []         = ∅
-  unspentOutputs (tx ∷ txs) = unspentOutputs txs ─ spentOutputsTx tx
-                            ∪ unspentOutputsTx tx
+utxo : Ledger → List UTXO
+utxo []       = []
+utxo (tx ∷ l) = filter ((SETₒ._∉? map outputRef (inputs tx)) ∘ outRef) (utxo l)
+             ++ mapWith∈ (outputs tx) λ {out} out∈ →
+                  record { outRef   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+                         ; out      = out
+                         ; prevTx   = tx }
 
-  -- Properties
-  tx♯∈⇒tx∈ : ∀ {l : Ledger} {tx : Tx} {j : ℕ}
-    → ((tx ♯ₜₓ) indexed-at j) ∈′ unspentOutputs l
-    → tx ∈ l
-  tx♯∈⇒tx∈ {l = tx′ ∷ txs} {tx = tx} {j = j} tx∈
-    with ∈-∪ {xs = unspentOutputs txs ─ spentOutputsTx tx′} {ys = unspentOutputsTx tx′} tx∈
-  ... | inj₁ tx∈ˡ = there (tx♯∈⇒tx∈ (∈-─ {xs = unspentOutputs txs} {ys = spentOutputsTx tx′} tx∈ˡ))
-  ... | inj₂ tx∈ʳ = here (tx♯∈⇒tx≡ tx∈ʳ)
-    where
-      injective-indexed-at : ∀ {x y i j}
-        → x indexed-at i ≡ y indexed-at j
-        → (x ≡ y) × (i ≡ j)
-      injective-indexed-at refl = refl , refl
+mapWith∈-∀ : ∀ {A B : Set} {xs : List A}  {f : ∀ {x : A} → x ∈ xs → B} {P : B → Set}
+  → (∀ {x} x∈ → P (f {x} x∈))
+  → (∀ {y} → y ∈ mapWith∈ xs f → P y)
+mapWith∈-∀ {xs = x ∷ xs} ∀P {y} (here px)  rewrite px = ∀P (Any.here refl)
+mapWith∈-∀ {xs = x ∷ xs} ∀P {y} (there y∈) = mapWith∈-∀ (∀P ∘ Any.there) y∈
 
-      tx♯∈⇒tx≡ : ∀ {j tx tx′}
-        → ((tx ♯ₜₓ) indexed-at j) ∈′ unspentOutputsTx tx′
-        → tx ≡ tx′
-      tx♯∈⇒tx≡ {tx′ = tx} = injective♯ₜₓ
-                          ∘ proj₁ ∘ injective-indexed-at
-                          ∘ proj₂ ∘ proj₂ ∘ ∈-map⁻ ((tx ♯ₜₓ) indexed-at_) {xs = indices (outputs tx)}
-                          ∘ ∈-nub
+∈utxo⇒outRef≡ : ∀ {u l}
+  → u ∈ utxo l
+  → prevTx u ∈ l
+  × Σ[ out∈ ∈ (out u ∈ outputs (prevTx u)) ]
+      outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+∈utxo⇒outRef≡ {l = tx ∷ l} u∈
+  with ∈-++⁻ (filter ((SETₒ._∉? map outputRef (inputs tx)) ∘ outRef) (utxo l)) u∈
+... | inj₁ u∈ˡ = map₁ there (∈utxo⇒outRef≡ (proj₁ (∈-filter⁻ ((SETₒ._∉? map outputRef (inputs tx)) ∘ outRef) u∈ˡ)))
+... | inj₂ u∈ʳ = (mapWith∈-∀ {P = λ u → prevTx u ∈ (tx ∷ l)
+                                      × Σ[ out∈ ∈ (out u ∈ outputs (prevTx u)) ]
+                                          outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (Any.index out∈)}
+                             (λ x∈ → here refl , x∈ , refl))
+                             u∈ʳ
+
+---
 
 lookupTx : (l : Ledger)
          → (out : TxOutputRef)
