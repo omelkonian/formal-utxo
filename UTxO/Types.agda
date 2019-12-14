@@ -1,11 +1,9 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Types where
 
-open import Function             using (_∘_)
-open import Function.Definitions using (Injective)
+open import Function             using (_∘_; case_of_)
 
 open import Data.Empty   using (⊥-elim)
 open import Data.Bool    using (Bool; true; false; _∧_)
@@ -25,9 +23,11 @@ open import Data.Maybe.Properties using (just-injective)
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; sym; cong)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; sym; cong; inspect)
+  renaming ([_] to ≡[_])
 
 open import Prelude.General
+open import Prelude.Unsafe  using (fromℕ∘toℕ; toℕ∘fromℕ; fromList∘toList; toList∘fromList)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.MetaHash
@@ -63,36 +63,31 @@ record IsData (A : Set) : Set where
     from-inj : ∀ dx x → fromData dx ≡ pure x → dx ≡ toData x
 open IsData {{...}} public
 
-open import Relation.Binary.PropositionalEquality.TrustMe using (trustMe)
-
-fromℕ∘toℕ : ∀ c → fromℕ (toℕ c) ≡ c
-fromℕ∘toℕ c = trustMe
-
-toℕ∘fromℕ : ∀ c → toℕ (fromℕ c) ≡ c
-toℕ∘fromℕ c = trustMe
-
-fromList∘toList : ∀ s → fromList (toList s) ≡ s
-fromList∘toList s = trustMe
-
-postulate
-  fromℕ-injective : Injective _≡_ _≡_ fromℕ
+from-injs : ∀ {A : Set} {{_ : IsData A}} ds xs
+          → sequence (map (fromData {A}) ds) ≡ pure xs → ds ≡ map (toData {A}) xs
+from-injs {_} []       .[] refl = refl
+from-injs {A} (d ∷ ds) xs₀ eq
+  with fromData {A} d | inspect (fromData {A}) d
+... | nothing | _ = case eq of λ()
+... | pure y  | ≡[ from≡ ]
+  with sequence (map (fromData {A}) ds) | inspect sequence (map (fromData {A}) ds)
+... | nothing  | _         = case eq of λ()
+... | pure xs′ | ≡[ seq≡ ]
+  rewrite sym (just-injective eq)
+        | from-injs ds xs′ seq≡
+        | from-inj d y from≡
+        = refl
 
 instance
   IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
   toData   {{IsDataˡ}} = LIST ∘ map toData
 
   fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
-    where sequence = foldr (λ c cs → ⦇ c ∷ cs ⦈) (pure [])
 
   from∘to  {{IsDataˡ}} []       = refl
   from∘to  {{IsDataˡ}} (x ∷ xs) rewrite from∘to x | from∘to xs = refl
 
-  from-inj {{IsDataˡ}} (LIST xs)    x from≡ = cong LIST {!!}
-  from-inj {{IsDataˡ}} (I _)        _ ()
-  from-inj {{IsDataˡ}} (H _)        _ ()
-  from-inj {{IsDataˡ}} (CONSTR _ _) _ ()
-  from-inj {{IsDataˡ}} (MAP _)      _ ()
-
+  from-inj {{IsDataˡ {A}}} (LIST ds) ys p rewrite from-injs ds ys p = refl
   IsDataᶜ : IsData Char
   toData   {{IsDataᶜ}}           = I ∘ +_ ∘ toℕ
 
@@ -103,11 +98,6 @@ instance
 
   from-inj {{IsDataᶜ}} (I (+ z))      x from≡ = cong (I ∘ +_) (trans (sym (toℕ∘fromℕ z))
                                                               (cong toℕ (just-injective from≡)))
-  from-inj {{IsDataᶜ}} (I (-[1+ _ ])) _ ()
-  from-inj {{IsDataᶜ}} (H _)          _ ()
-  from-inj {{IsDataᶜ}} (LIST _)       _ ()
-  from-inj {{IsDataᶜ}} (CONSTR _ _)   _ ()
-  from-inj {{IsDataᶜ}} (MAP _)        _ ()
 
   IsDataˢ : IsData String
   toData   {{IsDataˢ}} = toData ∘ toList
@@ -116,7 +106,16 @@ instance
 
   from∘to  {{IsDataˢ}} xs rewrite from∘to (toList xs) | fromList∘toList xs = refl
 
-  from-inj {{IsDataˢ}} dx x from≡ = {!!}
+  from-inj {{IsDataˢ}} (LIST ds) xs p
+    with sequence (map (fromData {Char}) ds) | inspect sequence (map (fromData {Char}) ds)
+  ... | nothing  | _         = case p of λ()
+  ... | pure xs′ | ≡[ seq≡ ]
+    with cong toList (just-injective p)
+  ... | p′
+    rewrite from-injs ds xs′ seq≡
+          | toList∘fromList xs′
+          | p′
+          = refl
 
 --------------------------------------------------------------------------------------
 -- Valid intervals (slot ranges).
