@@ -7,6 +7,8 @@ open import Data.Product
 open import Data.Maybe   using (Maybe; fromMaybe; nothing)
   renaming (just to pure; ap to _<*>_) -- to use idiom brackets
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
+open import Relation.Nullary using (¬_; yes; no)
+open import Data.Bool using (Bool; T; true; false; if_then_else_; not)
 
 
 record WeakBiSim {P Q : Set}
@@ -34,12 +36,14 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   open import Data.Empty
 
   _—→_ : S → S → Set
-  s —→ s′ = Σ I λ i → Σ TxConstraints λ tx≡ → stepₛₘ s i ≡ pure (s′ , tx≡)
+  s —→ s′ = Σ I λ i → Σ TxConstraints λ tx≡ → stepₛₘ s i ≡ pure (s′ , tx≡) × ¬ T (finalₛₘ s′)
 
   _—→∶_ : (Σ Ledger ValidLedger) → (Σ Ledger ValidLedger) → Set
   (l , vl) —→∶ (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx  
 
-{-
+  -- assume that all transactions are within range
+  postulate complies : ∀ l tx≡ → l -compliesTo- tx≡
+
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
     _—→∶_ -- this should allow internal actions on either side
@@ -49,8 +53,8 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
     (λ _ _ → ⊥) -- this is correct
     (λ _ _ → ⊥) -- this is correct
   prop1   ~IsWeakBiSim = λ X lvl Y → {! !}
-  prop2   ~IsWeakBiSim = ?
-  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p) = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} {!!} p X {!!} in
+  prop2   ~IsWeakBiSim = {!!}
+  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p , p') = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
     (tx ∷ l , vl') , (tx , vtx , (refl , q)) , r
   prop2⁻¹ ~IsWeakBiSim = λ _ _ ()
--}
+
