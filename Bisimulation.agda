@@ -11,6 +11,18 @@ open import Relation.Nullary using (¬_; yes; no)
 open import Data.Bool using (Bool; T; true; false; if_then_else_; not)
 
 
+data _* {P : Set}(R : P → P → Set) : P → P → Set where
+  nil : ∀ {p} → (R *) p p
+  cons : ∀ {p p' p''} → R p p' → (R *) p' p'' → (R *) p p''
+
+data ⇒l {P : Set} (V I : P → P → Set) : P → P → Set where
+  -- V = visible; I = internal
+  con : ∀{p p' p'' p'''} → (I *) p p' → V p' p'' → (I *) p'' p''' → ⇒l V I p p'''
+
+data ⇒τ {P : Set} (I : P → P → Set) : P → P → Set where
+  -- I = internal
+  con : ∀{p p' p'' p'''} → (I *) p p' → I p' p'' → (I *) p'' p''' → ⇒τ I p p'''
+
 record WeakBiSim {P Q : Set}
   (_R_ : P → Q → Set)
   (_P⇒l_ _P⇒τ_ _P⇒_ : P → P → Set)
@@ -21,7 +33,7 @@ record WeakBiSim {P Q : Set}
        prop2   : ∀{p q} → p R q
          → ∀ p' → p P⇒τ p' → Σ Q λ q' → q Q⇒ q' × p' R q'
        prop1⁻¹ : ∀{p q} → p R q
-         → ∀ q' → q Q⇒l q' → Σ P λ p' → p P⇒l p' × p' R q'
+         → ∀ q' → (x : q Q⇒l q') → Σ P λ p' → p P⇒l p' × p' R q'
        prop2⁻¹ : ∀{p q} → p R q
          → ∀ q' → q Q⇒τ q' → Σ P λ p' → p P⇒ p' × p' R q'
 open WeakBiSim
@@ -43,18 +55,18 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
 
   -- assume that all transactions are within range
   postulate complies : ∀ l tx≡ → l -compliesTo- tx≡
-
+  {-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
-    _—→∶_ -- this should allow internal actions on either side
-    (λ _ _ → ⊥) -- this should allow one or more internal actions only
-    (λ _ _ → ⊥) -- this should allow zero or more internal actions only
+    (⇒l _—→∶_ _—→∶_) -- this should allow internal actions on either side of a visible one
+    (⇒τ _—→∶_)       -- this should allow one or more internal actions only
+    (_—→∶_ *)        -- this should allow zero or more internal actions only
     _—→_        -- this is correct
     (λ _ _ → ⊥) -- this is correct
     (λ _ _ → ⊥) -- this is correct
   prop1   ~IsWeakBiSim = λ X lvl Y → {! !}
   prop2   ~IsWeakBiSim = {!!}
   prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p , p') = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
-    (tx ∷ l , vl') , (tx , vtx , (refl , q)) , r
+    (tx ∷ l , vl') , con nil (tx , vtx , (refl , q)) nil  , r
   prop2⁻¹ ~IsWeakBiSim = λ _ _ ()
-
+  -}
