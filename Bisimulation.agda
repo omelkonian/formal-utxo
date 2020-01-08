@@ -9,7 +9,7 @@ open import Data.Maybe   using (Maybe; fromMaybe; nothing)
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
 open import Relation.Nullary using (¬_; yes; no)
 open import Data.Bool using (Bool; T; true; false; if_then_else_; not)
-
+open import Data.List.Membership.Propositional  using (_∈_; _∉_; find; mapWith∈)
 
 data _* {P : Set}(R : P → P → Set) : P → P → Set where
   nil : ∀ {p} → (R *) p p
@@ -51,22 +51,32 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   s —→ s′ = Σ I λ i → Σ TxConstraints λ tx≡ → stepₛₘ s i ≡ pure (s′ , tx≡) × ¬ T (finalₛₘ s′)
 
   _—→∶_ : (Σ Ledger ValidLedger) → (Σ Ledger ValidLedger) → Set
-  (l , vl) —→∶ (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx  
+  (l , vl) —→∶ (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx  
 
   -- assume that all transactions are within range
   postulate complies : ∀ l tx≡ → l -compliesTo- tx≡
-  {-
+
+  docare : Σ Ledger ValidLedger → Σ Ledger ValidLedger → Set
+  docare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
+    -- has a output that is locked with our validator
+    𝕍 ∈ (Data.List.map address (outputs tx))
+
+  dontcare : Σ Ledger ValidLedger → Σ Ledger ValidLedger → Set
+  dontcare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
+    -- doesn't have a output that is locked with our validator
+    𝕍 ∉ (Data.List.map address (outputs tx))
+{-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
-    (⇒l _—→∶_ _—→∶_) -- this should allow internal actions on either side of a visible one
-    (⇒τ _—→∶_)       -- this should allow one or more internal actions only
+    (⇒l docare dontcare) -- this should allow internal actions on either side of a visible one
+    (⇒τ dontcare)    -- this should allow one or more internal actions only
     (_—→∶_ *)        -- this should allow zero or more internal actions only
     _—→_        -- this is correct
     (λ _ _ → ⊥) -- this is correct
     (λ _ _ → ⊥) -- this is correct
-  prop1   ~IsWeakBiSim = λ X lvl Y → {! !}
+  prop1 ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!vs !}
   prop2   ~IsWeakBiSim = {!!}
   prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p , p') = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
-    (tx ∷ l , vl') , con nil (tx , vtx , (refl , q)) nil  , r
+    {!!} -- (tx ∷ l , vl') , con nil (tx , vtx , (refl , q)) nil  , r
   prop2⁻¹ ~IsWeakBiSim = λ _ _ ()
-  -}
+-}
