@@ -9,7 +9,8 @@ open import Data.Maybe   using (Maybe; fromMaybe; nothing)
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
 open import Relation.Nullary using (¬_; yes; no)
 open import Data.Bool using (Bool; T; true; false; if_then_else_; not)
-open import Data.List.Membership.Propositional  using (_∈_; _∉_; find; mapWith∈)
+open import Data.List.Membership.Propositional  using (_∈_; _∉_)
+open import Data.List.Relation.Unary.Any using (here)
 
 data _* {P : Set}(R : P → P → Set) : P → P → Set where
   nil : ∀ {p} → (R *) p p
@@ -65,6 +66,7 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   dontcare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
     -- doesn't have a output that is locked with our validator
     𝕍 ∉ (Data.List.map address (outputs tx))
+
 {-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
@@ -77,6 +79,6 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   prop1 ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!vs !}
   prop2   ~IsWeakBiSim = {!!}
   prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p , p') = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
-    {!!} -- (tx ∷ l , vl') , con nil (tx , vtx , (refl , q)) nil  , r
+    (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
   prop2⁻¹ ~IsWeakBiSim = λ _ _ ()
 -}
