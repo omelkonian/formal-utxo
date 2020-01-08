@@ -67,18 +67,17 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
     -- doesn't have a output that is locked with our validator
     𝕍 ∉ (Data.List.map address (outputs tx))
 
-{-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
     (⇒l docare dontcare) -- this should allow internal actions on either side of a visible one
-    (⇒τ dontcare)    -- this should allow one or more internal actions only
-    (_—→∶_ *)        -- this should allow zero or more internal actions only
-    _—→_        -- this is correct
-    (λ _ _ → ⊥) -- this is correct
-    (λ _ _ → ⊥) -- this is correct
+    (⇒τ dontcare)        -- this should allow one or more internal actions only
+    (dontcare *)         -- this should allow zero or more internal actions only
+    (⇒l _—→_ λ _ _ → ⊥)  -- internal actions on either side of visible
+    (⇒τ λ _ _ → ⊥)       -- one or more internal actions
+    (_—→_ *)             -- zero or more internal actions
   prop1 ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!vs !}
   prop2   ~IsWeakBiSim = {!!}
-  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (i , tx≡ , p , p') = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
+  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (con nil (i , tx≡ , p , p') nil) = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
     (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
-  prop2⁻¹ ~IsWeakBiSim = λ _ _ ()
--}
+  prop2⁻¹ ~IsWeakBiSim = λ x q' → λ{(con _ () _)}
+
