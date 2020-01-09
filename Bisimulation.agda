@@ -2,8 +2,9 @@ module Bisimulation where
 
 open import UTxO.Types
 open import StateMachine.Base
+open import UTxO.Hashing.MetaHash using (_♯)
 
-open import Data.Product
+open import Data.Product using (Σ; _×_; _,_; proj₂)
 open import Data.Maybe   using (Maybe; fromMaybe; nothing)
   renaming (just to pure; ap to _<*>_) -- to use idiom brackets
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null)
@@ -11,6 +12,7 @@ open import Relation.Nullary using (¬_; yes; no)
 open import Data.Bool using (Bool; T; true; false; if_then_else_; not)
 open import Data.List.Membership.Propositional  using (_∈_; _∉_)
 open import Data.List.Relation.Unary.Any using (here)
+open import Function using (_∘_)
 
 data _* {P : Set}(R : P → P → Set) : P → P → Set where
   nil : ∀ {p} → (R *) p p
@@ -64,15 +66,20 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   postulate complies : ∀ l tx≡ → l -compliesTo- tx≡
 
   docare : Σ Ledger ValidLedger → Σ Ledger ValidLedger → Set
-  docare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
-    -- has a output that is locked with our validator
-    𝕍 ∈ (Data.List.map address (outputs tx))
+  docare (l , vl) (l' , vl') =
+    Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (l' ≡ tx ∷ l) λ p →
+      subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx
+      ×
+      -- has an input that runs our validator
+      𝕍 ∈ map (_♯ ∘ validator) (inputs tx) 
 
   dontcare : Σ Ledger ValidLedger → Σ Ledger ValidLedger → Set
-  dontcare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
-    -- doesn't have a output that is locked with our validator
-    𝕍 ∉ (Data.List.map address (outputs tx))
-{-
+  dontcare (l , vl) (l' , vl') =
+    Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p →
+      subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx
+      ×
+      𝕍 ∉ map (_♯ ∘ validator) (inputs tx) 
+
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
     docare dontcare _—→_ (λ _ _ → ⊥)
@@ -83,4 +90,3 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
     let tx , vtx , vl' , q , r = soundness p' p X (complies l tx≡)
     in  (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
   prop2⁻¹ ~IsWeakBiSim = λ x q' → λ{(con _ () _)}
--}
