@@ -26,9 +26,15 @@ data ⇒τ {P : Set} (I : P → P → Set) : P → P → Set where
 
 record WeakBiSim {P Q : Set}
   (_R_ : P → Q → Set)
-  (_P⇒l_ _P⇒τ_ _P⇒_ : P → P → Set)
-  (_Q⇒l_ _Q⇒τ_ _Q⇒_ : Q → Q → Set)
+  (P→l P→τ : P → P → Set)
+  (Q→l Q→τ : Q → Q → Set)
   : Set where
+ _P⇒l_ = ⇒l P→l P→τ
+ _P⇒τ_ = ⇒τ P→τ
+ _P⇒_  = P→τ *
+ _Q⇒l_ = ⇒l Q→l Q→τ
+ _Q⇒τ_ = ⇒τ Q→τ
+ _Q⇒_  = Q→τ *
  field prop1   : ∀{p q} → p R q
          → ∀ p' → p P⇒l p' → Σ Q λ q' → q Q⇒l q' × p' R q'
        prop2   : ∀{p q} → p R q
@@ -66,18 +72,15 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   dontcare (l , vl) (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx →  Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx ×
     -- doesn't have a output that is locked with our validator
     𝕍 ∉ (Data.List.map address (outputs tx))
-
+{-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
-    (⇒l docare dontcare) -- this should allow internal actions on either side of a visible one
-    (⇒τ dontcare)        -- this should allow one or more internal actions only
-    (dontcare *)         -- this should allow zero or more internal actions only
-    (⇒l _—→_ λ _ _ → ⊥)  -- internal actions on either side of visible
-    (⇒τ λ _ _ → ⊥)       -- one or more internal actions
-    (_—→_ *)             -- zero or more internal actions
-  prop1 ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!vs !}
-  prop2   ~IsWeakBiSim = {!!}
-  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (con nil (i , tx≡ , p , p') nil) = let tx , vtx , vl' , q , r = soundness {l = l}{vl = vl} p' p X (complies l tx≡) in
-    (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
+    docare dontcare _—→_ (λ _ _ → ⊥)
+  prop1   ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!completeness!}
+  prop2 ~IsWeakBiSim {l , vl}{Y} p (l' , vl') (con dcs dc dcs') =
+    _ , nil , {!p!}
+  prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (con nil (i , tx≡ , p , p') nil) =
+    let tx , vtx , vl' , q , r = soundness p' p X (complies l tx≡)
+    in  (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
   prop2⁻¹ ~IsWeakBiSim = λ x q' → λ{(con _ () _)}
-
+-}
