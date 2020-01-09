@@ -79,7 +79,7 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
       subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx
       ×
       𝕍 ∉ map (_♯ ∘ validator) (inputs tx) 
-
+{-
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
     docare dontcare _—→_ (λ _ _ → ⊥)
@@ -90,3 +90,4 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
     let tx , vtx , vl' , q , r = soundness p' p X (complies l tx≡)
     in  (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
   prop2⁻¹ ~IsWeakBiSim = λ x q' → λ{(con _ () _)}
+-}
