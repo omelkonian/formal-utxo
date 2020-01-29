@@ -1,8 +1,17 @@
 ------------------------------------------------------------------------
 -- Naive hashing functions for basic types.
 ------------------------------------------------------------------------
-module UTxO.Hashing.Types where
+open import UTxO.Hashing.Base
 
+open import Relation.Binary                       using (Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+
+
+module UTxO.Hashing.Types
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 open import Function.Definitions using (Injective)
 
 open import Data.Product using (_×_; _,_)
@@ -12,8 +21,8 @@ open import Data.Nat     using (_+_)
 
 open import Relation.Binary.PropositionalEquality using (_≡_)
 
-open import UTxO.Hashing.Base
-open import UTxO.Types
+open import UTxO.Value Address _♯ₐ _≟ₐ_ hiding (_+_)
+open import UTxO.Types Address _♯ₐ _≟ₐ_
 
 _♯ₒᵣ : Hash TxOutputRef
 o ♯ₒᵣ = merge♯ (id o ∷ index o ∷ [])

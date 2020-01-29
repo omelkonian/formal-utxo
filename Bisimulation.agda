@@ -4,6 +4,7 @@ open import UTxO.Types
 open import StateMachine.Base
 open import UTxO.Hashing.MetaHash using (_♯)
 
+open import Data.Sum using (_⊎_; [_,_]′)
 open import Data.Product using (Σ; _×_; _,_; proj₂)
 open import Data.Maybe   using (Maybe; fromMaybe; nothing)
   renaming (just to pure; ap to _<*>_) -- to use idiom brackets
@@ -21,7 +22,6 @@ data _* {P : Set}(R : P → P → Set) : P → P → Set where
 data ⇒l {P : Set} (V I : P → P → Set) : P → P → Set where
   -- V = visible; I = internal
   con : ∀{p p' p'' p'''} → (I *) p p' → V p' p'' → (I *) p'' p''' → ⇒l V I p p'''
-
 data ⇒τ {P : Set} (I : P → P → Set) : P → P → Set where
   -- I = internal
   con : ∀{p p' p'' p'''} → (I *) p p' → I p' p'' → (I *) p'' p''' → ⇒τ I p p'''
@@ -79,13 +79,23 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
       subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx
       ×
       𝕍 ∉ map (_♯ ∘ validator) (inputs tx) 
+
+  -- I need a lifting of completeness to sequences of transactions...
+  -- Interestingly it's only sequences of internal transactions that we need...
 {-
+  completeness⇒ : ∀ {vl}{vl'}{s}
+    → (dontcare *) vl vl' → proj₂ vl ~ s → proj₂ vl' ~ s
+  completeness⇒ nil         p = p
+  completeness⇒ {l , vl} {l' , vl'} (cons (tx , vtx , x , x' , x'') p) q =
+    completeness⇒ p ([ {!!} , {!!} ]′ (completeness {!x'!} q))
+
+
   ~IsWeakBiSim : WeakBiSim
     (λ (p : Σ Ledger ValidLedger) s → proj₂ p ~ s)
     docare dontcare _—→_ (λ _ _ → ⊥)
-  prop1   ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!completeness!}
+  prop1   ~IsWeakBiSim X (l , vl) (con vs (tx , vtx , p , p') vs') = {!completeness !}
   prop2 ~IsWeakBiSim {l , vl}{Y} p (l' , vl') (con dcs dc dcs') =
-    _ , nil , {!p!}
+    _ , nil , {!!}
   prop1⁻¹ ~IsWeakBiSim {l , vl}{s} X s' (con nil (i , tx≡ , p , p') nil) =
     let tx , vtx , vl' , q , r = soundness p' p X (complies l tx≡)
     in  (tx ∷ l , vl') , con nil (tx , vtx , refl , refl , here refl) nil , r
