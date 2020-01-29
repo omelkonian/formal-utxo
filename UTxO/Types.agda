@@ -1,7 +1,17 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
-module UTxO.Types where
+
+open import Relation.Binary                       using (Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_)
+
+open import UTxO.Hashing.Base
+
+module UTxO.Types
+  (Address : Set)
+  (_♯ₐ : Hash Address)
+  (_≟ₐ_ : Decidable {A = Address} _≡_)
+  where
 
 open import Function             using (_∘_; case_of_)
 
@@ -33,8 +43,8 @@ open import UTxO.Hashing.Base
 open import UTxO.Hashing.MetaHash
 
 -- Re-export multi-currency values.
-open import UTxO.Value public
-  using (Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
+open import UTxO.Value Address _♯ₐ _≟ₐ_ --public
+--  using (Quantities; Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
 
 ------------------------------------------------------------------------
 -- Basic types.
@@ -143,34 +153,36 @@ infix 6 t=_
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
+-- not needed anymore?
 record PendingTxInput : Set where
   field
-    -- outputRef     : OutputRef
+    -- outputRef     : OutputRef -- present in spec
     validatorHash : HashId
     dataHash      : HashId
     redeemerHash  : HashId
-    value         : Value
+    value         : Quantities
 
 record PendingTxOutput : Set where
   field
-    value         : Value
+    value         : Quantities
     validatorHash : HashId
     dataHash      : HashId
 
 record PendingTx : Set where
   field
     inputInfo     : List PendingTxInput
-    thisInput     : PendingTxInput
+    thisInput     : ℕ
     outputInfo    : List PendingTxOutput
     range         : SlotRange
     dataWitnesses : List (HashId × DATA)
-    txHash        : HashId
-    fee           : Value
-    forge         : Value
+    txHash        : HashId -- not present in spec
+    fee           : Quantities
+    forge         : Quantities
 
 findData : HashId → PendingTx → Maybe DATA
 findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
 
+{-
 getContinuingOutputs : PendingTx → List PendingTxOutput
 getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
   = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
@@ -180,19 +192,20 @@ ownHashes record {thisInput = record {validatorHash = h₁; redeemerHash = h₂;
 
 ownHash : PendingTx → HashId
 ownHash = proj₁ ∘ ownHashes
-
+-}
+{-
 valueSpent : PendingTx → Value
 valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
 
 thisValueSpent : PendingTx → Value
 thisValueSpent = PendingTxInput.value ∘ PendingTx.thisInput
-
+-}
 outputsAt : HashId → PendingTx → List PendingTxOutput
 outputsAt h = filter ((_≟ℕ h) ∘ PendingTxOutput.validatorHash) ∘ PendingTx.outputInfo
-
+{-
 valueLockedBy : PendingTx → HashId → Value
 valueLockedBy ptx h = sumᶜ (map PendingTxOutput.value (outputsAt h ptx))
-
+-}
 --------------------------------------------------------------------------
 -- Output references and inputs.
 
@@ -215,6 +228,7 @@ record TxInput : Set where
     outputRef : TxOutputRef
     validator : Validator
     redeemer  : DATA
+    dataVal   : DATA
 
 open TxInput public
 
@@ -336,13 +350,14 @@ _≟ˢ_ : Decidable {A = SlotRange} _≡_
 -- Sets of inputs
 _≟ᵢ_ : Decidable {A = TxInput} _≡_
 i ≟ᵢ i′
-  with outputRef i ≟ₒ outputRef i′ | ((validator i) ♯) ≟ℕ ((validator i′) ♯) | redeemer i ≟ᵈ redeemer i′
-... | no ¬p    | _     | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p | _        = no λ{ refl → ¬p refl }
-... | _        | _     | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes p | yes refl
+  with outputRef i ≟ₒ outputRef i′ | ((validator i) ♯) ≟ℕ ((validator i′) ♯) | redeemer i ≟ᵈ redeemer i′ | dataVal i ≟ᵈ dataVal i′
+... | no ¬p    | _     | _        | _ = no λ{ refl → ¬p refl }
+... | _        | no ¬p | _        | _ = no λ{ refl → ¬p refl }
+... | _        | _     | no ¬p    | _ = no λ{ refl → ¬p refl }
+... | _        | _     | _        | no ¬p = no λ{ refl → ¬p refl }
+... | yes refl | yes p | yes refl | yes refl
   with ♯-injective p
-... | refl = yes refl
+... | refl = yes refl 
 
 -- Properties
 ≟-refl : ∀ {A : Set} (_≟_ : Decidable {A = A} _≡_) (x : A)

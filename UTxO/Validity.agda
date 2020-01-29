@@ -6,7 +6,7 @@ open import Data.Nat      using (_<_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List     using ([]; _∷_; length; map; filter)
 
-
+open import Data.Maybe renaming (map to _<$>_)
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
 open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
 open import Data.List.Relation.Unary.Any                  using (Any)
@@ -17,7 +17,6 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
 open import UTxO.Hashing.MetaHash using (_♯)
-open import UTxO.Types
 
 module UTxO.Validity
   (Address : Set)
@@ -25,11 +24,11 @@ module UTxO.Validity
   (_≟ₐ_ : Decidable {A = Address} _≡_)
   where
 
+open import UTxO.Types       Address _♯ₐ _≟ₐ_
+open import UTxO.Value       Address _♯ₐ _≟ₐ_
 open import UTxO.Ledger      Address _♯ₐ _≟ₐ_
 open import UTxO.Hashing.Tx  Address _♯ₐ _≟ₐ_
 open import UTxO.TxUtilities Address _♯ₐ _≟ₐ_
-
-open import Data.List using (List)
 
 record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
@@ -45,15 +44,15 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
 
     -----------------------------------------------------------------------------------------
 
+    -- all inputs refer to unspent outputs
     validOutputRefs :
       ∀ i → i ∈ inputs tx →
         outputRef i ∈ map outRef (utxo l)
 
     preservesValues :
-      forge tx +ᶜ sumᶜ (mapWith∈ (inputs tx) λ {i} i∈ →
-                          lookupValue l i (validTxRefs i i∈) (validOutputIndices i i∈))
-        ≡
-      fee tx +ᶜ sumᶜ (map value (outputs tx))
+      forge tx + ∑∈ (inputs tx) (λ i p → value (lookupOutput l (outputRef i) (validTxRefs i p) (validOutputIndices i p)))
+      ≡
+      fee tx + ∑ (outputs tx) value
 
     noDoubleSpending :
       Unique (map outputRef (inputs tx))
@@ -61,8 +60,8 @@ record IsValidTx (tx : Tx) (l : Ledger) : Set where
     allInputsValidate :
       ∀ i → (i∈ : i ∈ inputs tx) →
         let out = lookupOutput l (outputRef i) (validTxRefs i i∈) (validOutputIndices i i∈)
-            ptx = mkPendingTx l tx i i∈ validTxRefs validOutputIndices
-        in T (runValidation ptx i out)
+            ptx = mkPendingTx l tx i i∈ validTxRefs validOutputIndices 
+        in T (runValidation ptx i)
 
     validateValidHashes :
       ∀ i → (i∈ : i ∈ inputs tx) →
