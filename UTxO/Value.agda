@@ -1,103 +1,96 @@
-------------------------------------------------------------------------
--- No multi-currency support.
-------------------------------------------------------------------------
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_)
+module UTxO.Value where
+
+open import Function using (_∘_)
+
+open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂)
+open import Data.Bool    using (Bool; true; _∧_)
+open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; _>>=_)
+open import Data.Nat     using (ℕ; _+_)
+  renaming (_≟_ to _≟ℕ_)
+open import Data.List    using (List; _∷_; []; sum; map; foldr; and)
+
+open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_)
+open import Data.List.Properties    renaming (≡-dec to ≡-decs)
+open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
+
+open import Relation.Nullary                      using (yes; no)
+open import Relation.Nullary.Decidable            using (⌊_⌋)
+open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
 
 open import UTxO.Hashing.Base
 
-module UTxO.Value
-  (Address : Set)
-  (_♯ₐ : Hash Address)
-  (_≟ₐ_ : Decidable {A = Address} _≡_)
-  where
+--------------------------
+-- Interface
 
-open import Data.Bool using (Bool)
-open import Data.List using (List; sum;[];_∷_)
-open import Data.Nat  using (ℕ) renaming(_+_ to _+ℕ_)
-  renaming (_≟_ to _≟ℕ_)
-open import Data.Nat.Properties using (_≥?_)
-open import Data.Product using (_×_;_,_)
-open import Data.Empty using (⊥)
-open import Relation.Nullary using (yes;no)
-open import Relation.Nullary.Decidable            using (⌊_⌋;True)
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_)
-open import Data.List.Relation.Unary.Any using (here;there)
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
-open import Relation.Binary.PropositionalEquality using (refl)
-open import Data.Maybe using (Maybe;maybe;fromMaybe;just;nothing;_>>=_)
-open import Function using (id)
+CurrencySymbol = HashId
+TokenName      = HashId
+Quantity       = ℕ
 
-Value = ℕ -- synomy for Quantity?
+------------------------------------------------------------------------
+-- Values are maps from currency identifiers to maps from tokens to quantities.
+--   1) A traditional currency will have a single token with infinite supply.
+--   2) A non-fungible-token (NFT) currency will have many singular tokens.
+
+
+-- Users works with a list representation of the underlying maps/trees.
+Value = List (CurrencySymbol × List (TokenName × Quantity))
+
+currencies : Value → List ℕ
+currencies = map proj₁
 
 $0 : Value
-$0 = 0
+$0 = []
 
-$ : ℕ → Value
-$ v = v
+ex-map : Value
+ex-map = (1 , (0 , 50) ∷ [])
+       ∷ (2 , (0 , 77) ∷ (1 , 23) ∷ [])
+       ∷ []
+
+--------------------------
+-- Implementation
+
+open import Data.AVL.Map <-strictTotalOrder
+  using    (Map; fromList; toList; empty; unionWith; lookup)
+  renaming (map to mapValues)
+
+TokenMap    = Map Quantity
+CurrencyMap = Map TokenMap
+
+toList² : CurrencyMap → Value
+toList² m = toList (mapValues toList m)
+
+fromList² : Value → CurrencyMap
+fromList² = fromList ∘ map (map₂ fromList)
 
 _+ᶜ_ : Value → Value → Value
-_+ᶜ_ = _+ℕ_
+c +ᶜ c′ = toList² (unionWith (λ v v′ → v +ᶜ′ fromMaybe empty v′) (fromList² c) (fromList² c′))
+  where
+    _+ᶜ′_ : TokenMap → TokenMap → TokenMap
+    _+ᶜ′_ = unionWith (λ v v′ → v + fromMaybe 0 v′)
 
 sumᶜ : List Value → Value
-sumᶜ = sum
+sumᶜ = foldr _+ᶜ_ []
 
 infix 4 _≟ᶜ_
 _≟ᶜ_ : Decidable {A = Value} _≡_
-_≟ᶜ_ = _≟ℕ_
+_≟ᶜ_ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_)))
 
+
+infix 4 _≥ᶜ_
 _≥ᶜ_ : Value → Value → Bool
-v ≥ᶜ v′ = ⌊ v ≥? v′ ⌋
+c ≥ᶜ c′ =
+  and (map (λ{ ( k₁ , vs ) →
+    and (map (λ{ (k₂ , v) → ⌊ fromMaybe 0 (lookup k₁ (fromList² c) >>= lookup k₂) ≥? v ⌋ }) vs)}) c′)
 
-Token : Set
-Token = Address
+-------------------
+-- Sum notation
 
--- a rough approximation of a map/finitely supported function
-
-Quantities : Set
-Quantities = List (Token × Value)
-
--- this version of + throws away anything that doesn't match exactly
-
-_+_ : Quantities → Quantities → Quantities
-[]                + []                   = []
-[]                + (_ ∷ _)              = []
-(_ ∷ _)           + []                   = []
-((tok , val) ∷ q) + ((tok' , val') ∷ q') with tok ≟ₐ tok'
-... | yes p = (tok , val +ℕ val') ∷ q + q'
-... | no ¬p = q + q'
-
-∑∈ : {X : Set}(xs : List X) → ((x : X) → x ∈ xs → Quantities) → Quantities 
-∑∈ []       f = []
-∑∈ (i ∷ is) f = f i (here refl) + ∑∈ is λ i p → f i (there p)
-
-∑ : {X : Set}(xs : List X) → ((x : X) → Quantities) → Quantities 
+∑ : ∀ {A : Set} → List A → (A → Value) → Value
 ∑ []       f = []
-∑ (i ∷ is) f = f i + ∑ is f
-
--- unit on failure
-∑M' : {X : Set}(xs : List X) → ((x : X) → Maybe Quantities) → Quantities 
-∑M' []       f = []
-∑M' (i ∷ is) f = fromMaybe [] (f i) + ∑M' is f
+∑ (i ∷ is) f = f i +ᶜ ∑ is f
 
 -- if one fails everything fails
-∑M : {X : Set}(xs : List X) → ((x : X) → Maybe Quantities) → Maybe Quantities 
+∑M : ∀ {A : Set} → List A → (A → Maybe Value) → Maybe Value
 ∑M []       f = just []
-∑M (i ∷ is) f = f i >>= λ q → ∑M is f >>= λ qs → just (q + qs)
-
-
-_≥_ : Quantities → Value → Set
-[]      ≥ v′ = ⊥
-((_ , v) ∷ Q) ≥ v′ = True (v ≥? v′) × Q ≥ v′
-
-_≟_ : Decidable {A = Quantities} _≡_
-[]                 ≟ []                    = yes refl
-[]                 ≟ (_ ∷ qs)              = no λ ()
-(_ ∷ qs)           ≟ []                    = no λ ()
-((tok , val) ∷ qs) ≟ ((tok' , val') ∷ qs')
-  with tok ≟ₐ tok' | val ≟ᶜ val' | qs ≟ qs' 
-... | no ¬p    | _        | _        = no λ{refl → ¬p refl}
-... | yes p    | no ¬q    | r        = no λ{refl → ¬q refl}
-... | yes p    | yes q    | no ¬r    = no λ{refl → ¬r refl}
-... | yes refl | yes refl | yes refl = yes refl
+∑M (i ∷ is) f = f i >>= λ q → ∑M is f >>= λ qs → just (q +ᶜ qs)

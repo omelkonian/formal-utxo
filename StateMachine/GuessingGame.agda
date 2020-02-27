@@ -1,3 +1,4 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module StateMachine.GuessingGame where
 
 open import Function using (_∘_; const; case_of_)
@@ -20,7 +21,8 @@ open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary.PropositionalEquality using (refl; inspect)
   renaming ([_] to ≡[_])
 
-open import UTxO.Hashing.Base using (_♯ₛₜᵣ)
+open import UTxO.Hashing.Base
+open import UTxO.Value
 open import UTxO.Types
 open import StateMachine.Base
 
@@ -28,84 +30,73 @@ HashedString = HashId
 ClearString  = String
 
 data GameState : Set where
-  Initialised : GameState
-  Locked      : HashedString → GameState
+  Initialised : CurrencySymbol → TokenName → HashedString → GameState
+  Locked      : CurrencySymbol → TokenName → HashedString → GameState
 
 data GameInput : Set where
-  StartGame : HashedString → GameInput
-  Guess     : ClearString → HashedString → GameInput
+  ForgeToken : GameInput
+  Guess      : ClearString → HashedString → GameInput
+
+open import Data.Nat using (zero; suc)
+open import Relation.Binary.PropositionalEquality using (_≡_)
 
 instance
   IsDataᵍˢ : IsData GameState
-  toData   {{IsDataᵍˢ}} Initialised = LIST []
-  toData   {{IsDataᵍˢ}} (Locked hs) = H hs
+  toData   {{IsDataᵍˢ}} (Initialised c tn hs) = CONSTR 0 (H c ∷ H tn ∷ H hs ∷ [])
+  toData   {{IsDataᵍˢ}} (Locked      c tn hs) = CONSTR 1 (H c ∷ H tn ∷ H hs ∷ [])
 
-  fromData {{IsDataᵍˢ}} (LIST [])   = just Initialised
-  fromData {{IsDataᵍˢ}} (H hs)      = just (Locked hs)
-  fromData {{IsDataᵍˢ}} _           = nothing
+  fromData {{IsDataᵍˢ}} (CONSTR 0 (H c ∷ H tn ∷ H hs ∷ [])) = just (Initialised c tn hs)
+  fromData {{IsDataᵍˢ}} (CONSTR 1 (H c ∷ H tn ∷ H hs ∷ [])) = just (Locked      c tn hs)
+  fromData {{IsDataᵍˢ}} _                                   = nothing
 
-  from∘to  {{IsDataᵍˢ}} Initialised = refl
-  from∘to  {{IsDataᵍˢ}} (Locked _)  = refl
+  from∘to  {{IsDataᵍˢ}} (Initialised _ _ _) = refl
+  from∘to  {{IsDataᵍˢ}} (Locked      _ _ _) = refl
 
-  from-inj {{IsDataᵍˢ}} (LIST [])    .Initialised refl = refl
-  from-inj {{IsDataᵍˢ}} (H hs)       .(Locked hs) refl = refl
-  from-inj {{IsDataᵍˢ}} (I _)        _            ()
-  from-inj {{IsDataᵍˢ}} (CONSTR _ _) _            ()
-  from-inj {{IsDataᵍˢ}} (MAP _)      _            ()
+  from-inj {{IsDataᵍˢ}} (CONSTR 0 (H c ∷ H tn ∷ H hs ∷ [])) .(Initialised c tn hs) refl = refl
+  from-inj {{IsDataᵍˢ}} (CONSTR 1 (H c ∷ H tn ∷ H hs ∷ [])) .(Locked      c tn hs) refl = refl
+  from-inj {{IsDataᵍˢ}} (CONSTR _ _) _ p = {!!}
+  from-inj {{IsDataᵍˢ}} (LIST _) _ ()
+  from-inj {{IsDataᵍˢ}} (H _) _ ()
+  from-inj {{IsDataᵍˢ}} (I _) _ ()
+  from-inj {{IsDataᵍˢ}} (MAP _) _ ()
 
   IsDataᵍⁱ : IsData GameInput
-  toData   {{IsDataᵍⁱ}} (StartGame hs)         = H hs
-  toData   {{IsDataᵍⁱ}} (Guess cs hs)          = LIST (toData cs ∷ H hs ∷ [])
+  toData   {{IsDataᵍⁱ}} ForgeToken    = CONSTR 0 []
+  toData   {{IsDataᵍⁱ}} (Guess cs hs) = CONSTR 1 (toData cs ∷ H hs ∷ [])
 
-  fromData {{IsDataᵍⁱ}} (H hs)                 = just (StartGame hs)
-  fromData {{IsDataᵍⁱ}} (LIST (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData d)
-  fromData {{IsDataᵍⁱ}} _                      = nothing
+  fromData {{IsDataᵍⁱ}} (CONSTR 0 [])              = just ForgeToken
+  fromData {{IsDataᵍⁱ}} (CONSTR 1 (d ∷ H hs ∷ [])) = mapₘ (λ cs → Guess cs hs) (fromData d)
+  fromData {{IsDataᵍⁱ}} _                          = nothing
 
-  from∘to  {{IsDataᵍⁱ}} (StartGame _) = refl
-  from∘to  {{IsDataᵍⁱ}} (Guess cs _)  rewrite from∘to cs = refl
+  from∘to  {{IsDataᵍⁱ}} ForgeToken = refl
+  from∘to  {{IsDataᵍⁱ}} (Guess cs hs) rewrite from∘to cs = refl
 
-  from-inj {{IsDataᵍⁱ}} (LIST (d ∷ hs₀ ∷ xs)) x p
-    with hs₀ | p
-  ... | I _        | ()
-  ... | LIST _     | ()
-  ... | CONSTR _ _ | ()
-  ... | MAP _      | ()
-  ... | H hs       | p′
-    with xs | p′
-  ... | _ ∷ _ | ()
-  ... | []    | p″
-    with fromData {A = String} d | inspect (fromData {A = String}) d | p″
-  ... | nothing | _       | ()
-  ... | just cs | ≡[ d≡ ] | p‴
-    with x | p‴
-  ... | StartGame _ | ()
-  ... | Guess cs′ hs′ | pp
-    rewrite from-inj d cs d≡
-    with cs ≟ₛ cs′ | pp
-  ... | no ¬p    | refl = ⊥-elim (¬p refl)
-  ... | yes refl | _
-    with hs ≟ℕ hs′ | pp
-  ... | no ¬p    | refl = ⊥-elim (¬p refl)
-  ... | yes refl | _
-      = refl
-
-  from-inj {{IsDataᵍⁱ}} (H hs)                  .(StartGame hs) refl = refl
-  from-inj {{IsDataᵍⁱ}} (I _)                   _               ()
-  from-inj {{IsDataᵍⁱ}} (CONSTR _ _)            _               ()
-  from-inj {{IsDataᵍⁱ}} (MAP _)                 _               ()
+  from-inj {{IsDataᵍⁱ}} (CONSTR 0 [])  .ForgeToken refl = refl
+  from-inj {{IsDataᵍⁱ}} (CONSTR 1 (d ∷ H hs ∷ [])) g p = {!!}
+  from-inj {{IsDataᵍⁱ}} (CONSTR _ _) _ p = {!!}
+  from-inj {{IsDataᵍⁱ}} (LIST _) _ ()
+  from-inj {{IsDataᵍⁱ}} (H _) _ ()
+  from-inj {{IsDataᵍⁱ}} (I _) _ ()
+  from-inj {{IsDataᵍⁱ}} (MAP _) _ ()
 
 GameStateMachine : StateMachine GameState GameInput
-isInitial GameStateMachine Initialised = true
-isInitial GameStateMachine (Locked _)  = false
+isInitial GameStateMachine (Initialised _ _ _) = true
+isInitial GameStateMachine (Locked      _ _ _) = false
 
 isFinal GameStateMachine = const false
 
-step GameStateMachine Initialised (StartGame hs) = just (Locked hs , record{ forge≡ = just 1; range≡ = nothing })
-step GameStateMachine (Locked hs) (Guess cs hs′) = if ⌊ (cs ♯ₛₜᵣ) ≟ℕ hs ⌋ then
-                                                     just (Locked hs′ , record{ forge≡ = just 0; range≡ = nothing })
-                                                   else
-                                                     nothing
-step GameStateMachine _           _              = nothing
+step GameStateMachine (Initialised c tn hs) ForgeToken =
+  just ( Locked c tn hs
+       , record defConstraints { forge≡ = just ((c , (tn , 1) ∷ []) ∷ []) })
+step GameStateMachine (Locked c tn currentSecret) (Guess theGuess nextSecret) =
+  if ⌊ (theGuess ♯ₛₜᵣ) ≟ℕ currentSecret ⌋ then
+    just ( Locked c tn nextSecret
+         , record defConstraints { forge≡ = just ((c , (tn , 0) ∷ []) ∷ [])
+                                 ; spent≥ = just ((c , (tn , 1) ∷ []) ∷ []) })
+  else
+    nothing
+step GameStateMachine _ _ =
+  nothing
 
 gameValidator : Validator
 gameValidator = mkValidator GameStateMachine

@@ -1,19 +1,9 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
+module UTxO.Types where
 
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_)
-
-open import UTxO.Hashing.Base
-
-module UTxO.Types
-  (Address : Set)
-  (_♯ₐ : Hash Address)
-  (_≟ₐ_ : Decidable {A = Address} _≡_)
-  where
-
-open import Function             using (_∘_; case_of_)
+open import Function using (_∘_; case_of_)
 
 open import Data.Empty   using (⊥-elim)
 open import Data.Bool    using (Bool; true; false; _∧_)
@@ -37,23 +27,20 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; sym
   renaming ([_] to ≡[_])
 
 open import Prelude.General
+open import Prelude.Lists
 open import Prelude.Unsafe  using (fromℕ∘toℕ; toℕ∘fromℕ; fromList∘toList; toList∘fromList)
 
 open import UTxO.Hashing.Base
-open import UTxO.Hashing.MetaHash
-
--- Re-export multi-currency values.
-open import UTxO.Value Address _♯ₐ _≟ₐ_ --public
---  using (Quantities; Value; $0; $; _+ᶜ_; sumᶜ; _≟ᶜ_; _≥ᶜ_)
+open import UTxO.Value
 
 ------------------------------------------------------------------------
 -- Basic types.
 
-HashId : Set
-HashId = ℕ
-
 Time : Set
 Time = ℕ
+
+Address : Set
+Address = HashId
 
 -----------------------------------------
 -- First-order data values.
@@ -151,69 +138,73 @@ infix 5 _⋯_
 infix 6 t=_
 
 --------------------------------------------------------------------------------------
+-- Output references.
+
+record TxOutputRef : Set where
+  constructor _indexed-at_
+  field
+    id    : HashId -- hash of the referenced transaction
+    index : ℕ      -- index into its outputs
+
+--------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
 -- not needed anymore?
-record PendingTxInput : Set where
+record InputInfo : Set where
   field
-    -- outputRef     : OutputRef -- present in spec
+    outputRef     : TxOutputRef
     validatorHash : HashId
     dataHash      : HashId
     redeemerHash  : HashId
-    value         : Quantities
+    value         : Value
 
-record PendingTxOutput : Set where
+record OutputInfo : Set where
   field
-    value         : Quantities
+    value         : Value
     validatorHash : HashId
     dataHash      : HashId
 
 record PendingTx : Set where
   field
-    inputInfo     : List PendingTxInput
-    thisInput     : ℕ
-    outputInfo    : List PendingTxOutput
+    inputInfo     : List InputInfo
+    thisInput     : Index inputInfo
+    outputInfo    : List OutputInfo
     range         : SlotRange
-    dataWitnesses : List (HashId × DATA)
+    -- dataWitnesses : List (HashId × DATA)
     txHash        : HashId -- not present in spec
-    fee           : Quantities
-    forge         : Quantities
+    fee           : Value
+    forge         : Value
+
+outputsAt : HashId → PendingTx → List OutputInfo
+outputsAt h = filter ((_≟ℕ h) ∘ OutputInfo.validatorHash) ∘ PendingTx.outputInfo
+
+getContinuingOutputs : PendingTx → List OutputInfo
+getContinuingOutputs record { inputInfo = is; thisInput = i ; outputInfo = outs }
+  = filter ((_≟ℕ InputInfo.validatorHash (is ‼ i)) ∘ OutputInfo.validatorHash) outs
+
+valueSpent : PendingTx → Value
+valueSpent = sumᶜ ∘ map InputInfo.value ∘ PendingTx.inputInfo
+
+{-
 
 findData : HashId → PendingTx → Maybe DATA
 findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
-
-{-
-getContinuingOutputs : PendingTx → List PendingTxOutput
-getContinuingOutputs record { thisInput = record { validatorHash = in♯ } ; outputInfo = outs }
-  = filter ((_≟ℕ in♯) ∘ PendingTxOutput.validatorHash) outs
 
 ownHashes : PendingTx → (HashId × HashId × HashId)
 ownHashes record {thisInput = record {validatorHash = h₁; redeemerHash = h₂; dataHash = h₃}} = h₁ , h₂ , h₃
 
 ownHash : PendingTx → HashId
 ownHash = proj₁ ∘ ownHashes
--}
-{-
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map PendingTxInput.value ∘ PendingTx.inputInfo
 
 thisValueSpent : PendingTx → Value
-thisValueSpent = PendingTxInput.value ∘ PendingTx.thisInput
--}
-outputsAt : HashId → PendingTx → List PendingTxOutput
-outputsAt h = filter ((_≟ℕ h) ∘ PendingTxOutput.validatorHash) ∘ PendingTx.outputInfo
-{-
-valueLockedBy : PendingTx → HashId → Value
-valueLockedBy ptx h = sumᶜ (map PendingTxOutput.value (outputsAt h ptx))
--}
---------------------------------------------------------------------------
--- Output references and inputs.
+thisValueSpent = InputInfo.value ∘ PendingTx.thisInput
 
-record TxOutputRef : Set where
-  constructor _indexed-at_
-  field
-    id    : HashId
-    index : ℕ
+valueLockedBy : PendingTx → HashId → Value
+valueLockedBy ptx h = sumᶜ (map OutputInfo.value (outputsAt h ptx))
+-}
+
+--------------------------------------------------------------------------
+-- Inputs, outputs and ledgers.
 
 open TxOutputRef public
 
@@ -231,6 +222,31 @@ record TxInput : Set where
     dataVal   : DATA
 
 open TxInput public
+
+record TxOutput : Set where
+  field
+    address  : Address -- ≡ hash of the input's validator
+    value    : Value
+    dataHash : HashId  -- ≡ hash of the input's data value
+
+open TxOutput public
+
+record Tx : Set where
+  field
+    inputs        : List TxInput -- Set⟨TxInput⟩, but this is ensured by condition `noDoubleSpending`
+    outputs       : List TxOutput
+    -- dataWitnesses : List (HashId × DATA)
+    fee           : Value
+    forge         : Value
+    range         : SlotRange
+
+open Tx public
+
+Ledger : Set
+Ledger = List Tx
+
+runValidation : PendingTx → (i : TxInput) → Bool
+runValidation ptx i = validator i ptx (redeemer i) (dataVal i)
 
 ------------------------------------------------------------------------
 -- Set modules/types.
@@ -357,7 +373,19 @@ i ≟ᵢ i′
 ... | _        | _     | _        | no ¬p = no λ{ refl → ¬p refl }
 ... | yes refl | yes p | yes refl | yes refl
   with ♯-injective p
-... | refl = yes refl 
+... | refl = yes refl
+
+-- Sets of outputs
+_≟ᵒ_ : Decidable {A = TxOutput} _≡_
+o ≟ᵒ o′
+  with address o ≟ℕ address o′ | value o ≟ᶜ value o′ | dataHash o ≟ℕ dataHash o′
+... | no ¬p    | _        | _        = no λ{ refl → ¬p refl }
+... | _        | no ¬p    | _        = no λ{ refl → ¬p refl }
+... | _        | _        | no ¬p    = no λ{ refl → ¬p refl }
+... | yes refl | yes refl | yes refl = yes refl
+
+module SETᵒ = SET {A = TxOutput} _≟ᵒ_
+Set⟨TxOutput⟩ = Set' where open SETᵒ
 
 -- Properties
 ≟-refl : ∀ {A : Set} (_≟_ : Decidable {A = A} _≡_) (x : A)

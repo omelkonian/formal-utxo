@@ -1,3 +1,5 @@
+module UTxO.TxUtilities where
+
 open import Function using (_∘_; _∋_; flip; _$_)
 
 open import Data.Empty   using (⊥; ⊥-elim)
@@ -15,28 +17,18 @@ open import Data.List    using (List; []; _∷_; length; map; _++_; filter)
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈; find)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
 open import Data.List.Relation.Unary.Any as Any           using (Any; here; there)
+open import Data.List.Relation.Unary.All                  using (All)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import Prelude.Lists using (indices; _‼_)
+open import Prelude.Lists using (Index; indices; _‼_; ‼-map′)
 
 open import UTxO.Hashing.Base
-open import UTxO.Hashing.MetaHash using (_♯)
-
-module UTxO.TxUtilities
-  (Address : Set)
-  (_♯ₐ : Hash Address)
-  (_≟ₐ_ : Decidable {A = Address} _≡_)
-  where
-
-open import UTxO.Value      Address _♯ₐ _≟ₐ_
-open import UTxO.Types      Address _♯ₐ _≟ₐ_
-open import UTxO.Ledger     Address _♯ₐ _≟ₐ_
-open import UTxO.Hashing.Tx Address _♯ₐ _≟ₐ_
-open import UTxO.Hashing.Types Address _♯ₐ _≟ₐ_
-
+open import UTxO.Value
+open import UTxO.Types
+open import UTxO.Hashing.Types
 
 record UTXO : Set where
   field
@@ -98,62 +90,12 @@ lookupValue : (l : Ledger)
             → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id (outputRef input)) l)
             → index (outputRef input) <
                 length (outputs (lookupTx l (outputRef input) ∃tx≡id))
-            → Quantities --Value
+            → Value
 lookupValue l input ∃tx≡id index≤len =
   value (lookupOutput l (outputRef input) ∃tx≡id index≤len)
 
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
-
-mkPendingTxOut : TxOutput → PendingTxOutput
-mkPendingTxOut txOut =
-  record
-    { value         = value txOut
-    ; validatorHash = (address txOut) ♯ₐ
-    ; dataHash      = dataHash txOut
-    }
-
--- toℕ ∘ Any.index 
-∈toIndex : {X : Set}{x : X}{xs : List X} → x ∈ xs → ℕ
-∈toIndex (here px) = 0
-∈toIndex (there p) = suc (∈toIndex p)
-
-mkPendingTxIn : (l : Ledger)
-              → (input : TxInput)
-              → (∃tx≡id : Any (λ tx → tx ♯ₜₓ ≡ id (outputRef input)) l)
-              → index (outputRef input) < length (outputs (lookupTx l (outputRef input) ∃tx≡id))
-              → PendingTxInput
-mkPendingTxIn l txIn ∃tx index< =
-  record
-    { validatorHash = (validator txIn) ♯
-    ; dataHash      = dataHash txOut
-    ; redeemerHash  = (redeemer txIn) ♯ᵈ
-    ; value         = value txOut
-    }
-    where
-      txOut = lookupOutput l (outputRef txIn) ∃tx index<
-
-mkPendingTx : (l : Ledger)
-            → (tx : Tx)
-            → (i : TxInput)
-            → i ∈ inputs tx
-            → (v₁ : ∀ i → i ∈ inputs tx → Any (λ t → t ♯ₜₓ ≡ id (outputRef i)) l)
-            → (∀ i → (i∈ : i ∈ inputs tx) →
-                 index (outputRef i) < length (outputs (lookupTx l (outputRef i) (v₁ i i∈))))
-            → PendingTx
-mkPendingTx l tx i i∈ v₁ v₂ =
-   record
-     { inputInfo     = mapWith∈ (inputs tx) λ {i} i∈ → mkPendingTxIn l i (v₁ i i∈) (v₂ i i∈)
-     ; thisInput     = ∈toIndex i∈
-     ; outputInfo    = map mkPendingTxOut (outputs tx)
-     ; dataWitnesses = [] --map (λ o → ((dataVal o) ♯ᵈ) , dataVal o) (outputs tx)    -- FIX ME
-     -- ^ this info needs to come from outside if only datahashes are
-     -- present in outputs
-     ; txHash        = tx ♯ₜₓ
-     ; fee           = fee tx
-     ; forge         = forge tx
-     ; range         = range tx }
-
 
 -- auxiliary functions (from spec)
 
@@ -168,36 +110,30 @@ _[_] : {X : Set} → List X → ℕ → Maybe X
 (x ∷ xs) [ zero  ] = just x
 (x ∷ xs) [ suc n ] = xs [ n ]
 
-open import Data.List.Relation.Unary.All          using (All)
-
--- this version of `All` also provides access to to the position in the list
-data AllN {X : Set}(P : X → ℕ → Set) : List X → Set where
-  []  : AllN P []
-  _∷_ : ∀ {x xs}(px : P x 0) → AllN (λ x n → P x (suc n)) xs → AllN P (x ∷ xs)
-
-test : AllN (λ i n → i ≡ n) (0 ∷ 1 ∷ 2 ∷ [])
-test = refl ∷ refl ∷ refl ∷ []
+mkPendingTxOut : TxOutput → OutputInfo
+mkPendingTxOut txOut = record
+  { value         = value txOut
+  ; validatorHash = address txOut
+  ; dataHash      = dataHash txOut }
 
 getSpentOutput : TxInput → Ledger → Maybe TxOutput
 getSpentOutput i l =
   outputs <$> (l ⟨ outputRef i ⟩) >>= (_[ index (outputRef i) ])
 
-toInputInfo : Ledger → TxInput → PendingTxInput
-toInputInfo l i = record
-  { validatorHash = (validator i) ♯
-  ; dataHash = (dataVal i) ♯ᵈ
-  ; redeemerHash = (redeemer i) ♯ᵈ
-  ; value = maybe value [] (getSpentOutput i l) 
-  }
+mkPendingTxIn : Ledger → TxInput → InputInfo
+mkPendingTxIn l i = record
+  { outputRef     = outputRef i
+  ; validatorHash = (validator i) ♯
+  ; dataHash      = (dataVal i) ♯ᵈ
+  ; redeemerHash  = (redeemer i) ♯ᵈ
+  ; value         = maybe value [] (getSpentOutput i l) }
 
-toPendingTx : Ledger → Tx → ℕ → PendingTx
+toPendingTx : Ledger → (tx : Tx) → Index (inputs tx) → PendingTx
 toPendingTx l tx i = record
-  { inputInfo = map (toInputInfo l) (inputs tx)
-  ; thisInput = i
-  ; outputInfo = map mkPendingTxOut (outputs tx)
-  ; range = range tx
-  ; dataWitnesses = [] -- FIXME
-  ; txHash = tx ♯ₜₓ
-  ; fee = fee tx
-  ; forge = forge tx
-  }
+  { inputInfo     = map (mkPendingTxIn l) (inputs tx)
+  ; thisInput     = ‼-map′ {xs = inputs tx} {f = mkPendingTxIn l} i
+  ; outputInfo    = map mkPendingTxOut (outputs tx)
+  ; range         = range tx
+  ; txHash        = tx ♯ₜₓ
+  ; fee           = fee tx
+  ; forge         = forge tx }

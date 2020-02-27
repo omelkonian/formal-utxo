@@ -15,20 +15,21 @@ open import Agda.Builtin.Equality.Rewrite
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
-open import UTxO.Hashing.MetaHash
+open import UTxO.Value
 open import UTxO.Types
+open import UTxO.Validity
 
 open import StateMachine.Base
 open import StateMachine.GuessingGame
 
 -- dummy currency address, need a concrete number for decision procedure to compute
-𝕍 = 3
+𝕍 = 1
 postulate
   eq : gameValidator ♯ ≡ 𝕍
 {-# REWRITE eq #-}
 
 infix 4 _←—_
-_←—_ : Tx → GameInput → TxInput
+_←—_ : Tx → (GameInput × GameState) → TxInput
 t ←— d = ((t ♯ₜₓ) indexed-at 0) ←— d , GameStateMachine
 
 infix 4 _—→_
@@ -37,34 +38,46 @@ s —→ v = s —→ v at GameStateMachine
 
 -----------------------------------------------------------------------
 
+𝔸 : CurrencySymbol
+𝔸 = 𝕍
+
+𝕋 : TokenName
+𝕋 = 0
+
+$_ : Quantity → Value
+$_ v = [ 𝔸 , [ 𝕋 , v ] ]
+
+-----------------------------------------------------------------------
+
+-- game states
+
+st₀ = Initialised 𝔸 𝕋 ("0" ♯ₛₜᵣ)
+  --> ForgeToken
+st₁ = Locked 𝔸 𝕋 ("0" ♯ₛₜᵣ)
+  --> Guess "0" "1"
+st₂ = Locked 𝔸 𝕋 ("1" ♯ₛₜᵣ)
+
 -- define transactions
 t₀ : Tx
 inputs  t₀ = []
-outputs t₀ = [ Initialised —→ $ 0 ]
-forge   t₀ = $ 0
-fee     t₀ = $ 0
+outputs t₀ = [ st₀ —→ $0 ]
+forge   t₀ = $0
+fee     t₀ = $0
 range   t₀ = -∞ ⋯ +∞
 
 t₁ : Tx
-inputs  t₁ = [ t₀ ←— StartGame ("zero" ♯ₛₜᵣ) ]
-outputs t₁ = [ Locked ("zero" ♯ₛₜᵣ) —→ $ 1 ]
+inputs  t₁ = [ t₀ ←— (ForgeToken , st₀) ]
+outputs t₁ = [ st₁ —→ $ 1 ]
 forge   t₁ = $ 1
-fee     t₁ = $ 0
+fee     t₁ = $0
 range   t₁ = -∞ ⋯ +∞
 
 t₂ : Tx
-inputs  t₂ = [ t₁ ←— Guess "zero" ("one" ♯ₛₜᵣ) ]
-outputs t₂ = [ Locked ("one" ♯ₛₜᵣ) —→ $ 1 ]
+inputs  t₂ = [ t₁ ←— (Guess "0" ("1" ♯ₛₜᵣ) , st₁) ]
+outputs t₂ = [ st₂ —→ $ 1 ]
 forge   t₂ = $ 0
-fee     t₂ = $ 0
+fee     t₂ = $0
 range   t₂ = -∞ ⋯ +∞
 
-t₃ : Tx
-inputs  t₃ = [ t₂ ←— Guess "one" ("two" ♯ₛₜᵣ) ]
-outputs t₃ = [ Locked ("two" ♯ₛₜᵣ) —→ $ 1 ]
-forge   t₃ = $ 0
-fee     t₃ = $ 0
-range   t₃ = -∞ ⋯ +∞
-
-ex-ledger : ValidLedger (t₃ ∷ t₂ ∷ t₁ ∷ t₀ ∷ [])
-ex-ledger = ∙ ⊕ t₀ ⊕ t₁ ⊕ t₂ ⊕ t₃
+ex-play : ValidLedger (t₂ ∷ t₁ ∷ t₀ ∷ [])
+ex-play = ∙ ⊕ t₀ ⊕ t₁ ⊕ t₂

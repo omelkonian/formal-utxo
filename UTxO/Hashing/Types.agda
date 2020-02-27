@@ -1,17 +1,8 @@
 ------------------------------------------------------------------------
--- Naive hashing functions for basic types.
+-- Naive hashing functions for UTxO types.
 ------------------------------------------------------------------------
-open import UTxO.Hashing.Base
+module UTxO.Hashing.Types where
 
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-
-
-module UTxO.Hashing.Types
-  (Address : Set)
-  (_♯ₐ : Hash Address)
-  (_≟ₐ_ : Decidable {A = Address} _≡_)
-  where
 open import Function.Definitions using (Injective)
 
 open import Data.Product using (_×_; _,_)
@@ -19,19 +10,18 @@ open import Data.List    using (List; []; _∷_)
 open import Data.Integer using (ℤ; ∣_∣)
 open import Data.Nat     using (_+_)
 
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Binary                       using (Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import UTxO.Value Address _♯ₐ _≟ₐ_ hiding (_+_)
-open import UTxO.Types Address _♯ₐ _≟ₐ_
+open import UTxO.Hashing.Base
+open import UTxO.Value
+open import UTxO.Types
 
 _♯ₒᵣ : Hash TxOutputRef
 o ♯ₒᵣ = merge♯ (id o ∷ index o ∷ [])
 
 _♯ᵢ : Hash TxInput
 i ♯ᵢ = (outputRef i) ♯ₒᵣ
-
-_♯ᵥ : Hash Value
-_♯ᵥ = λ x → x
 
 _♯ℤ : Hash ℤ
 _♯ℤ = ∣_∣
@@ -60,6 +50,22 @@ MAP ds′ ♯ᵈ     = ds′ ♯ᵈˢ′
 [] ♯ᵈˢ′              = 0
 ((d , d′) ∷ ds) ♯ᵈˢ′ = merge♯ ((d ♯ᵈ) ∷ (d′ ♯ᵈ) ∷ (ds ♯ᵈˢ′) ∷ [])
 
+_♯ᵥ : Hash Value
+_♯ᵥ = hashList (hashPair (λ x → x) (hashList (hashPair (λ x → x) (λ x → x))))
+
+_♯ₒ : Hash TxOutput
+o ♯ₒ = merge♯ ((value o) ♯ᵥ ∷ address o ∷ [])
+postulate injective♯ₒ : Injective _≡_ _≡_ _♯ₒ
+
+_♯ₜₓ : Hash Tx
+tx ♯ₜₓ = merge♯ ( (hashList _♯ᵢ) (inputs tx)
+                ∷ (hashList _♯ₒ) (outputs tx)
+                ∷ (forge tx) ♯ᵥ
+                ∷ (fee tx) ♯ᵥ
+                ∷ (range tx) ♯ˢ
+                ∷ []
+                )
+
 infix 9 _♯ᵇ
 infix 9 _♯ˢ
 infix 9 _♯ℤ
@@ -67,8 +73,11 @@ infix 9 _♯ₒᵣ
 infix 9 _♯ᵢ
 infix 9 _♯ᵥ
 infix 9 _♯ᵈ
+infix 9 _♯ₒ
+infix 9 _♯ₜₓ
 
 postulate injective♯ₒᵣ : Injective _≡_ _≡_ _♯ₒᵣ
 postulate injective♯ᵢ  : Injective _≡_ _≡_ _♯ᵢ
 postulate injective♯ᵥ  : Injective _≡_ _≡_ _♯ᵥ
 postulate injective♯ᵈ  : Injective _≡_ _≡_ _♯ᵈ
+postulate injective♯ₜₓ : Injective _≡_ _≡_ _♯ₜₓ
