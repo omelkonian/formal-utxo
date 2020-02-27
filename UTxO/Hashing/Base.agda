@@ -1,8 +1,9 @@
 module UTxO.Hashing.Base where
 
-open import Level            using (_⊔_)
-open import Function         using (_∘_)
-open import Function.Bundles using (module Injection; _↣_)
+open import Level                using (_⊔_)
+open import Function             using (_∘_)
+open import Function.Definitions using (Injective)
+open import Function.Bundles     using (module Injection; _↣_)
 
 open import Data.Product  using (_,_; _×_)
 open import Data.String   using (String; toList)
@@ -16,8 +17,11 @@ open import Relation.Binary.PropositionalEquality using (_≡_)
 --------------------------------------------------------------------------------
 -- Types for hash functions.
 
+HashId : Set
+HashId = ℕ
+
 Hash : ∀ {ℓ} → (A : Set ℓ) → Set ℓ
-Hash A = A → ℕ
+Hash A = A → HashId
 
 _-via-_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} → A → A ↣ B → B
 a -via- record { f = f } = f a
@@ -36,14 +40,19 @@ _⟨$⟩_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} {_♯ᵃ : Has
 inj ⟨$⟩ a = a -via- (A↣B inj)
 
 -- Common hashing utilities.
-merge♯ : List ℕ → ℕ
+merge♯ : List HashId → HashId
 merge♯ = sum
 
-hashList : ∀ {ℓ} {A : Set ℓ} → (A → ℕ) → (List A → ℕ)
+hashList : ∀ {ℓ} {A : Set ℓ} → Hash A → Hash (List A)
 hashList hash1 = merge♯ ∘ map hash1
 
 hashPair : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → Hash A → Hash B → Hash (A × B)
 hashPair h₁ h₂ (a , b) = merge♯ (h₁ a ∷ h₂ b ∷ [])
 
-_♯ₛₜᵣ : String → ℕ
+_♯ₛₜᵣ : String → HashId
 _♯ₛₜᵣ = hashList toℕ ∘ toList
+
+-- Postulate there are hash functions for any type, e.g. functions.
+postulate
+  _♯ : ∀ {A : Set} → Hash A
+  ♯-injective : ∀ {A : Set} → Injective {A = A} _≡_ _≡_ _♯

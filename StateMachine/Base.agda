@@ -22,17 +22,12 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; t
 
 open import Prelude.General
 
+open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
-open import UTxO.Hashing.MetaHash
+open import UTxO.Value
 open import UTxO.Types hiding (I)
-
--- For the sake of simplicity, we assume addresses to be just hashes.
-Address = HashId
-open import UTxO.Ledger      Address (λ x → x) _≟ℕ_ public
-open import UTxO.TxUtilities Address (λ x → x) _≟ℕ_ public
-open import UTxO.Hashing.Tx  Address (λ x → x) _≟ℕ_ public
-open import UTxO.Validity    Address (λ x → x) _≟ℕ_ public
-open import UTxO.DecValidity Address (λ x → x) _≟ℕ_ public
+open import UTxO.TxUtilities
+open import UTxO.Validity
 
 -- A State Machine library for smart contracts, based on very similar
 -- library for Plutus Smart contracts
@@ -46,36 +41,21 @@ record TxConstraints : Set where
   field
     forge≡ : Maybe Value
     range≡ : Maybe SlotRange
+    spent≥ : Maybe Value
 
 open TxConstraints public
 
+defConstraints : TxConstraints
+defConstraints = record {forge≡ = nothing; range≡ = nothing; spent≥ = nothing}
+
 verifyPtx : PendingTx → TxConstraints → Bool
-verifyPtx (record {forge = v; range = s}) c = ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧ ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋
-
-verifyTx : Tx → TxConstraints → Bool
-verifyTx (record {forge = v; range = s}) c = ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧ ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋
-
-verifyTx≡verifyPtx : ∀ tx tx≡ {l i i∈ v₁ v₂}
-  → verifyTx tx tx≡
-  ≡ verifyPtx (mkPendingTx l tx i i∈ v₁ v₂) tx≡
-verifyTx≡verifyPtx tx tx≡ = refl
+verifyPtx ptx@(record {forge = v; range = s}) c =
+  ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧
+  ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋ ∧
+  (valueSpent ptx ≥ᶜ fromMaybe $0 (spent≥ c))
 
 _-compliesTo-_ : Ledger → TxConstraints → Set
 l -compliesTo- ptx≡ = T (fromMaybe (-∞ ⋯ +∞) (range≡ ptx≡) ∋ length l)
-
-constraint : ∀ (tx≡ : TxConstraints) (tx : Tx) → Σ[ tx ∈ Tx ] (verifyTx tx tx≡ ≡ true)
-constraint tx≡ tx = tx′ , verify≡
-  where
-    tx′ = record tx { forge = fromMaybe (forge tx) (forge≡ tx≡)
-                    ; range = fromMaybe (range tx) (range≡ tx≡) }
-
-    verify≡ : verifyTx tx′ tx≡ ≡ true
-    verify≡ with forge≡ tx≡ | range≡ tx≡
-    ... | nothing | nothing rewrite ≟-refl _≟ᶜ_ (forge tx) | ≟-refl _≟ˢ_ (range tx) = refl
-    ... | pure f  | nothing rewrite ≟-refl _≟ᶜ_ f          | ≟-refl _≟ˢ_ (range tx) = refl
-    ... | nothing | pure r  rewrite ≟-refl _≟ᶜ_ (forge tx) | ≟-refl _≟ˢ_ r          = refl
-    ... | pure f  | pure r  rewrite ≟-refl _≟ᶜ_ f          | ≟-refl _≟ˢ_ r          = refl
-
 
 record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
@@ -90,36 +70,37 @@ mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
 mkValidator {S} {I} SM[ _ , final , step ] ptx input state
     = fromMaybe false do (state′ , ptx≡) ← runStep
-                         ⦇ outputsOK state′ ∧ pure (verifyPtx ptx ptx≡) ⦈
+                         pure (outputsOK state′ ∧ verifyPtx ptx ptx≡)
   where
     runStep : Maybe (S × TxConstraints)
     runStep with ⦇ step (fromData state) (fromData input) ⦈
     ... | pure r = r
     ... | _      = nothing
 
-    outs : List PendingTxOutput
+    outs : List OutputInfo
     outs = getContinuingOutputs ptx
 
-    outputsOK : S → Maybe Bool
+    outputsOK : S → Bool
     outputsOK st =
       if final st then
-        pure (null outs)
+        null outs
       else
-        case outs of λ{ (o ∷ []) → ⦇ findData (PendingTxOutput.dataHash o) ptx == pure (toData st) ⦈
-                      ; _        → pure false }
+        case outs of λ{ (o ∷ []) → ⌊ (OutputInfo.dataHash o) ≟ℕ (toData st) ♯ᵈ ⌋
+                      ; _        → false }
 
 -- Create a transaction input.
 infix 5 _←—_,_
 _←—_,_ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
-       → TxOutputRef → I → StateMachine S I → TxInput
-outputRef (r ←— _ , _ ) = r
-redeemer  (_ ←— d , _ ) = toData d
-validator (_ ←— _ , sm) = mkValidator sm
+       → TxOutputRef → I × S → StateMachine S I → TxInput
+outputRef (r ←— _       , _ ) = r
+redeemer  (_ ←— (i , _) , _ ) = toData i
+validator (_ ←— _       , sm) = mkValidator sm
+dataVal   (_ ←— (_ , d) , _ ) = toData d
 
 -- Create a transaction output.
 infix 5 _—→_at_
 _—→_at_ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
         → S → Value → StateMachine S I → TxOutput
-value   (_ —→ v at _ ) = v
-address (_ —→ _ at sm) = (mkValidator sm) ♯
-dataVal (d —→ _ at _ ) = toData d
+value    (_ —→ v at _ ) = v
+address  (_ —→ _ at sm) = (mkValidator sm) ♯
+dataHash (d —→ _ at _ ) = (toData d) ♯ᵈ
