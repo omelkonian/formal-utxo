@@ -11,7 +11,10 @@ open import UTxO.Validity
 open import UTxO.ExampleLedger
 
 open import StateMachine.Base
-open import StateMachine.GuessingGame
-open import StateMachine.ExamplePlay
+-- open import StateMachine.GuessingGame
+-- open import StateMachine.ExamplePlay
 
---open import Bisimulation
+open import Bisimulation.Base
+open import Bisimulation.Soundness
+-- open import Bisimulation.Completeness
+-- open import Bisimulation

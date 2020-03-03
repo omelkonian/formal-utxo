@@ -164,44 +164,28 @@ record OutputInfo : Set where
     validatorHash : HashId
     dataHash      : HashId
 
-record PendingTx : Set where
+record TxInfo : Set where
   field
     inputInfo     : List InputInfo
-    thisInput     : Index inputInfo
     outputInfo    : List OutputInfo
-    range         : SlotRange
     -- dataWitnesses : List (HashId × DATA)
-    txHash        : HashId -- not present in spec
     fee           : Value
     forge         : Value
+    range         : SlotRange
 
-outputsAt : HashId → PendingTx → List OutputInfo
-outputsAt h = filter ((_≟ℕ h) ∘ OutputInfo.validatorHash) ∘ PendingTx.outputInfo
+record PendingTx : Set where
+  field
+    txInfo    : TxInfo
+    thisInput : Index (TxInfo.inputInfo txInfo)
+
+open PendingTx public
+
+valueSpent : TxInfo → Value
+valueSpent = sumᶜ ∘ map InputInfo.value ∘ TxInfo.inputInfo
 
 getContinuingOutputs : PendingTx → List OutputInfo
-getContinuingOutputs record { inputInfo = is; thisInput = i ; outputInfo = outs }
+getContinuingOutputs record { txInfo = record {inputInfo = is; outputInfo = outs}; thisInput = i }
   = filter ((_≟ℕ InputInfo.validatorHash (is ‼ i)) ∘ OutputInfo.validatorHash) outs
-
-valueSpent : PendingTx → Value
-valueSpent = sumᶜ ∘ map InputInfo.value ∘ PendingTx.inputInfo
-
-{-
-
-findData : HashId → PendingTx → Maybe DATA
-findData dsh (record {dataWitnesses = ws}) = toMaybe (map proj₂ (filter ((_≟ℕ dsh) ∘ proj₁) ws))
-
-ownHashes : PendingTx → (HashId × HashId × HashId)
-ownHashes record {thisInput = record {validatorHash = h₁; redeemerHash = h₂; dataHash = h₃}} = h₁ , h₂ , h₃
-
-ownHash : PendingTx → HashId
-ownHash = proj₁ ∘ ownHashes
-
-thisValueSpent : PendingTx → Value
-thisValueSpent = InputInfo.value ∘ PendingTx.thisInput
-
-valueLockedBy : PendingTx → HashId → Value
-valueLockedBy ptx h = sumᶜ (map OutputInfo.value (outputsAt h ptx))
--}
 
 --------------------------------------------------------------------------
 -- Inputs, outputs and ledgers.
@@ -247,6 +231,9 @@ Ledger = List Tx
 
 runValidation : PendingTx → (i : TxInput) → Bool
 runValidation ptx i = validator i ptx (redeemer i) (dataVal i)
+
+outputRefs : Tx → List TxOutputRef
+outputRefs = map outputRef ∘ inputs
 
 ------------------------------------------------------------------------
 -- Set modules/types.

@@ -1,3 +1,12 @@
+{-
+A State Machine library for smart contracts, based on very similar
+library for Plutus Smart contracts
+
+Specification of a state machine, consisting of a transition
+function that determines the next state from the current state and
+an input, and a checking function that checks the validity of the
+transition in the context of the current transaction.
+-}
 module StateMachine.Base where
 
 open import Function using (_∘_; case_of_)
@@ -7,7 +16,7 @@ open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax)
 open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
 open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
   renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
-open import Data.List    using (List; null; []; _∷_; [_]; filter; map; length)
+open import Data.List    using (List; null; []; _∷_; [_]; filter; map; length; and)
 open import Data.Nat     using (ℕ)
   renaming (_≟_ to _≟ℕ_)
 
@@ -21,6 +30,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; t
   renaming ([_] to ≡[_])
 
 open import Prelude.General
+open import Prelude.Lists using (enumerate)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -29,13 +39,8 @@ open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
 
--- A State Machine library for smart contracts, based on very similar
--- library for Plutus Smart contracts
-
--- Specification of a state machine, consisting of a transition
--- function that determines the next state from the current state and
--- an input, and a checking function that checks the validity of the
--- transition in the context of the current transaction.
+--------------------------
+-- Transaction constraints
 
 record TxConstraints : Set where
   field
@@ -48,14 +53,20 @@ open TxConstraints public
 defConstraints : TxConstraints
 defConstraints = record {forge≡ = nothing; range≡ = nothing; spent≥ = nothing}
 
-verifyPtx : PendingTx → TxConstraints → Bool
-verifyPtx ptx@(record {forge = v; range = s}) c =
-  ⌊ v ≟ᶜ fromMaybe v (forge≡ c) ⌋ ∧
-  ⌊ s ≟ˢ fromMaybe s (range≡ c) ⌋ ∧
-  (valueSpent ptx ≥ᶜ fromMaybe $0 (spent≥ c))
+_>>=ₜ_ : ∀ {a : Set} → Maybe a → (a → Bool) → Bool
+ma >>=ₜ f = fromMaybe true (ma >>= pure ∘ f)
 
-_-compliesTo-_ : Ledger → TxConstraints → Set
-l -compliesTo- ptx≡ = T (fromMaybe (-∞ ⋯ +∞) (range≡ ptx≡) ∋ length l)
+verifyTxInfo : TxInfo → TxConstraints → Bool
+verifyTxInfo tx tx≡ =
+  (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge tx ≟ᶜ v ⌋) ∧
+  (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range tx ≟ˢ r ⌋) ∧
+  (spent≥ tx≡ >>=ₜ λ v → valueSpent tx ≥ᶜ v)
+
+verifyTx : Ledger → Tx → TxConstraints → Bool
+verifyTx l tx = verifyTxInfo (mkTxInfo l tx)
+
+-------------------------------------
+-- Constraint Emitting Machines (CEM)
 
 record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
@@ -69,8 +80,8 @@ open StateMachine public
 mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
   → StateMachine S I → Validator
 mkValidator {S} {I} SM[ _ , final , step ] ptx input state
-    = fromMaybe false do (state′ , ptx≡) ← runStep
-                         pure (outputsOK state′ ∧ verifyPtx ptx ptx≡)
+    = fromMaybe false do (state′ , tx≡) ← runStep
+                         pure (outputsOK state′ ∧ verifyTxInfo (txInfo ptx) tx≡)
   where
     runStep : Maybe (S × TxConstraints)
     runStep with ⦇ step (fromData state) (fromData input) ⦈

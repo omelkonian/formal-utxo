@@ -35,12 +35,15 @@ open import Prelude.Lists
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
-open import UTxO.Hashing.MetaHash
+open import UTxO.Value
 open import UTxO.Types hiding (I)
+open import UTxO.Validity
+open import UTxO.TxUtilities
 open import StateMachine.Base
 
-open PendingTxInput
-open PendingTxOutput
+open InputInfo
+open OutputInfo
+open TxInfo
 open PendingTx
 
 module Bisimulation.Completeness
@@ -58,15 +61,21 @@ completeness : ∀ {s tx l} {vtx : IsValidTx tx l} {vl : ValidLedger l} {vl′ :
       × (¬ (T (finalₛₘ s′)) → vl′ ~ s′) ) )
   ⊎ (vl′ ~ s)
 completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
+--   with view-~ {l} {s} {vl} vl~s
+-- ... | u , u∈ , _ , refl , refl , prevOut∈ , refl , _
   with view-~ {l} {s} {vl} vl~s
-... | u , u∈ , _ , refl , refl , prevOut∈ , refl , _
-  with ((prevTx u) ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈)) SETₒ.∈? map outputRef (inputs tx)
+... | prevTx , v , prevOut∈ , u∈ , prev∈ , prev∈utxo , getSpent≡
+  with (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈)) SETₒ.∈? outputRefs tx
 ... | no  prev∉
   rewrite sym (from∘to s)
     = inj₂ (∈-map⁺ (fromData ∘ dataVal ∘ out)
              (∈-filter⁺ ((_≟ℕ 𝕍) ∘ address ∘ out)
-               (∈-++⁺ˡ (∈-filter⁺ ((SETₒ._∉? map outputRef (inputs tx)) ∘ outRef) {x = u} {xs = utxo l}
+               (∈-++⁺ˡ (∈-filter⁺ ((SETₒ._∉? outputRefs tx) ∘ outRef) {x = u} {xs = utxo l}
                  u∈ prev∉)) refl))
+      where oRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈)
+            o    = record { address = 𝕍; dataHash = toData s ♯ᵈ; value = v }
+            u    = record { prevTx = prevTx; out = o; outRef = oRef }
+
 ... | yes prev∈
   with ∈-map⁻ outputRef prev∈
 ... | txIn , txIn∈ , refl
@@ -74,47 +83,8 @@ completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
 ... | addr≡val
     = inj₁ (STEP (validate≡ {ptx = ptx} (allInputsValidate vtx txIn txIn∈)))
   where
-    prevTxRef = ((prevTx u) ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈))
-    prevOut    = s —→ $ (value (out u)) at sm
-
-    v₁ = validTxRefs vtx
-    v₂ = validOutputIndices vtx
-
-    ∃tx≡id : Any (λ tx′ → tx′ ♯ₜₓ ≡ id prevTxRef) l
-    ∃tx≡id = v₁ txIn txIn∈
-
-    proj₁∘find∘♯ : ∀ {l : Ledger} {tx₂ : Tx}
-      → (any≡ : Any (λ tx₁ → tx₁ ♯ₜₓ ≡ tx₂ ♯ₜₓ) l)
-      → proj₁ (find any≡)
-      ≡ tx₂
-    proj₁∘find∘♯ (here px)  = injective♯ₜₓ px
-    proj₁∘find∘♯ (there x∈) = proj₁∘find∘♯ x∈
-
-    lookupPrevTx≡ : lookupTx l prevTxRef ∃tx≡id
-                  ≡ prevTx u
-    lookupPrevTx≡ = proj₁∘find∘♯ ∃tx≡id
-
-    len<′ : index prevTxRef < length (outputs (lookupTx l prevTxRef ∃tx≡id))
-    len<′ = v₂ txIn txIn∈
-
-    len< : index prevTxRef < length (outputs (prevTx u))
-    len< = toℕ< (Any.index prevOut∈)
-
-    out′ = lookupOutput l (outputRef txIn) ∃tx≡id len<′
-
-    lookupOutput≡ : out′
-                  ≡ prevOut
-    lookupOutput≡ = trans h₁ h₂
-      where
-        h₁ : (outputs (lookupTx l prevTxRef ∃tx≡id) ‼ (fromℕ< len<′))
-           ≡ (outputs (prevTx u) ‼ (fromℕ< len<))
-        h₁ = ‼-fromℕ<-≡ len<′ len< (cong outputs lookupPrevTx≡)
-
-        h₂ : (outputs (prevTx u) ‼ (fromℕ< len<))
-           ≡ prevOut
-        h₂ rewrite ‼-fromℕ<∘toℕ< {xs = outputs (prevTx u)} (Any.index prevOut∈)
-                 | ‼-index prevOut∈
-                 = refl
+    prevTxRef = (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈))
+    prevOut    = s —→ v at sm
 
     valTxIn≡ : ((validator txIn) ♯) ≡ 𝕍
     valTxIn≡ = trans (sym addr≡val) (addr≡)
@@ -217,5 +187,5 @@ completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
           ... | u , u∈ , refl
               = ∈-map⁺ (fromData ∘ dataVal ∘ out) {x = u}
                   (∈-filter⁺ ((_≟ℕ 𝕍) ∘ address ∘ out) {x = u} {xs = utxo (tx ∷ l)}
-                    (∈-++⁺ʳ (filter ((SETₒ._∉? map outputRef (inputs tx)) ∘ outRef) (utxo l)) u∈)
+                    (∈-++⁺ʳ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈)
                       (trans addr≡ valTxIn≡))

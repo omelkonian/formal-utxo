@@ -1,5 +1,7 @@
 module UTxO.Validity where
 
+open import Function using (_∘_)
+
 open import Data.Sum             using (_⊎_)
 open import Data.Product         using (_×_; _,_; proj₁)
 open import Data.Maybe           using (Maybe;Is-just)
@@ -50,10 +52,6 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
     withinInterval :
       T (range tx ∋ length l)
 
-    nonNegativeValues :
-      All (λ o → T (value o ≥ᶜ $0))
-          (outputs tx)
-
     validOutputRefs :
       All (λ i → outputRef i ∈ map outRef (utxo l))
           (inputs tx)
@@ -63,18 +61,18 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
             (∑M (inputs tx) (λ i → value <$> getSpentOutput i l))
 
     noDoubleSpending :
-      Unique (map outputRef (inputs tx))
+      Unique (outputRefs tx)
 
     allInputsValidate :
       All (λ{ (n , i) → T (validator i (toPendingTx l tx n) (redeemer i) (dataVal i)) })
           (enumerate (inputs tx))
 
     validateValidHashes :
-      All (λ i → M.Any (λ o → validator i ♯ ≡ address o) (getSpentOutput i l))
+      All (λ i → M.Any ((validator i ♯ ≡_) ∘ address) (getSpentOutput i l))
           (inputs tx)
 
     forging :
-      All (λ c → Any (λ i → M.Any (λ o → address o ≡ c) (getSpentOutput i l)) (inputs tx))
+      All (λ c → Any (λ i → M.Any ((c ≡_) ∘ address) (getSpentOutput i l)) (inputs tx))
           (currencies (forge tx))
 
 open IsValidTx public
@@ -100,21 +98,19 @@ _⊕_ : ∀ {l}
   → ValidLedger l
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
-  → {nnv : True (all (λ o → T? (value o ≥ᶜ $0)) (outputs tx))}
   → {vor : True (all (λ i → outputRef i SETₒ.∈? map outRef (utxo l)) (inputs tx))}
   → {pv  : True (any? (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
                       (∑M (inputs tx) (λ i → value <$> getSpentOutput i l)))}
-  → {ndp : True (SETₒ.unique? (map outputRef (inputs tx)))}
+  → {ndp : True (SETₒ.unique? (outputRefs tx))}
   → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (dataVal i))})
                      (enumerate (inputs tx)))}
-  → {vvh : True (all (λ i → any? (λ o → (validator i ♯) ≟ℕ address o) (getSpentOutput i l))
+  → {vvh : True (all (λ i → any? ((validator i ♯ ≟ℕ_) ∘ address) (getSpentOutput i l))
                      (inputs tx))}
-  → {frg : True (all (λ c → any (λ i → any? (λ o → address o ≟ℕ c) (getSpentOutput i l)) (inputs tx))
+  → {frg : True (all (λ c → any (λ i → any? ((c ≟ℕ_) ∘ address) (getSpentOutput i l)) (inputs tx))
                      (currencies (forge tx)))}
   → ValidLedger (tx ∷ l)
-(vl ⊕ tx) {wi} {nnv} {vor} {pv} {ndp} {aiv} {vvh} {frg}
+(vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {vvh} {frg}
   = vl ⊕ tx ∶- record { withinInterval      = toWitness wi
-                      ; nonNegativeValues   = toWitness nnv
                       ; validOutputRefs     = toWitness vor
                       ; preservesValues     = toWitness pv
                       ; noDoubleSpending    = toWitness ndp

@@ -1,3 +1,4 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
 open import Function using (_∘_)
@@ -7,7 +8,7 @@ open import Data.Bool    using (Bool; true; _∧_)
 open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; _>>=_)
 open import Data.Nat     using (ℕ; _+_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; _∷_; []; sum; map; foldr; and)
+open import Data.List    using (List; _∷_; []; [_]; sum; map; foldr; and)
 
 open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_)
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
@@ -34,7 +35,8 @@ Quantity       = ℕ
 
 
 -- Users works with a list representation of the underlying maps/trees.
-Value = List (CurrencySymbol × List (TokenName × Quantity))
+SubValue = List (TokenName × Quantity)
+Value = List (CurrencySymbol × SubValue)
 
 currencies : Value → List ℕ
 currencies = map proj₁
@@ -63,6 +65,7 @@ toList² m = toList (mapValues toList m)
 fromList² : Value → CurrencyMap
 fromList² = fromList ∘ map (map₂ fromList)
 
+infixl 6 _+ᶜ_
 _+ᶜ_ : Value → Value → Value
 c +ᶜ c′ = toList² (unionWith (λ v v′ → v +ᶜ′ fromMaybe empty v′) (fromList² c) (fromList² c′))
   where
@@ -87,10 +90,27 @@ c ≥ᶜ c′ =
 -- Sum notation
 
 ∑ : ∀ {A : Set} → List A → (A → Value) → Value
-∑ []       f = []
+∑ []       f = $0
+∑ (i ∷ []) f = f i
 ∑ (i ∷ is) f = f i +ᶜ ∑ is f
 
 -- if one fails everything fails
 ∑M : ∀ {A : Set} → List A → (A → Maybe Value) → Maybe Value
-∑M []       f = just []
+∑M []       f = just $0
+∑M (i ∷ []) f = f i
 ∑M (i ∷ is) f = f i >>= λ q → ∑M is f >>= λ qs → just (q +ᶜ qs)
+
+-------------------
+-- Properties
+
+sum-single : ∀ {x} → sumᶜ [ x ] ≡ x
+sum-single = {!!}
+
+0+x≡x : ∀ {x} → $0 +ᶜ x ≡ x
+0+x≡x = {!!}
+
+x+0≡x : ∀ {x} → x +ᶜ $0 ≡ x
+x+0≡x = {!!}
+
+x+y+0≡y+x+0 : ∀ {x y} → x +ᶜ y +ᶜ $0 ≡ y +ᶜ x +ᶜ $0
+x+y+0≡y+x+0 = {!!}
