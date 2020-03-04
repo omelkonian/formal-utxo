@@ -15,7 +15,7 @@ open import Data.Nat     using (ℕ; zero; suc; _+_; _<_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
 open import Data.Maybe   using (nothing;maybe)
-open import Data.List    using (List; []; _∷_; length; map; _++_; filter)
+open import Data.List    using (List; []; _∷_; length; map; _++_; filter; lookup)
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈; find)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
@@ -26,7 +26,7 @@ open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import Prelude.Lists using (Index; indices; _‼_; ‼-map′)
+open import Prelude.Lists
 
 open import UTxO.Hashing.Base
 open import UTxO.Value
@@ -172,5 +172,10 @@ mkTxInfo l tx = record
 
 toPendingTx : Ledger → (tx : Tx) → Index (inputs tx) → PendingTx
 toPendingTx l tx i = record
-  { thisInput = ‼-map′ {xs = inputs tx} {f = mkInputInfo l} i
+  { thisInput = ‼-map {xs = inputs tx} {f = mkInputInfo l} i
   ; txInfo    = mkTxInfo l tx }
+
+ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
+  let ptx = toPendingTx l tx (Any.index i∈)
+  in  (TxInfo.inputInfo (txInfo ptx) ‼ thisInput ptx) ≡ mkInputInfo l i
+ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl

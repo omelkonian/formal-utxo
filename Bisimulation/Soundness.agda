@@ -105,8 +105,11 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
 
     txIn = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈) ←— (i , s) , sm
 
-    vvh : M.Any ((𝕍 ≡_) ∘ address) (getSpentOutput txIn l)
-    vvh rewrite getSpent≡ = M.just refl
+    vvh : M.Any (λ o → (address o ≡ 𝕍) × (dataHash o ≡ toData s ♯ᵈ)) (getSpentOutput txIn l)
+    vvh rewrite getSpent≡ = M.just (refl , refl)
+
+    vvh′ : M.Any ((𝕍 ≡_) ∘ address) (getSpentOutput txIn l)
+    vvh′ rewrite getSpent≡ = M.just refl
 
     vtx : IsValidTx tx l
     withinInterval      vtx with range≡ tx≡
@@ -119,7 +122,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     validateValidHashes vtx = vvh ∷ []
     forging             vtx with forge≡ tx≡
     ... | nothing = []
-    ... | pure _  rewrite frg≡ = here vvh ∷ []
+    ... | pure _ rewrite frg≡ = here vvh′ ∷ []
 
     vl′ : ValidLedger (tx ∷ l)
     vl′ = vl ⊕ tx ∶- vtx
@@ -130,6 +133,6 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     vl′~s′ : vl′ ~ s′
     vl′~s′ =
       ∈-map⁺ (dataHash ∘ out)
-        (∈-filter⁺ ((_≟ℕ 𝕍) ∘ address ∘ out)
+        (∈-filter⁺ ((𝕍 ≟ℕ_) ∘ address ∘ out)
           (∈-++⁺ʳ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (here refl))
           refl)

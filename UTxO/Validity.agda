@@ -24,6 +24,7 @@ open import Data.Maybe.Relation.Unary.All using () renaming (dec to all?)
 open import Data.Maybe.Relation.Unary.Any using () renaming (dec to any?)
 
 open import Relation.Nullary                      using (Dec; ¬_; yes; no)
+open import Relation.Nullary.Product              using (_×-dec_)
 open import Relation.Nullary.Decidable            using (True; toWitness)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
@@ -68,7 +69,7 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
           (enumerate (inputs tx))
 
     validateValidHashes :
-      All (λ i → M.Any ((validator i ♯ ≡_) ∘ address) (getSpentOutput i l))
+      All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (dataHash o ≡ dataVal i ♯ᵈ)) (getSpentOutput i l))
           (inputs tx)
 
     forging :
@@ -104,7 +105,8 @@ _⊕_ : ∀ {l}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
   → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (dataVal i))})
                      (enumerate (inputs tx)))}
-  → {vvh : True (all (λ i → any? ((validator i ♯ ≟ℕ_) ∘ address) (getSpentOutput i l))
+  → {vvh : True (all (λ i → any? (λ o → (address o ≟ℕ validator i ♯) ×-dec (dataHash o ≟ℕ dataVal i ♯ᵈ))
+                                 (getSpentOutput i l))
                      (inputs tx))}
   → {frg : True (all (λ c → any (λ i → any? ((c ≟ℕ_) ∘ address) (getSpentOutput i l)) (inputs tx))
                      (currencies (forge tx)))}

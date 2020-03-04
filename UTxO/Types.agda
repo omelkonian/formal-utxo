@@ -185,7 +185,7 @@ valueSpent = sumᶜ ∘ map InputInfo.value ∘ TxInfo.inputInfo
 
 getContinuingOutputs : PendingTx → List OutputInfo
 getContinuingOutputs record { txInfo = record {inputInfo = is; outputInfo = outs}; thisInput = i }
-  = filter ((_≟ℕ InputInfo.validatorHash (is ‼ i)) ∘ OutputInfo.validatorHash) outs
+  = filter ((InputInfo.validatorHash (is ‼ i) ≟ℕ_) ∘ OutputInfo.validatorHash) outs
 
 --------------------------------------------------------------------------
 -- Inputs, outputs and ledgers.
@@ -229,7 +229,7 @@ open Tx public
 Ledger : Set
 Ledger = List Tx
 
-runValidation : PendingTx → (i : TxInput) → Bool
+runValidation : PendingTx → TxInput → Bool
 runValidation ptx i = validator i ptx (redeemer i) (dataVal i)
 
 outputRefs : Tx → List TxOutputRef

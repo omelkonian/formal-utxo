@@ -63,7 +63,7 @@ _—→[_∶-_]_ : ∀ {l} → ValidLedger l → (tx : Tx) → IsValidTx tx l �
 vl —→[ tx ∶- vtx ] vl′ = vl′ ≡ vl ⊕ tx ∶- vtx
 
 _~_ : ∀ {l} → ValidLedger l → S → Set
-_~_ {l} _ s = (toData s) ♯ᵈ ∈ (map (dataHash ∘ out) ∘ filter ((_≟ℕ 𝕍) ∘ address ∘ out)) (utxo l)
+_~_ {l} _ s = (toData s) ♯ᵈ ∈ (map (dataHash ∘ out) ∘ filter ((𝕍 ≟ℕ_) ∘ address ∘ out)) (utxo l)
 
 view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
   → vl ~ s
@@ -80,7 +80,7 @@ view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
 view-~ {l} {s} vl~s
   with ∈-map⁻ (dataHash ∘ out) vl~s
 ... | u@(record {prevTx = prevTx; out = record {value = v}}) , out∈ , refl
-  with ∈-filter⁻ ((_≟ℕ 𝕍) ∘ address ∘ out) {xs = utxo l} out∈
+  with ∈-filter⁻ ((𝕍 ≟ℕ_) ∘ address ∘ out) {xs = utxo l} out∈
 ... | u∈ , refl
   with ∈utxo⇒outRef≡ {u = u} {l = l} u∈
 ... | prev∈ , prevOut∈ , refl
