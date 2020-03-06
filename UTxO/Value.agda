@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
 open import Function using (_∘_)
@@ -10,7 +9,7 @@ open import Data.Nat     using (ℕ; _+_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; _∷_; []; [_]; sum; map; foldr; and)
 
-open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_)
+open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; +-identityʳ)
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
 open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
 
@@ -49,42 +48,50 @@ ex-map = (1 , (0 , 50) ∷ [])
        ∷ (2 , (0 , 77) ∷ (1 , 23) ∷ [])
        ∷ []
 
+
 --------------------------
 -- Implementation
 
 open import Data.AVL.Map <-strictTotalOrder
-  using    (Map; fromList; toList; empty; unionWith; lookup)
-  renaming (map to mapValues)
+  using    (Map; empty; unionWith; lookup)
+  renaming (map to mapᵛ; fromList to fromListᵛ; toList to toListᵛ)
 
 TokenMap    = Map Quantity
 CurrencyMap = Map TokenMap
 
-toList² : CurrencyMap → Value
-toList² m = toList (mapValues toList m)
+mapᶜ : ∀ {A B C : Set} → (B → C) → List (A × B) → List (A × C)
+mapᶜ f = map (map₂ f)
 
-fromList² : Value → CurrencyMap
-fromList² = fromList ∘ map (map₂ fromList)
+toListᶜ : CurrencyMap → Value
+toListᶜ m = toListᵛ (mapᵛ toListᵛ m)
+
+fromListᶜ : Value → CurrencyMap
+fromListᶜ = fromListᵛ ∘ mapᶜ fromListᵛ
+
+infixl 6 _+ᵛ′_
+_+ᵛ′_ : TokenMap → TokenMap → TokenMap
+_+ᵛ′_ = unionWith (λ v v′ → v + fromMaybe 0 v′)
+
+infixl 6 _+ᵛ_
+_+ᵛ_ : CurrencyMap → CurrencyMap → CurrencyMap
+_+ᵛ_ = unionWith (λ v v′ → v +ᵛ′ fromMaybe empty v′)
 
 infixl 6 _+ᶜ_
 _+ᶜ_ : Value → Value → Value
-c +ᶜ c′ = toList² (unionWith (λ v v′ → v +ᶜ′ fromMaybe empty v′) (fromList² c) (fromList² c′))
-  where
-    _+ᶜ′_ : TokenMap → TokenMap → TokenMap
-    _+ᶜ′_ = unionWith (λ v v′ → v + fromMaybe 0 v′)
+c +ᶜ c′ = toListᶜ (fromListᶜ c +ᵛ fromListᶜ c′)
 
 sumᶜ : List Value → Value
-sumᶜ = foldr _+ᶜ_ []
+sumᶜ = foldr _+ᶜ_ $0
 
 infix 4 _≟ᶜ_
 _≟ᶜ_ : Decidable {A = Value} _≡_
 _≟ᶜ_ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_)))
 
-
 infix 4 _≥ᶜ_
 _≥ᶜ_ : Value → Value → Bool
 c ≥ᶜ c′ =
   and (map (λ{ ( k₁ , vs ) →
-    and (map (λ{ (k₂ , v) → ⌊ fromMaybe 0 (lookup k₁ (fromList² c) >>= lookup k₂) ≥? v ⌋ }) vs)}) c′)
+    and (map (λ{ (k₂ , v) → ⌊ fromMaybe 0 (lookup k₁ (fromListᶜ c) >>= lookup k₂) ≥? v ⌋}) vs)}) c′)
 
 -------------------
 -- Sum notation
@@ -103,14 +110,50 @@ c ≥ᶜ c′ =
 -------------------
 -- Properties
 
-sum-single : ∀ {x} → sumᶜ [ x ] ≡ x
-sum-single = {!!}
+private
+  variable
+    A B C : Set
+    v     : List (ℕ × A)
+    m     : Map B
 
-0+x≡x : ∀ {x} → $0 +ᶜ x ≡ x
-0+x≡x = {!!}
+postulate
+  -- Properties from Data.AVL.Properties
+  toListᵛ∘fromListᵛ : toListᵛ (fromListᵛ v) ≡ v
+  unionWith-identityʳ : ∀ {f : B → Maybe B → B} → unionWith f m empty ≡ mapᵛ (λ x → f x nothing) m
+  mapᵛ-id           : ∀ {f : B → B} → (∀ {x} → f x ≡ x) → mapᵛ f m ≡ m
+  -- Properties of UTxO.Value.mapᶜ
+  mapᵛ-fromListᵛ      : ∀ {f : A → B} → mapᵛ f (fromListᵛ v) ≡ fromListᵛ (mapᶜ f v)
+  mapᶜ∘mapᶜ         : ∀ {g : A → B} {f : B → C} → (mapᶜ f ∘ mapᶜ g) v ≡ mapᶜ (f ∘ g) v
+  mapᶜ-id          : ∀ {f : A → A} → (∀ {x} → f x ≡ x) → mapᶜ f v ≡ v
 
-x+0≡x : ∀ {x} → x +ᶜ $0 ≡ x
-x+0≡x = {!!}
+toListᶜ∘fromListᶜ : ∀ {v} → toListᶜ (fromListᶜ v) ≡ v
+toListᶜ∘fromListᶜ {v}
+  rewrite mapᵛ-fromListᵛ {v = mapᶜ fromListᵛ v} {f = toListᵛ}
+        | mapᶜ∘mapᶜ {v = v} {g = fromListᵛ} {f = toListᵛ}
+        | mapᶜ-id {v = v} {f = toListᵛ ∘ fromListᵛ} toListᵛ∘fromListᵛ
+        | toListᵛ∘fromListᵛ {v = v}
+        = refl
 
-x+y+0≡y+x+0 : ∀ {x y} → x +ᶜ y +ᶜ $0 ≡ y +ᶜ x +ᶜ $0
-x+y+0≡y+x+0 = {!!}
+
+unionWith-empty-id : ∀ {A : Set} {m : Map A} {f : A → Maybe A → A}
+  → (∀ {x} → f x nothing ≡ x)
+  → unionWith f m empty ≡ m
+unionWith-empty-id {m = m} {f = f} f≡
+  rewrite unionWith-identityʳ {m = m} {f = f}
+        | mapᵛ-id {m = m} {f = λ x → f x nothing} f≡
+        = refl
+
+x+ᶜ′0≡x : ∀ {m} → m +ᵛ′ empty ≡ m
+x+ᶜ′0≡x {m} rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + fromMaybe 0 v′} (λ {x} → +-identityʳ x)
+                  = refl
+
+x+ᶜ0≡x : ∀ {v} → v +ᶜ $0 ≡ v
+x+ᶜ0≡x {v} rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
+                 | toListᶜ∘fromListᶜ {v = v}
+                 = refl
+
+0+ᶜx≡x : ∀ {v} → $0 +ᶜ v ≡ v
+0+ᶜx≡x {v} = toListᶜ∘fromListᶜ {v = v}
+
+sum-single : ∀ {v} → sumᶜ [ v ] ≡ v
+sum-single {v} rewrite x+ᶜ0≡x {v} = refl

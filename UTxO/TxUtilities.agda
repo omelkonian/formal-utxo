@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.TxUtilities where
 
 open import Function using (_∘_; _∋_; flip; _$_)
@@ -24,7 +23,7 @@ open import Data.List.Relation.Unary.All                  using (All)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; trans; sym; cong)
 
 open import Prelude.Lists
 
@@ -76,14 +75,60 @@ mapWith∈-∀ {xs = x ∷ xs} ∀P {y} (there y∈) = mapWith∈-∀ (∀P ∘ 
 
 _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
 [] ⟨ txo ⟩ = nothing
-(tx ∷ l) ⟨ txo ⟩ with id txo ≟ℕ (tx ♯ₜₓ)
-(tx ∷ l) ⟨ txo ⟩ | yes p = pure tx
-(tx ∷ l) ⟨ txo ⟩ | no ¬p = l ⟨ txo ⟩
+(tx ∷ l) ⟨ txo ⟩
+  with id txo ≟ℕ tx ♯ₜₓ
+... | yes _ = pure tx
+... | no  _ = l ⟨ txo ⟩
+
+utxo-outRef↔prevTx : ∀ {u l}
+  → u ∈ utxo l
+  → id (outRef u) ≡ prevTx u ♯ₜₓ
+utxo-outRef↔prevTx {u} {l} u∈
+  rewrite proj₂ (proj₂ (∈utxo⇒outRef≡ {u} {l} u∈))
+        = refl
+
+utxo-∈ʳ : ∀ {u tx}
+  → u ∈ mapWith∈ (outputs tx) (λ {out} out∈ →
+          record { outRef = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+                 ; out    = out
+                 ; prevTx = tx })
+  → tx ≡ prevTx u
+utxo-∈ʳ {u} {tx} = mapWith∈-∀ {P = (tx ≡_) ∘ prevTx} λ _ → refl
+
+utxo-≢ : ∀ {l u tx}
+  → u ∈ utxo (tx ∷ l)
+  → id (outRef u) ≢ tx ♯ₜₓ
+  → u ∈ utxo l
+utxo-≢ {l} {u} {tx} u∈ ¬p
+  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
+... | inj₁ u∈ˡ
+    = proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ)
+... | inj₂ u∈ʳ
+    = ⊥-elim (¬p (trans (utxo-outRef↔prevTx {u} {tx ∷ l} u∈) (sym (cong _♯ₜₓ (utxo-∈ʳ {u} {tx} u∈ʳ)))))
+
+utxo-[] : ∀ {l u}
+  → u ∈ utxo l
+  → l ⟨ outRef u ⟩ ≡ pure (prevTx u)
+utxo-[] {l = tx ∷ l} {u} u∈
+  with id (outRef u) ≟ℕ tx ♯ₜₓ
+... | yes p
+  rewrite injective♯ₜₓ {x = prevTx u} {y = tx} (trans (sym (utxo-outRef↔prevTx {u} {tx ∷ l} u∈)) p)
+    = refl
+... | no ¬p = utxo-[] {l} (utxo-≢ {l} {u} {tx} u∈ ¬p)
 
 _[_] : {X : Set} → List X → ℕ → Maybe X
-[]       [ n     ] = nothing
-(x ∷ xs) [ zero  ] = pure x
-(x ∷ xs) [ suc n ] = xs [ n ]
+_[_] = _⁉_
+
+utxo-⟨⟩ : ∀ {l u}
+  → u ∈ utxo l
+  → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)
+utxo-⟨⟩ {tx ∷ l} {u} u∈
+  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
+... | inj₁ u∈ˡ
+    = utxo-⟨⟩ {l} {u} (proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ))
+... | inj₂ u∈ʳ
+    = mapWith∈-∀ {P = λ u → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)}
+                 (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong pure (‼-index x∈))) u∈ʳ
 
 getSpentOutputRef : TxOutputRef → Ledger → Maybe TxOutput
 getSpentOutputRef oRef l =
@@ -92,34 +137,6 @@ getSpentOutputRef oRef l =
 getSpentOutput : TxInput → Ledger → Maybe TxOutput
 getSpentOutput i l = getSpentOutputRef (outputRef i) l
 
-utxo-[] : ∀ {l u}
-  → u ∈ utxo l
-  → l ⟨ outRef u ⟩ ≡ pure (prevTx u)
-utxo-[] {l = tx ∷ l} {u} u∈
-  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
-... | inj₁ u∈ˡ
-    = {!!}
---   with id (outRef u) ≟ℕ (tx ♯ₜₓ)
--- ... | yes p′ = {!!}
--- ... | no  _
---   with ∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ
--- ... | u∈ˡ′ , p
---     = utxo-getSpent {l = l} u∈ˡ′
-... | inj₂ u∈ʳ
-  with id (outRef u) ≟ℕ (tx ♯ₜₓ)
-... | no ¬p = {!!}
-... | yes id≡
-  with outputs tx [ index (outRef u) ]
-... | nothing = {!!}
-... | pure x
-    = {!!} -- mapWith∈-∀ (λ x∈ → refl) u∈ʳ
-
-utxo-⟨⟩ : ∀ {l u}
-  → u ∈ utxo l
-  → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)
-utxo-⟨⟩ {l} {u} u∈ = {!!}
-
-
 utxo-getSpent : ∀ {l u}
   → u ∈ utxo l
   → getSpentOutputRef (outRef u) l ≡ pure (out u)
@@ -127,24 +144,6 @@ utxo-getSpent {l} {u} u∈
   rewrite utxo-[] {l} {u} u∈
         | utxo-⟨⟩ {l} {u} u∈
         = refl
-
---   with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
--- ... | inj₁ u∈ˡ
---   = {!!}
--- --   with id (outRef u) ≟ℕ (tx ♯ₜₓ)
--- -- ... | yes p′ = {!!}
--- -- ... | no  _
--- --   with ∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ
--- -- ... | u∈ˡ′ , p
--- --     = utxo-getSpent {l = l} u∈ˡ′
--- ... | inj₂ u∈ʳ
---   with id (outRef u) ≟ℕ (tx ♯ₜₓ)
--- ... | no ¬p = {!!}
--- ... | yes id≡
---   with outputs tx [ index (outRef u) ]
--- ... | nothing = {!!}
--- ... | pure x
---     = {!!} -- mapWith∈-∀ (λ x∈ → refl) u∈ʳ
 
 --
 

@@ -116,7 +116,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     ... | nothing = tt
     ... | pure _  rewrite range∋ = tt
     validOutputRefs     vtx = prev∈utxo ∷ []
-    preservesValues     vtx rewrite getSpent≡ = M.just (sym (0+x≡x {x = forge′ +ᶜ v}))
+    preservesValues     vtx rewrite getSpent≡ = M.just (sym (0+ᶜx≡x {v = forge′ +ᶜ v}))
     noDoubleSpending    vtx = [] ∷ []
     allInputsValidate   vtx = validate≡ ∷ []
     validateValidHashes vtx = vvh ∷ []

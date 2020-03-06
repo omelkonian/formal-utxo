@@ -137,7 +137,7 @@ mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ (r≡ , s≥ , _)
         ... | pure v  rewrite ≟-refl _≟ˢ_ v = refl
 
         v≡ : valueSpent txi ≡ v
-        v≡ rewrite sum-single {x = InputInfo.value (mkInputInfo l x)}
+        v≡ rewrite sum-single {v = InputInfo.value (mkInputInfo l x)}
                  | getSpent≡
                  = refl
 
