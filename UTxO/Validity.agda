@@ -1,6 +1,7 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Validity where
 
-open import Function using (_∘_)
+open import Function using (_∘_; flip)
 
 open import Data.Sum             using (_⊎_)
 open import Data.Product         using (_×_; _,_; proj₁)
@@ -59,7 +60,7 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
 
     preservesValues :
       M.Any (λ q → forge tx +ᶜ q ≡ fee tx +ᶜ ∑ (outputs tx) value)
-            (∑M (inputs tx) (λ i → value <$> getSpentOutput i l))
+            (∑M (map (getSpentOutput l) (inputs tx)) value)
 
     noDoubleSpending :
       Unique (outputRefs tx)
@@ -69,11 +70,11 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
           (enumerate (inputs tx))
 
     validateValidHashes :
-      All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (dataHash o ≡ dataVal i ♯ᵈ)) (getSpentOutput i l))
+      All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (dataHash o ≡ dataVal i ♯ᵈ)) (getSpentOutput l i))
           (inputs tx)
 
     forging :
-      All (λ c → Any (λ i → M.Any ((c ≡_) ∘ address) (getSpentOutput i l)) (inputs tx))
+      All (λ c → Any (λ i → M.Any ((c ≡_) ∘ address) (getSpentOutput l i)) (inputs tx))
           (currencies (forge tx))
 
 open IsValidTx public
@@ -101,14 +102,14 @@ _⊕_ : ∀ {l}
   → {wi  : True (T? (range tx ∋ length l))}
   → {vor : True (all (λ i → outputRef i SETₒ.∈? map outRef (utxo l)) (inputs tx))}
   → {pv  : True (any? (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
-                      (∑M (inputs tx) (λ i → value <$> getSpentOutput i l)))}
+                      (∑M (map (getSpentOutput l) (inputs tx)) value))}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
   → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (dataVal i))})
                      (enumerate (inputs tx)))}
   → {vvh : True (all (λ i → any? (λ o → (address o ≟ℕ validator i ♯) ×-dec (dataHash o ≟ℕ dataVal i ♯ᵈ))
-                                 (getSpentOutput i l))
+                                 (getSpentOutput l i))
                      (inputs tx))}
-  → {frg : True (all (λ c → any (λ i → any? ((c ≟ℕ_) ∘ address) (getSpentOutput i l)) (inputs tx))
+  → {frg : True (all (λ c → any (λ i → any? ((c ≟ℕ_) ∘ address) (getSpentOutput l i)) (inputs tx))
                      (currencies (forge tx)))}
   → ValidLedger (tx ∷ l)
 (vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {vvh} {frg}
@@ -155,7 +156,7 @@ scopeSafeIndex tx or os p = just∈ _ _ p
 
 scopeSafeLem : (l : Ledger)(vl : ValidLedger l)(i : TxInput)
   → outputRef i ∈ map outRef (utxo l)
-  → Is-just (getSpentOutput i l)
+  → Is-just (getSpentOutput l i)
 scopeSafeLem (tx ∷ l) vl i p with id (outputRef i) ≟ℕ tx ♯ₜₓ
 -- does our output come from tx?
 scopeSafeLem (tx ∷ l) vl i p | yes q = {!p!}
@@ -170,7 +171,7 @@ scopeSafe : (l : Ledger)(vl : ValidLedger l)(is : List TxInput)
   -- if `validOutputRefs` is satisfied
   → All (λ i → outputRef i ∈ map outRef (utxo l)) is
   -- all inputs refer to legit outputs from the ledger
-  → All (λ i → Is-just (getSpentOutput i l)) is
+  → All (λ i → Is-just (getSpentOutput l i)) is
 scopeSafe l vl [] All.[] = All.[]
 scopeSafe l vl (i ∷ is) (px All.∷ pxs) =
   scopeSafeLem l vl i px All.∷ scopeSafe l vl is pxs

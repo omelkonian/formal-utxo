@@ -75,7 +75,7 @@ view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
       in ( u ∈ utxo l
          × prevTx ∈ l
          × oRef ∈ map outRef (utxo l)
-         × (getSpentOutputRef oRef l ≡ pure out)
+         × (getSpentOutputRef l oRef ≡ pure out)
          ))
 view-~ {l} {s} vl~s
   with ∈-map⁻ (dataHash ∘ out) vl~s
@@ -90,7 +90,7 @@ view-~ {l} {s} vl~s
     o    = record { address = 𝕍; dataHash = toData s ♯ᵈ; value = v }
     u′   = record { prevTx = prevTx; out = o; outRef = oRef }
 
-    spent≡ : getSpentOutputRef oRef l ≡ pure o
+    spent≡ : getSpentOutputRef l oRef ≡ pure o
     spent≡ = utxo-getSpent {l = l} {u = u′} u∈
 
 Satisfiable : ∀ {s l} {vl : ValidLedger l}

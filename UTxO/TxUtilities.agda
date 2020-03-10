@@ -16,10 +16,9 @@ open import Data.Fin     using (Fin; toℕ; fromℕ<)
 open import Data.Maybe   using (nothing;maybe)
 open import Data.List    using (List; []; _∷_; length; map; _++_; filter; lookup)
 
-open import Data.List.Membership.Propositional            using (_∈_; mapWith∈; find)
-open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
-open import Data.List.Relation.Unary.Any as Any           using (Any; here; there)
-open import Data.List.Relation.Unary.All                  using (All)
+open import Data.List.Membership.Propositional                       using (_∈_; mapWith∈; find)
+open import Data.List.Membership.Propositional.Properties            using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
+open import Data.List.Relation.Unary.Any as Any                      using (Any; here; there)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -40,13 +39,15 @@ record UTXO : Set where
 
 open UTXO public
 
+mkUtxo : ∀ {out} tx → out ∈ outputs tx → UTXO
+outRef (mkUtxo tx out∈)   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+out    (mkUtxo {out} _ _) = out
+prevTx (mkUtxo tx _ )     = tx
+
 utxo : Ledger → List UTXO
 utxo []       = []
 utxo (tx ∷ l) = filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)
-             ++ mapWith∈ (outputs tx) λ {out} out∈ →
-                  record { outRef   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
-                         ; out      = out
-                         ; prevTx   = tx }
+             ++ mapWith∈ (outputs tx) (mkUtxo tx)
 
 mapWith∈-∀ : ∀ {A B : Set} {xs : List A}  {f : ∀ {x : A} → x ∈ xs → B} {P : B → Set}
   → (∀ {x} x∈ → P (f {x} x∈))
@@ -88,10 +89,7 @@ utxo-outRef↔prevTx {u} {l} u∈
         = refl
 
 utxo-∈ʳ : ∀ {u tx}
-  → u ∈ mapWith∈ (outputs tx) (λ {out} out∈ →
-          record { outRef = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
-                 ; out    = out
-                 ; prevTx = tx })
+  → u ∈ mapWith∈ (outputs tx) (mkUtxo tx)
   → tx ≡ prevTx u
 utxo-∈ʳ {u} {tx} = mapWith∈-∀ {P = (tx ≡_) ∘ prevTx} λ _ → refl
 
@@ -130,16 +128,16 @@ utxo-⟨⟩ {tx ∷ l} {u} u∈
     = mapWith∈-∀ {P = λ u → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)}
                  (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong pure (‼-index x∈))) u∈ʳ
 
-getSpentOutputRef : TxOutputRef → Ledger → Maybe TxOutput
-getSpentOutputRef oRef l =
+getSpentOutputRef : Ledger → TxOutputRef → Maybe TxOutput
+getSpentOutputRef l oRef =
   outputs <$> (l ⟨ oRef ⟩) >>= _[ index oRef ]
 
-getSpentOutput : TxInput → Ledger → Maybe TxOutput
-getSpentOutput i l = getSpentOutputRef (outputRef i) l
+getSpentOutput : Ledger → TxInput → Maybe TxOutput
+getSpentOutput l i = getSpentOutputRef l (outputRef i)
 
 utxo-getSpent : ∀ {l u}
   → u ∈ utxo l
-  → getSpentOutputRef (outRef u) l ≡ pure (out u)
+  → getSpentOutputRef l (outRef u) ≡ pure (out u)
 utxo-getSpent {l} {u} u∈
   rewrite utxo-[] {l} {u} u∈
         | utxo-⟨⟩ {l} {u} u∈
@@ -159,7 +157,7 @@ mkInputInfo l i = record
   ; validatorHash = (validator i) ♯
   ; dataHash      = (dataVal i) ♯ᵈ
   ; redeemerHash  = (redeemer i) ♯ᵈ
-  ; value         = maybe value [] (getSpentOutput i l) }
+  ; value         = maybe value [] (getSpentOutput l i) }
 
 mkTxInfo : Ledger → Tx → TxInfo
 mkTxInfo l tx = record

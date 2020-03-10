@@ -1,20 +1,25 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
-open import Function using (_∘_)
+open import Function using (_∘_; flip)
 
 open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂)
 open import Data.Bool    using (Bool; true; _∧_)
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; _>>=_)
+open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
+  renaming (just to pure; ap to _<*>_; map to _<$>_) -- to use idiom brackets
 open import Data.Nat     using (ℕ; _+_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; _∷_; []; [_]; sum; map; foldr; and)
+open import Data.List    using (List; _∷_; []; [_]; _++_; sum; map; foldr; and; filter)
+
+open import Data.List.Membership.Propositional  using (_∈_; mapWith∈)
 
 open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; +-identityʳ)
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
 open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
 
-open import Relation.Nullary                      using (yes; no)
+open import Relation.Nullary                      using (Dec; yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
+open import Relation.Nullary.Negation             using (¬?)
 open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
 
@@ -97,15 +102,18 @@ c ≥ᶜ c′ =
 -- Sum notation
 
 ∑ : ∀ {A : Set} → List A → (A → Value) → Value
-∑ []       f = $0
-∑ (i ∷ []) f = f i
-∑ (i ∷ is) f = f i +ᶜ ∑ is f
+∑ xs f = sumᶜ (map f xs)
 
--- if one fails everything fails
-∑M : ∀ {A : Set} → List A → (A → Maybe Value) → Maybe Value
-∑M []       f = just $0
-∑M (i ∷ []) f = f i
-∑M (i ∷ is) f = f i >>= λ q → ∑M is f >>= λ qs → just (q +ᶜ qs)
+∑∈ : ∀ {A : Set} → (xs : List A) → (∀ {x} → x ∈ xs → Value) → Value
+∑∈ xs f = sumᶜ (mapWith∈ xs f)
+
+∑M : ∀ {A : Set} → List (Maybe A) → (A → Value) → Maybe Value
+∑M xs f = (flip ∑ f) <$> seqM xs
+  where
+    -- if one fails everything fails
+    seqM : ∀ {A : Set} → List (Maybe A) → Maybe (List A)
+    seqM []       = pure []
+    seqM (x ∷ xs) = ⦇ x ∷ seqM xs ⦈
 
 -------------------
 -- Properties
@@ -113,14 +121,37 @@ c ≥ᶜ c′ =
 private
   variable
     A B C : Set
+    xs ys : List A
     v     : List (ℕ × A)
     m     : Map B
 
 postulate
+  -- Properties of _+ᶜ_
+  +ᶜ-comm  : ∀ {x y : Value} → x +ᶜ y ≡ y +ᶜ x
+  +ᶜ-assoc : ∀ {x y z : Value} → x +ᶜ y +ᶜ z ≡ x +ᶜ (y +ᶜ z)
+
+  -- Properties of ∑
+  ∑-++ : ∀ {fv : A → Value} → ∑ (xs ++ ys) fv ≡ ∑ xs fv +ᶜ ∑ ys fv
+  ∑-mapWith∈ : ∀ {fv : A → Value} {gv : B → A} {f : ∀ {x : A} → x ∈ xs → B}
+             → (∀ {x} → (x∈ : x ∈ xs) → gv (f x∈) ≡ x)
+             → ∑ (mapWith∈ xs f) (fv ∘ gv) ≡ ∑ xs fv
+  ∑-filter : ∀ {P : A → Set} {q : (x : A) → Dec (P x)} {f : A → Value} {x y : Value}
+           → x +ᶜ ∑ (filter q xs) f ≡ y +ᶜ ∑ xs f
+           → x ≡ y +ᶜ ∑ (filter (¬? ∘ q) xs) f
+  ∑-∘ : ∀ {xs : List A} {g : ∀ {x} → x ∈ xs → B} {g′ : B → C} {f : C → Value}
+    → ∑ (mapWith∈ xs (g′ ∘ g)) f
+    ≡ ∑ (mapWith∈ xs g) (f ∘ g′)
+
+  -- Properties of ∑M
+  ∑M-pure : ∀ {m : A → Maybe B} {f : B → Value} {g : ∀ {x} → x ∈ xs → B}
+    → (∀ {x} (x∈ : x ∈ xs) → m x ≡ pure (g {x} x∈))
+    → ∑M (map m xs) f ≡ pure (∑ (mapWith∈ xs g) f)
+
   -- Properties from Data.AVL.Properties
   toListᵛ∘fromListᵛ : toListᵛ (fromListᵛ v) ≡ v
   unionWith-identityʳ : ∀ {f : B → Maybe B → B} → unionWith f m empty ≡ mapᵛ (λ x → f x nothing) m
   mapᵛ-id           : ∀ {f : B → B} → (∀ {x} → f x ≡ x) → mapᵛ f m ≡ m
+
   -- Properties of UTxO.Value.mapᶜ
   mapᵛ-fromListᵛ      : ∀ {f : A → B} → mapᵛ f (fromListᵛ v) ≡ fromListᵛ (mapᶜ f v)
   mapᶜ∘mapᶜ         : ∀ {g : A → B} {f : B → C} → (mapᶜ f ∘ mapᶜ g) v ≡ mapᶜ (f ∘ g) v

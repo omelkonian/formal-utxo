@@ -79,5 +79,6 @@ forge   t₂ = $ 0
 fee     t₂ = $0
 range   t₂ = -∞ ⋯ +∞
 
-ex-play : ValidLedger (t₂ ∷ t₁ ∷ t₀ ∷ [])
-ex-play = ∙ ⊕ t₀ ⊕ t₁ ⊕ t₂
+-- T0D0: comment out for faster type-checking
+ex-play : ValidLedger ({-t₂ ∷-} t₁ ∷ t₀ ∷ [])
+ex-play = ∙ ⊕ t₀ ⊕ t₁ {-⊕ t₂-}

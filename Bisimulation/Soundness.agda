@@ -10,7 +10,7 @@ open import Data.Maybe   using (nothing)
   renaming (just to pure; ap to _<*>_) -- to use idiom brackets
 open import Data.Nat     using (ℕ; _<_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.List    using ([]; _∷_; [_]; filter)
+open import Data.List    using ([]; _∷_; [_]; filter; map)
 
 open import Data.List.Relation.Unary.Any as Any           using (here)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁺; ∈-filter⁺; ∈-++⁺ʳ)
@@ -105,10 +105,10 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
 
     txIn = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈) ←— (i , s) , sm
 
-    vvh : M.Any (λ o → (address o ≡ 𝕍) × (dataHash o ≡ toData s ♯ᵈ)) (getSpentOutput txIn l)
+    vvh : M.Any (λ o → (address o ≡ 𝕍) × (dataHash o ≡ toData s ♯ᵈ)) (getSpentOutput l txIn)
     vvh rewrite getSpent≡ = M.just (refl , refl)
 
-    vvh′ : M.Any ((𝕍 ≡_) ∘ address) (getSpentOutput txIn l)
+    vvh′ : M.Any ((𝕍 ≡_) ∘ address) (getSpentOutput l txIn)
     vvh′ rewrite getSpent≡ = M.just refl
 
     vtx : IsValidTx tx l
@@ -116,7 +116,14 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     ... | nothing = tt
     ... | pure _  rewrite range∋ = tt
     validOutputRefs     vtx = prev∈utxo ∷ []
-    preservesValues     vtx rewrite getSpent≡ = M.just (sym (0+ᶜx≡x {v = forge′ +ᶜ v}))
+    preservesValues     vtx rewrite getSpent≡ = M.just pv′
+      where
+        pv′ : forge′ +ᶜ (v +ᶜ $0) ≡ $0 +ᶜ (forge′ +ᶜ v +ᶜ $0)
+        pv′ rewrite x+ᶜ0≡x {v = v}
+                  | x+ᶜ0≡x {v = forge′ +ᶜ v}
+                  | 0+ᶜx≡x {v = forge′ +ᶜ v}
+                  = refl
+
     noDoubleSpending    vtx = [] ∷ []
     allInputsValidate   vtx = validate≡ ∷ []
     validateValidHashes vtx = vvh ∷ []
