@@ -1,12 +1,13 @@
-open import Function using (_∘_; case_of_)
+open import Level          using (0ℓ)
+open import Function       using (_∘_; case_of_; _$_)
+open import Category.Monad using (RawMonad)
 
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T; true; false; if_then_else_; not; _∧_)
-open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂)
+open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂; map₂)
 open import Data.Sum     using (_⊎_; inj₁; inj₂)
-open import Data.Maybe   using (Maybe; fromMaybe; nothing; maybe′)
-  renaming (just to pure; ap to _<*>_) -- to use idiom brackets
+open import Data.Maybe   using (Maybe; fromMaybe; just; nothing; maybe′)
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
   renaming (suc to fsuc; zero to fzero)
 open import Data.Nat     using (ℕ; _<_; z≤n; s≤s; _+_)
@@ -14,7 +15,10 @@ open import Data.Nat     using (ℕ; _<_; z≤n; s≤s; _+_)
 open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null; lookup)
 
 open import Data.Bool.Properties  using (T?)
+  renaming (_≟_ to _≟𝔹_)
 open import Data.Maybe.Properties using (just-injective)
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
 open import Data.List.Relation.Unary.All as All using ([]; _∷_)
@@ -46,13 +50,14 @@ open import StateMachine.Base
 open InputInfo
 open OutputInfo
 open TxInfo
-open PendingTx
 
 module Bisimulation.Completeness
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
 
-open import Bisimulation.Base {sm = sm}
+open CEM {sm = sm}
+open import StateMachine.Properties {sm = sm}
+open import Bisimulation.Base       {sm = sm}
 
 completeness : ∀ {s tx l} {vtx : IsValidTx tx l} {vl : ValidLedger l} {vl′ : ValidLedger (tx ∷ l)}
   → vl —→[ tx ∶- vtx ] vl′
@@ -65,52 +70,37 @@ completeness : ∀ {s tx l} {vtx : IsValidTx tx l} {vl : ValidLedger l} {vl′ :
   ⊎ (vl′ ~ s)
 completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
   with view-~ {l} {s} {vl} vl~s
-... | prevTx , v , prevOut∈ , u∈ , _ , prev∈utxo , getSpent≡
+... | prevTx , v , prevOut∈ , u∈ , _ , prev∈utxo , getSpent≡ , threadToken≡
   with (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈)) SETₒ.∈? outputRefs tx
-... | no  prev∉
-    = inj₂ (∈-map⁺ (dataHash ∘ out)
-             (∈-filter⁺ ((𝕍 ≟ℕ_) ∘ address ∘ out)
-               (∈-++⁺ˡ (∈-filter⁺ ((SETₒ._∉? outputRefs tx) ∘ outRef) {x = u} {xs = utxo l}
-                 u∈ prev∉)) refl))
-      where oRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈)
-            o    = record { address = 𝕍; dataHash = toData s ♯ᵈ; value = v }
-            u    = record { prevTx = prevTx; out = o; outRef = oRef }
-
+... | no prev∉
+    = inj₂ (∈-map⁺ (datumHash ∘ out)
+             (∈-filter⁺ ((_≟𝔹 true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out)
+               (∈-filter⁺ ((𝕍 ≟ℕ_) ∘ address ∘ out)
+                 (∈-++⁺ˡ (∈-filter⁺ ((SETₒ._∉? outputRefs tx) ∘ outRef) {x = u} {xs = utxo l}
+                   u∈ prev∉)) refl)
+               threadToken≡))
+      where o    = record { address = 𝕍; datumHash = toData s ♯ᵈ; value = v }
+            u    = record { prevTx = prevTx; out = o; outRef = (prevTx ♯ₜₓ) indexed-at (toℕ (Any.index prevOut∈)) }
 ... | yes prev∈
   with ∈-map⁻ outputRef prev∈
 ... | txIn , txIn∈ , refl
     = inj₁ (STEP (validate≡ {ptx = ptx} (All.lookup (allInputsValidate vtx) (x∈→ix∈ txIn∈))))
   where
     ptx = toPendingTx l tx (Any.index txIn∈)
+    txi = txInfo ptx
     di  = redeemer txIn
     ds  = toData s
 
-    valTxIn≡ : (validator txIn ♯) ≡ 𝕍
-    valTxIn≡
-      with All.lookup (validateValidHashes vtx) txIn∈
-    ... | vvh≡
-      rewrite getSpent≡
-      with vvh≡
-    ... | M.just (val♯≡ , _)
-      rewrite val♯≡
-        = refl
-
-    data≡ : dataVal txIn ≡ ds
-    data≡
-      with All.lookup (validateValidHashes vtx) txIn∈
-    ... | vvh≡
-      rewrite getSpent≡
-      with vvh≡
-    ... | M.just (_ , ds♯≡)
-      rewrite injective♯ᵈ {x = ds} {y = dataVal txIn} ds♯≡
-        = refl
+    vvh : (𝕍 ≡ validator txIn ♯) × (ds ≡ datum txIn)
+    vvh = map₂ injective♯ᵈ
+        $ Any-just getSpent≡ (All.lookup (validateValidHashes vtx) txIn∈)
 
     validate≡ : ∀ {ptx : PendingTx}
        → T (runValidation ptx txIn)
        → T (validatorₛₘ ptx di ds)
     validate≡ p rewrite getSpent≡
-                      | ♯-injective valTxIn≡
-                      | data≡
+                      | ♯-injective (sym $ proj₁ vvh)
+                      | sym (proj₂ vvh)
                       = p
 
     STEP :
@@ -121,49 +111,24 @@ completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
           × (finalₛₘ s′ ≡ false → vl′ ~ s′)
           × (verifyTx l tx tx≡ ≡ true) )
     STEP eq
-      rewrite from∘to s
-      with ⦇ stepₛₘ (pure s) (fromData di) ⦈
-         | inspect (λ x → ⦇ stepₛₘ (pure s) x ⦈) (fromData di)
-         | eq
-    ... | nothing | _        | ()
-    ... | pure r  | ≡[ eq′ ] | _
-      with fromData {A = I} di
-    ... | nothing = ⊥-elim (ap-nothing {m = maybe′ (pure ∘ stepₛₘ) nothing (pure s)} eq′)
-    ... | pure i
-      with stepₛₘ s i | inspect (stepₛₘ s) i | eq
-    ... | nothing         | _          | ()
-    ... | pure (s′ , tx≡) | ≡[ step≡ ] | _
-      rewrite step≡
-      with verifyTxInfo (txInfo ptx) tx≡ | inspect (verifyTxInfo (txInfo ptx)) tx≡ | eq
-    ... | false | _ | eq²
-        = ⊥-elim (∧-falseʳ eq²)
-    ... | true  | ≡[ verify≡ ] | _
-      with finalₛₘ s′ | inspect finalₛₘ s′
-    ... | true  | ≡[ final≡ ]
-        = i , s′ , tx≡ , step≡ , (λ ¬fin → ⊥-elim (⊥-bool (final≡ , ¬fin))) , verify≡
-    ... | false | _
-      with getContinuingOutputs ptx | inspect getContinuingOutputs ptx
-    ... | (o ∷ []) | ≡[ out≡ ]
-      rewrite ptx-‼ {l = l} {tx = tx} {i∈ = txIn∈}
-      with ∈-filter⁻ (((validator txIn) ♯ ≟ℕ_) ∘ OutputInfo.validatorHash)
-                     {v = o} {xs = map mkOutputInfo (outputs tx)} (singleton→∈ (_ , out≡))
-    ... | o∈ , refl
-      with ∈-map⁻ mkOutputInfo o∈
-    ... | o′ , o′∈ , refl
-      with dataHash o′ ≟ℕ toData s′ ♯ᵈ | eq
-    ... | no ¬p    | ()
-    ... | yes refl | _
-        = i , s′ , tx≡ , step≡ , (λ _ → helper) , verify≡
-        where
-          helper : toData s′ ♯ᵈ ∈ (map (dataHash ∘ out) ∘ filter ((𝕍 ≟ℕ_) ∘ address ∘ out)) (utxo (tx ∷ l))
-          helper
-            with mapWith∈⁺ {B = UTXO} {x = o′} {xs = outputs tx}
-                           {f = λ {out} out∈ → record { outRef   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
-                                                      ; out      = out
-                                                      ; prevTx   = tx }}
-                           o′∈
-          ... | u , u∈ , refl
-              = ∈-map⁺ (dataHash ∘ out) {x = u}
+      with T-validator {di} {s} {ptx} eq
+    ... | i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , prop≡
+        = i , s′ , tx≡ , step≡ , vl′~s′ , verify≡
+      where
+        vl′~s′ : finalₛₘ s′ ≡ false → vl′ ~ s′
+        vl′~s′ ¬fin
+          with T-propagates {ptx} prop≡
+        ... | vin≥ , vout≥
+          with T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} outsOK≡ ¬fin
+        ... | o , o∈ , out≡ , refl , refl , refl
+          with mapWith∈⁺ {x = o} {xs = outputs tx}
+                         {f = λ {out} out∈ → record { outRef   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+                                                    ; out      = out
+                                                    ; prevTx   = tx }} o∈
+        ... | u , u∈ , refl
+            = ∈-map⁺ (datumHash ∘ out) {x = u}
+                (∈-filter⁺ ((_≟𝔹 true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out)
                   (∈-filter⁺ ((𝕍 ≟ℕ_) ∘ address ∘ out) {x = u} {xs = utxo (tx ∷ l)}
                     (∈-++⁺ʳ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈)
-                      (sym valTxIn≡))
+                    (proj₁ vvh))
+                  vout≥)

@@ -1,33 +1,35 @@
-open import Function using (_∘_; case_of_)
+-- {-# OPTIONS --allow-unsolved-metas #-}
+
+open import Level          using (0ℓ)
+open import Function       using (_∘_; case_of_)
+open import Category.Monad using (RawMonad)
 
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T; true; false; if_then_else_; not)
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂)
 open import Data.Sum     using (_⊎_; inj₁; inj₂)
-open import Data.Maybe   using (Maybe; fromMaybe; nothing; maybe)
-  renaming (just to pure; ap to _<*>_) -- to use idiom brackets
+open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; maybe)
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
   renaming (suc to fsuc; zero to fzero)
 open import Data.Nat     using (ℕ; _<_; z≤n; s≤s; _+_; _≡ᵇ_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; []; _∷_; [_]; map; length; filter; null; all)
+open import Data.List    using (List; []; _∷_; [_]; map; length; filter)
 
 open import Data.Bool.Properties  using (T?)
+  renaming (_≟_ to _≟𝔹_)
 open import Data.Maybe.Properties using (just-injective)
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
-open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
-open import Data.List.Relation.Unary.AllPairs   using ([]; _∷_)
-open import Data.List.Relation.Unary.All        using ([]; _∷_)
-open import Data.List.Membership.Propositional  using (_∈_; _∉_; find; mapWith∈)
-open import Data.List.Membership.Propositional.Properties
-  using (find∘map; ∈-map⁻; ∈-map⁺; ∈-filter⁻; ∈-filter⁺; ∈-++⁻; ∈-++⁺ʳ; ∈-++⁺ˡ)
-open import Data.List.Relation.Binary.Equality.DecPropositional _≟ℕ_ using (_≡?_)
+open import Data.List.Relation.Unary.Any as Any           using (Any; here; there)
+open import Data.List.Relation.Unary.AllPairs             using ([]; _∷_)
+open import Data.List.Relation.Unary.All                  using (All; all; []; _∷_)
+open import Data.List.Membership.Propositional            using (_∈_; _∉_; find; mapWith∈)
+open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-map⁺; ∈-filter⁻)
 
-open import Relation.Nullary                            using (¬_; yes; no)
 open import Relation.Nullary.Decidable                  using (⌊_⌋; toWitness)
-open import Relation.Binary                             using (Decidable)
-open import Relation.Binary.PropositionalEquality as Eq using (_≡_; _≢_; refl; cong; trans; sym; inspect)
+open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong)
   renaming ([_] to ≡[_])
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
 
@@ -44,53 +46,56 @@ open import StateMachine.Base
 
 open InputInfo
 open OutputInfo
-open PendingTx
 
 module Bisimulation.Base
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
 
-stepₛₘ      = step sm
-finalₛₘ     = isFinal sm
-validatorₛₘ = mkValidator sm
-𝕍 = validatorₛₘ ♯
+open CEM {sm = sm}
 
 _—→[_]_ : S → I → (S × TxConstraints) → Set
-s —→[ i ] (s′ , tx≡) = stepₛₘ s i ≡ pure (s′ , tx≡)
+s —→[ i ] (s′ , tx≡) = stepₛₘ s i ≡ just (s′ , tx≡)
 
 infix 30 _—→[_∶-_]_
 _—→[_∶-_]_ : ∀ {l} → ValidLedger l → (tx : Tx) → IsValidTx tx l → ValidLedger (tx ∷ l) → Set
 vl —→[ tx ∶- vtx ] vl′ = vl′ ≡ vl ⊕ tx ∶- vtx
 
 _~_ : ∀ {l} → ValidLedger l → S → Set
-_~_ {l} _ s = (toData s) ♯ᵈ ∈ (map (dataHash ∘ out) ∘ filter ((𝕍 ≟ℕ_) ∘ address ∘ out)) (utxo l)
+_~_ {l} _ s = (toData s) ♯ᵈ ∈ ( map (datumHash ∘ out)
+                              ∘ filter ((_≟𝔹 true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out)
+                              ∘ filter ((𝕍 ≟ℕ_) ∘ address ∘ out)
+                              -- ∘ map out
+                              ) (utxo l)
 
 view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
   → vl ~ s
-  → ∃[ prevTx ] ∃[ v ] (Σ[ prevOut∈ ∈ (s —→ v at sm ∈ outputs prevTx) ]
+  → ∃[ prevTx ] ∃[ v ] (Σ[ prevOut∈ ∈ (s —→ v ∈ outputs prevTx) ]
       let
         oRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈)
-        out  = record { address = 𝕍; dataHash = toData s ♯ᵈ; value = v }
+        out  = record { address = 𝕍; datumHash = toData s ♯ᵈ; value = v }
         u    = record { prevTx = prevTx; out = out; outRef = oRef }
       in ( u ∈ utxo l
          × prevTx ∈ l
          × oRef ∈ map outRef (utxo l)
-         × (getSpentOutputRef l oRef ≡ pure out)
+         × (getSpentOutputRef l oRef ≡ just out)
+         × ((v ≥ᶜ threadₛₘ) ≡ true)
          ))
 view-~ {l} {s} vl~s
-  with ∈-map⁻ (dataHash ∘ out) vl~s
+  with ∈-map⁻ (datumHash ∘ out) vl~s
 ... | u@(record {prevTx = prevTx; out = record {value = v}}) , out∈ , refl
-  with ∈-filter⁻ ((𝕍 ≟ℕ_) ∘ address ∘ out) {xs = utxo l} out∈
+  with ∈-filter⁻ ((_≟𝔹 true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out) {xs = filter _ (utxo l)} out∈
+... | u∈′ , threadToken≡
+  with ∈-filter⁻ ((𝕍 ≟ℕ_) ∘ address ∘ out) {xs = utxo l} u∈′
 ... | u∈ , refl
   with ∈utxo⇒outRef≡ {u = u} {l = l} u∈
 ... | prev∈ , prevOut∈ , refl
-    = prevTx , v , prevOut∈ , u∈ , prev∈ , ∈-map⁺ outRef u∈ , spent≡
+    = prevTx , v , prevOut∈ , u∈ , prev∈ , ∈-map⁺ outRef u∈ , spent≡ , threadToken≡
   where
     oRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈)
-    o    = record { address = 𝕍; dataHash = toData s ♯ᵈ; value = v }
+    o    = record { address = 𝕍; datumHash = toData s ♯ᵈ; value = v }
     u′   = record { prevTx = prevTx; out = o; outRef = oRef }
 
-    spent≡ : getSpentOutputRef l oRef ≡ pure o
+    spent≡ : getSpentOutputRef l oRef ≡ just o
     spent≡ = utxo-getSpent {l = l} {u = u′} u∈
 
 Satisfiable : ∀ {s l} {vl : ValidLedger l}
@@ -102,7 +107,10 @@ Satisfiable {l = l} {vl} tx≡ vl~s
 ... | _ , v , _
     = (range≡ tx≡ >>=ₜ (_∋ length l) ≡ true)
     × (spent≥ tx≡ >>=ₜ (v ≥ᶜ_) ≡ true)
-    × maybe ((_≡ [ 𝕍 ]) ∘ currencies) ⊤ (forge≡ tx≡)
+    × (∀ tx →
+        All {A = MonetaryPolicy}
+            (λ f → T (f (toPendingMPS l tx (f ♯))))
+            (maybe (map proj₁) [] (forge≡ tx≡)))
 
 mkTx : ∀ {l} {s s′ : S} {i : I} {vl : ValidLedger l} {vl~s : vl ~ s}
   → (tx≡ : TxConstraints)
@@ -110,39 +118,42 @@ mkTx : ∀ {l} {s s′ : S} {i : I} {vl : ValidLedger l} {vl~s : vl ~ s}
   → Σ[ tx ∈ Tx ] (verifyTx l tx tx≡ ≡ true)
 mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ (r≡ , s≥ , _)
   with view-~ {vl = vl} vl~s
-... | prevTx , v , prevOut∈ , _ , _ , _ , getSpent≡
+... | prevTx , v , prevOut∈ , _ , _ , _ , getSpent≡ , _
     = tx , verify≡
     where
-        frg = fromMaybe $0 (forge≡ tx≡)
-        rng = fromMaybe (-∞ ⋯ +∞) (range≡ tx≡)
+      frg = maybe toValue $0 (forge≡ tx≡)
+      rng = fromMaybe (-∞ ⋯ +∞) (range≡ tx≡)
+      plc = maybe (map proj₁) [] (forge≡ tx≡)
 
-        x = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈) ←— (i , s) , sm
+      i₀ = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈) ←— (i , s)
 
-        tx = record { inputs  = [ x ]
-                    ; outputs = [ s′ —→ (frg +ᶜ v) at sm ]
-                    ; fee     = $0
-                    ; forge   = frg
-                    ; range   = rng }
+      tx = record { inputs   = [ i₀ ]
+                  ; outputs  = [ s′ —→ (frg +ᶜ v) ]
+                  ; policies = plc
+                  ; fee      = $0
+                  ; forge    = frg
+                  ; range    = rng
+                  ; datumWitnesses = [ toData s′ ♯ᵈ , toData s′ ] }
 
-        txi = mkTxInfo l tx
+      txi = mkTxInfo l tx
 
-        frgT : (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge txi ≟ᶜ v ⌋) ≡ true
-        frgT with forge≡ tx≡
-        ... | nothing = refl
-        ... | pure v  rewrite ≟-refl _≟ᶜ_ v = refl
+      frgT : (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge txi ≟ᶜ toValue v ⌋) ≡ true
+      frgT with forge≡ tx≡
+      ... | nothing = refl
+      ... | just v  rewrite ≟-refl _≟ᶜ_ (toValue v) = refl
 
-        rngT : (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range txi ≟ˢ r ⌋) ≡ true
-        rngT with range≡ tx≡
-        ... | nothing = refl
-        ... | pure v  rewrite ≟-refl _≟ˢ_ v = refl
+      rngT : (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range txi ≟ˢ r ⌋) ≡ true
+      rngT with range≡ tx≡
+      ... | nothing = refl
+      ... | just v  rewrite ≟-refl _≟ˢ_ v = refl
 
-        v≡ : valueSpent txi ≡ v
-        v≡ rewrite sum-single {v = InputInfo.value (mkInputInfo l x)}
-                 | getSpent≡
-                 = refl
+      v≡ : valueSpent txi ≡ v
+      v≡ rewrite sum-single {v = InputInfo.value (mkInputInfo l i₀)}
+               | getSpent≡
+               = refl
 
-        spT  : (spent≥ tx≡ >>=ₜ (valueSpent txi ≥ᶜ_)) ≡ true
-        spT rewrite v≡ = s≥
+      spT  : (spent≥ tx≡ >>=ₜ (valueSpent txi ≥ᶜ_)) ≡ true
+      spT rewrite v≡ = s≥
 
-        verify≡ : verifyTx l tx tx≡ ≡ true
-        verify≡ rewrite frgT | rngT | spT = refl
+      verify≡ : verifyTx l tx tx≡ ≡ true
+      verify≡ rewrite frgT | rngT | spT = refl

@@ -9,18 +9,23 @@ transition in the context of the current transaction.
 -}
 module StateMachine.Base where
 
-open import Function using (_∘_; case_of_)
+open import Level    using (0ℓ)
+open import Function using (_∘_; case_of_; _$_)
 
+open import Category.Monad using (RawMonad)
+
+open import Data.Empty   using (⊥-elim)
 open import Data.Unit    using (tt)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax; ∃-syntax)
 open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
-open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
-  renaming (map to mapₘ; just to pure; ap to _<*>_) -- for idiom brackets
+open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; maybe′)
 open import Data.List    using (List; null; []; _∷_; [_]; filter; map; length; and)
 open import Data.Nat     using (ℕ)
   renaming (_≟_ to _≟ℕ_)
 
-open import Data.Maybe.Properties using (just-injective)
+open import Data.Maybe.Properties  using (just-injective)
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Data.List.Membership.Propositional using (_∈_)
 
@@ -39,26 +44,24 @@ open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
 
+
 --------------------------
 -- Transaction constraints
 
 record TxConstraints : Set where
   field
-    forge≡ : Maybe Value
+    forge≡ : Maybe ValueS
     range≡ : Maybe SlotRange
     spent≥ : Maybe Value
 
 open TxConstraints public
-
-defConstraints : TxConstraints
-defConstraints = record {forge≡ = nothing; range≡ = nothing; spent≥ = nothing}
 
 _>>=ₜ_ : ∀ {a : Set} → Maybe a → (a → Bool) → Bool
 ma >>=ₜ f = fromMaybe true (ma >>= pure ∘ f)
 
 verifyTxInfo : TxInfo → TxConstraints → Bool
 verifyTxInfo tx tx≡ =
-  (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge tx ≟ᶜ v ⌋) ∧
+  (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge tx ≟ᶜ toValue v ⌋) ∧
   (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range tx ≟ˢ r ⌋) ∧
   (spent≥ tx≡ >>=ₜ λ v → valueSpent tx ≥ᶜ v)
 
@@ -77,41 +80,60 @@ record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
 
 open StateMachine public
 
-mkValidator : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
-  → StateMachine S I → Validator
-mkValidator {S} {I} SM[ _ , final , step ] ptx input state
-    = fromMaybe false do (state′ , tx≡) ← runStep
-                         pure (outputsOK state′ ∧ verifyTxInfo (txInfo ptx) tx≡)
+module CEM
+  {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
-    runStep : Maybe (S × TxConstraints)
-    runStep with ⦇ step (fromData state) (fromData input) ⦈
-    ... | pure r = r
-    ... | _      = nothing
 
-    outs : List OutputInfo
-    outs = getContinuingOutputs ptx
+  initₛₘ  = isInitial sm
+  finalₛₘ = isFinal sm
+  stepₛₘ  = step sm
 
-    outputsOK : S → Bool
-    outputsOK st =
-      if final st then
-        null outs
-      else
-        case outs of λ{ (o ∷ []) → ⌊ (OutputInfo.dataHash o) ≟ℕ (toData st) ♯ᵈ ⌋
-                      ; _        → false }
+  policyₛₘ : MonetaryPolicy
+  policyₛₘ pti@(record {this = c; txInfo = txi})
+    = ⌊ lookupQuantity (c , c) (TxInfo.forge txi) ≟ℕ 1 ⌋
+    ∧ (case outputsOf (c , c) pti of λ
+        { (o ∷ []) → fromMaybe false $
+                       lookupDatumPtx (OutputInfo.datumHash o) pti >>= fromData >>= pure ∘ initₛₘ
+        ; _        → false })
 
--- Create a transaction input.
-infix 5 _←—_,_
-_←—_,_ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
-       → TxOutputRef → I × S → StateMachine S I → TxInput
-outputRef (r ←— _       , _ ) = r
-redeemer  (_ ←— (i , _) , _ ) = toData i
-validator (_ ←— _       , sm) = mkValidator sm
-dataVal   (_ ←— (_ , d) , _ ) = toData d
+  ℂ : HashId
+  ℂ = policyₛₘ ♯
 
--- Create a transaction output.
-infix 5 _—→_at_
-_—→_at_ : ∀ {S I : Set} {{_ : IsData S}} {{_ : IsData I}}
-        → S → Value → StateMachine S I → TxOutput
-value    (_ —→ v at _ ) = v
-address  (_ —→ _ at sm) = (mkValidator sm) ♯
-dataHash (d —→ _ at _ ) = (toData d) ♯ᵈ
+  threadₛₘ : Value
+  threadₛₘ = [ ℂ , [ ℂ , 1 ] ]
+
+  validatorₛₘ : Validator
+  validatorₛₘ ptx di ds
+    = fromMaybe false do (s′ , tx≡) ← join ⦇ stepₛₘ (fromData ds) (fromData di) ⦈
+                         pure $ outputsOK s′
+                              ∧ verifyTxInfo (txInfo ptx) tx≡
+                              ∧ propagates threadₛₘ ptx
+    module _ where
+      outs : List OutputInfo
+      outs = getContinuingOutputs ptx
+
+      outputsOK : S → Bool
+      outputsOK st =
+        if finalₛₘ st then
+          null outs
+        else
+          case outs of λ{ (o ∷ []) → ⌊ OutputInfo.datumHash o ≟ℕ toData st ♯ᵈ ⌋
+                        ; _        → false }
+
+  𝕍 : HashId
+  𝕍 = validatorₛₘ ♯
+
+  -- Create a transaction input.
+  infix 5 _←—_
+  _←—_ : TxOutputRef → I × S → TxInput
+  outputRef (r ←— _      ) = r
+  redeemer  (_ ←— (i , _)) = toData i
+  validator (_ ←— _      ) = validatorₛₘ
+  datum     (_ ←— (_ , d)) = toData d
+
+  -- Create a transaction output.
+  infix 5 _—→_
+  _—→_ : S → Value → TxOutput
+  value     (_ —→ v) = v
+  address   (_ —→ _) = 𝕍
+  datumHash (d —→ _) = toData d ♯ᵈ

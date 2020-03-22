@@ -10,6 +10,7 @@ open import Data.Nat      using (ℕ)
 open import Data.List     using (List; []; [_]; _∷_; reverse)
 open import Data.Integer  using (ℤ)
 
+open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 open import Agda.Builtin.Equality.Rewrite
 
@@ -19,66 +20,45 @@ open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Validity
 
+open import Prelude.Default
+open import UTxO.Defaults
+
 open import StateMachine.Base
 open import StateMachine.GuessingGame
 
--- dummy currency address, need a concrete number for decision procedure to compute
-𝕍 = 1
-postulate
-  eq : gameValidator ♯ ≡ 𝕍
-{-# REWRITE eq #-}
-
-infix 4 _←—_
-_←—_ : Tx → (GameInput × GameState) → TxInput
-t ←— d = ((t ♯ₜₓ) indexed-at 0) ←— d , GameStateMachine
-
-infix 4 _—→_
-_—→_ : GameState → Value → TxOutput
-s —→ v = s —→ v at GameStateMachine
+open CEM {sm = GameStateMachine}
 
 -----------------------------------------------------------------------
+-- dummy concrete hashes, for decision procedure to compute
 
-𝔸 : CurrencySymbol
-𝔸 = 𝕍
+postulate ℂ≡ : policyₛₘ ♯ ≡ 1
+{-# REWRITE ℂ≡ #-}
 
-𝕋 : TokenName
-𝕋 = 0
+postulate 𝕍≡ : validatorₛₘ ♯ ≡ 2
+{-# REWRITE 𝕍≡ #-}
 
-$_ : Quantity → Value
-$_ v = [ 𝔸 , [ 𝕋 , v ] ]
+-- smart constructors
+withState : GameState → Tx
+withState st = record def
+  { outputs        = [ st —→ threadₛₘ ]
+  ; datumWitnesses = [ toData st ♯ᵈ , toData st ] }
 
 -----------------------------------------------------------------------
-
 -- game states
 
-st₀ = Initialised 𝔸 𝕋 ("0" ♯ₛₜᵣ)
-  --> ForgeToken
-st₁ = Locked 𝔸 𝕋 ("0" ♯ₛₜᵣ)
+st₁ = Locked ("0" ♯ₛₜᵣ)
   --> Guess "0" "1"
-st₂ = Locked 𝔸 𝕋 ("1" ♯ₛₜᵣ)
+st₂ = Locked ("1" ♯ₛₜᵣ)
 
--- define transactions
-t₀ : Tx
-inputs  t₀ = []
-outputs t₀ = [ st₀ —→ $0 ]
-forge   t₀ = $0
-fee     t₀ = $0
-range   t₀ = -∞ ⋯ +∞
-
+-- transactions
 t₁ : Tx
-inputs  t₁ = [ t₀ ←— (ForgeToken , st₀) ]
-outputs t₁ = [ st₁ —→ $ 1 ]
-forge   t₁ = $ 1
-fee     t₁ = $0
-range   t₁ = -∞ ⋯ +∞
+t₁ = record (withState st₁)
+  { forge    = threadₛₘ
+  ; policies = [ policyₛₘ ] }
 
 t₂ : Tx
-inputs  t₂ = [ t₁ ←— (Guess "0" ("1" ♯ₛₜᵣ) , st₁) ]
-outputs t₂ = [ st₂ —→ $ 1 ]
-forge   t₂ = $ 0
-fee     t₂ = $0
-range   t₂ = -∞ ⋯ +∞
+t₂ = record (withState st₂)
+  { inputs  = [ (t₁ ♯ₜₓ) indexed-at 0 ←— (Guess "0" ("1" ♯ₛₜᵣ) , st₁) ] }
 
--- T0D0: comment out for faster type-checking
-ex-play : ValidLedger ({-t₂ ∷-} t₁ ∷ t₀ ∷ [])
-ex-play = ∙ ⊕ t₀ ⊕ t₁ {-⊕ t₂-}
+ex-play : ValidLedger (t₂ ∷ t₁ ∷ [])
+ex-play = ∙ ⊕ t₁ ⊕ t₂

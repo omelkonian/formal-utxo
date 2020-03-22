@@ -1,13 +1,14 @@
 module UTxO.TxUtilities where
 
-open import Function using (_∘_; _∋_; flip; _$_)
+open import Level          using (0ℓ)
+open import Function       using (_∘_; _∋_; flip; _$_)
+open import Category.Monad using (RawMonad)
 
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T)
 open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax; Σ-syntax; map₁)
-open import Data.Maybe using (Maybe; nothing; _>>=_)
-  renaming (just to pure; map to _<$>_)
+open import Data.Maybe using (Maybe; just; nothing)
 open import Relation.Nullary using (yes;no)
 open import Data.Sum     using (inj₁; inj₂)
 open import Data.Nat     using (ℕ; zero; suc; _+_; _<_)
@@ -15,6 +16,9 @@ open import Data.Nat     using (ℕ; zero; suc; _+_; _<_)
 open import Data.Fin     using (Fin; toℕ; fromℕ<)
 open import Data.Maybe   using (nothing;maybe)
 open import Data.List    using (List; []; _∷_; length; map; _++_; filter; lookup)
+
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Data.List.Membership.Propositional                       using (_∈_; mapWith∈; find)
 open import Data.List.Membership.Propositional.Properties            using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
@@ -78,7 +82,7 @@ _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
 [] ⟨ txo ⟩ = nothing
 (tx ∷ l) ⟨ txo ⟩
   with id txo ≟ℕ tx ♯ₜₓ
-... | yes _ = pure tx
+... | yes _ = just tx
 ... | no  _ = l ⟨ txo ⟩
 
 utxo-outRef↔prevTx : ∀ {u l}
@@ -106,7 +110,7 @@ utxo-≢ {l} {u} {tx} u∈ ¬p
 
 utxo-[] : ∀ {l u}
   → u ∈ utxo l
-  → l ⟨ outRef u ⟩ ≡ pure (prevTx u)
+  → l ⟨ outRef u ⟩ ≡ just (prevTx u)
 utxo-[] {l = tx ∷ l} {u} u∈
   with id (outRef u) ≟ℕ tx ♯ₜₓ
 ... | yes p
@@ -119,14 +123,14 @@ _[_] = _⁉_
 
 utxo-⟨⟩ : ∀ {l u}
   → u ∈ utxo l
-  → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)
+  → outputs (prevTx u) [ index (outRef u) ] ≡ just (out u)
 utxo-⟨⟩ {tx ∷ l} {u} u∈
   with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
 ... | inj₁ u∈ˡ
     = utxo-⟨⟩ {l} {u} (proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ))
 ... | inj₂ u∈ʳ
-    = mapWith∈-∀ {P = λ u → outputs (prevTx u) [ index (outRef u) ] ≡ pure (out u)}
-                 (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong pure (‼-index x∈))) u∈ʳ
+    = mapWith∈-∀ {P = λ u → outputs (prevTx u) [ index (outRef u) ] ≡ just (out u)}
+                 (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong just (‼-index x∈))) u∈ʳ
 
 getSpentOutputRef : Ledger → TxOutputRef → Maybe TxOutput
 getSpentOutputRef l oRef =
@@ -137,7 +141,7 @@ getSpentOutput l i = getSpentOutputRef l (outputRef i)
 
 utxo-getSpent : ∀ {l u}
   → u ∈ utxo l
-  → getSpentOutputRef l (outRef u) ≡ pure (out u)
+  → getSpentOutputRef l (outRef u) ≡ just (out u)
 utxo-getSpent {l} {u} u∈
   rewrite utxo-[] {l} {u} u∈
         | utxo-⟨⟩ {l} {u} u∈
@@ -149,30 +153,37 @@ mkOutputInfo : TxOutput → OutputInfo
 mkOutputInfo txOut = record
   { value         = value txOut
   ; validatorHash = address txOut
-  ; dataHash      = dataHash txOut }
+  ; datumHash     = datumHash txOut }
 
 mkInputInfo : Ledger → TxInput → InputInfo
 mkInputInfo l i = record
   { outputRef     = outputRef i
   ; validatorHash = (validator i) ♯
-  ; dataHash      = (dataVal i) ♯ᵈ
+  ; datumHash     = (datum i) ♯ᵈ
   ; redeemerHash  = (redeemer i) ♯ᵈ
   ; value         = maybe value [] (getSpentOutput l i) }
 
 mkTxInfo : Ledger → Tx → TxInfo
 mkTxInfo l tx = record
-  { inputInfo  = map (mkInputInfo l) (inputs tx)
-  ; outputInfo = map mkOutputInfo (outputs tx)
-  ; range      = range tx
-  ; fee        = fee tx
-  ; forge      = forge tx }
+  { inputInfo      = map (mkInputInfo l) (inputs tx)
+  ; outputInfo     = map mkOutputInfo (outputs tx)
+  ; datumWitnesses = datumWitnesses tx
+  ; range          = range tx
+  ; fee            = fee tx
+  ; policies       = map _♯ (policies tx)
+  ; forge          = forge tx }
 
 toPendingTx : Ledger → (tx : Tx) → Index (inputs tx) → PendingTx
 toPendingTx l tx i = record
-  { thisInput = ‼-map {xs = inputs tx} {f = mkInputInfo l} i
-  ; txInfo    = mkTxInfo l tx }
+  { this   = ‼-map {xs = inputs tx} {f = mkInputInfo l} i
+  ; txInfo = mkTxInfo l tx }
+
+toPendingMPS : Ledger → Tx → HashId → PendingMPS
+toPendingMPS l tx i = record
+  { this   = i
+  ; txInfo = mkTxInfo l tx }
 
 ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
   let ptx = toPendingTx l tx (Any.index i∈)
-  in  (TxInfo.inputInfo (txInfo ptx) ‼ thisInput ptx) ≡ mkInputInfo l i
+  in  (TxInfo.inputInfo (txInfo ptx) ‼ this ptx) ≡ mkInputInfo l i
 ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl

@@ -1,12 +1,12 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
-open import Function using (_∘_; flip)
+open import Level          using (0ℓ)
+open import Function       using (_∘_; flip)
+open import Category.Monad using (RawMonad)
 
 open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂)
-open import Data.Bool    using (Bool; true; _∧_)
-open import Data.Maybe   using (Maybe; nothing; fromMaybe; _>>=_)
-  renaming (just to pure; ap to _<*>_; map to _<$>_) -- to use idiom brackets
+open import Data.Bool    using (Bool; true; _∧_; T)
+open import Data.Maybe   using (Maybe; just; nothing; fromMaybe)
 open import Data.Nat     using (ℕ; _+_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; _∷_; []; [_]; _++_; sum; map; foldr; and; filter)
@@ -16,6 +16,8 @@ open import Data.List.Membership.Propositional  using (_∈_; mapWith∈)
 open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; +-identityʳ)
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
 open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Relation.Nullary                      using (Dec; yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
@@ -88,15 +90,37 @@ c +ᶜ c′ = toListᶜ (fromListᶜ c +ᵛ fromListᶜ c′)
 sumᶜ : List Value → Value
 sumᶜ = foldr _+ᶜ_ $0
 
+-- infix 4 _≟ᶜ′_
+-- _≟ᶜ′_ : Decidable {A = SubValue} _≡_
+-- v ≟ᶜ′ v′ = ≡-decs (≡-dec× _≟ℕ_ _≟ℕ_) (normalize v) (normalize v′)
+--   where
+--     normalize : SubValue → SubValue
+--     normalize = filter λ{ (_ , v) → ¬? (v ≟ℕ 0)  }
+
+-- infix 4 _≟ᶜ_
+-- _≟ᶜ_ : Decidable {A = Value} _≡_
+-- v ≟ᶜ v′ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_))) (normalize v) (normalize v′)
+--   where
+--     normalize : Value → Value
+--     normalize = filter λ{ (_ , vs) → ¬? (vs ≟ᶜ′ []) }
+
 infix 4 _≟ᶜ_
 _≟ᶜ_ : Decidable {A = Value} _≡_
 _≟ᶜ_ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_)))
+
+lookupQuantity : CurrencySymbol × TokenName → Value → Quantity
+lookupQuantity (c , t) v = fromMaybe 0 (lookup c (fromListᶜ v) >>= lookup t)
 
 infix 4 _≥ᶜ_
 _≥ᶜ_ : Value → Value → Bool
 c ≥ᶜ c′ =
   and (map (λ{ ( k₁ , vs ) →
-    and (map (λ{ (k₂ , v) → ⌊ fromMaybe 0 (lookup k₁ (fromListᶜ c) >>= lookup k₂) ≥? v ⌋}) vs)}) c′)
+    and (map (λ{ (k₂ , v) → ⌊ lookupQuantity (k₁ , k₂) c ≥? v ⌋}) vs)}) c′)
+
+infix 4 _≤ᶜ_
+_≤ᶜ_ : Value → Value → Bool
+_≤ᶜ_ = flip _≥ᶜ_
+
 
 -------------------
 -- Sum notation
@@ -112,7 +136,7 @@ c ≥ᶜ c′ =
   where
     -- if one fails everything fails
     seqM : ∀ {A : Set} → List (Maybe A) → Maybe (List A)
-    seqM []       = pure []
+    seqM []       = just []
     seqM (x ∷ xs) = ⦇ x ∷ seqM xs ⦈
 
 -------------------
@@ -127,8 +151,12 @@ private
 
 postulate
   -- Properties of _+ᶜ_
-  +ᶜ-comm  : ∀ {x y : Value} → x +ᶜ y ≡ y +ᶜ x
-  +ᶜ-assoc : ∀ {x y z : Value} → x +ᶜ y +ᶜ z ≡ x +ᶜ (y +ᶜ z)
+  +ᶜ-comm  : ∀ {x y} → x +ᶜ y ≡ y +ᶜ x
+  +ᶜ-assoc : ∀ {x y z} → x +ᶜ y +ᶜ z ≡ x +ᶜ (y +ᶜ z)
+
+  -- Properties of _≥ᶜ_
+  ≥ᶜ-trans : ∀ {x y z} → T (x ≥ᶜ y) → T (y ≥ᶜ z) → T (x ≥ᶜ z)
+  ≥ᶜ-+ᶜ    : ∀ {x y z} → T (y ≥ᶜ z) → T (x +ᶜ y ≥ᶜ z)
 
   -- Properties of ∑
   ∑-++ : ∀ {fv : A → Value} → ∑ (xs ++ ys) fv ≡ ∑ xs fv +ᶜ ∑ ys fv
@@ -143,9 +171,9 @@ postulate
     ≡ ∑ (mapWith∈ xs g) (f ∘ g′)
 
   -- Properties of ∑M
-  ∑M-pure : ∀ {m : A → Maybe B} {f : B → Value} {g : ∀ {x} → x ∈ xs → B}
-    → (∀ {x} (x∈ : x ∈ xs) → m x ≡ pure (g {x} x∈))
-    → ∑M (map m xs) f ≡ pure (∑ (mapWith∈ xs g) f)
+  ∑M-just : ∀ {m : A → Maybe B} {f : B → Value} {g : ∀ {x} → x ∈ xs → B}
+    → (∀ {x} (x∈ : x ∈ xs) → m x ≡ just (g {x} x∈))
+    → ∑M (map m xs) f ≡ just (∑ (mapWith∈ xs g) f)
 
   -- Properties from Data.AVL.Properties
   toListᵛ∘fromListᵛ : toListᵛ (fromListᵛ v) ≡ v
@@ -188,3 +216,10 @@ x+ᶜ0≡x {v} rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ →
 
 sum-single : ∀ {v} → sumᶜ [ v ] ≡ v
 sum-single {v} rewrite x+ᶜ0≡x {v} = refl
+
+x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 : ∀ {x y} → x +ᶜ (y +ᶜ $0) ≡ $0 +ᶜ (x +ᶜ y +ᶜ $0)
+x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 {x} {y}
+  rewrite x+ᶜ0≡x {v = y}
+        | x+ᶜ0≡x {v = x +ᶜ y}
+        | 0+ᶜx≡x {v = x +ᶜ y}
+        = refl

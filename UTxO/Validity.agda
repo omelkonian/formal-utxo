@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Validity where
 
 open import Function using (_∘_; flip)
@@ -19,10 +18,9 @@ open import Data.List.Relation.Unary.Any as L             using (Any; any)
 open import Data.List.Relation.Unary.All                  using (All; all)
 open import Data.List.Membership.Propositional            using (_∈_;mapWith∈)
 open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
-import Data.Maybe.Relation.Unary.Any as M                 using (Any;drop-just;map)
 
-open import Data.Maybe.Relation.Unary.All using () renaming (dec to all?)
-open import Data.Maybe.Relation.Unary.Any using () renaming (dec to any?)
+open import Data.Maybe.Relation.Unary.Any as M using ()
+  renaming (dec to any?)
 
 open import Relation.Nullary                      using (Dec; ¬_; yes; no)
 open import Relation.Nullary.Product              using (_×-dec_)
@@ -66,15 +64,19 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
       Unique (outputRefs tx)
 
     allInputsValidate :
-      All (λ{ (n , i) → T (validator i (toPendingTx l tx n) (redeemer i) (dataVal i)) })
+      All (λ{ (n , i) → T (validator i (toPendingTx l tx n) (redeemer i) (datum i)) })
           (enumerate (inputs tx))
 
+    allPoliciesValidate :
+      All (λ f → T (f (toPendingMPS l tx (f ♯))))
+          (policies tx)
+
     validateValidHashes :
-      All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (dataHash o ≡ dataVal i ♯ᵈ)) (getSpentOutput l i))
+      All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (datumHash o ≡ datum i ♯ᵈ)) (getSpentOutput l i))
           (inputs tx)
 
     forging :
-      All (λ c → Any (λ i → M.Any ((c ≡_) ∘ address) (getSpentOutput l i)) (inputs tx))
+      All (λ c → Any (λ f → c ≡ f ♯) (policies tx))
           (currencies (forge tx))
 
 open IsValidTx public
@@ -104,20 +106,23 @@ _⊕_ : ∀ {l}
   → {pv  : True (any? (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
                       (∑M (map (getSpentOutput l) (inputs tx)) value))}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
-  → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (dataVal i))})
+  → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (datum i))})
                      (enumerate (inputs tx)))}
-  → {vvh : True (all (λ i → any? (λ o → (address o ≟ℕ validator i ♯) ×-dec (dataHash o ≟ℕ dataVal i ♯ᵈ))
+  → {apv : True (all (λ f → T? (f (toPendingMPS l tx (f ♯))))
+                     (policies tx))}
+  → {vvh : True (all (λ i → any? (λ o → (address o ≟ℕ validator i ♯) ×-dec (datumHash o ≟ℕ datum i ♯ᵈ))
                                  (getSpentOutput l i))
                      (inputs tx))}
-  → {frg : True (all (λ c → any (λ i → any? ((c ≟ℕ_) ∘ address) (getSpentOutput l i)) (inputs tx))
+  → {frg : True (all (λ c → any (λ f → c ≟ℕ f ♯) (policies tx))
                      (currencies (forge tx)))}
   → ValidLedger (tx ∷ l)
-(vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {vvh} {frg}
+(vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {apv} {vvh} {frg}
   = vl ⊕ tx ∶- record { withinInterval      = toWitness wi
                       ; validOutputRefs     = toWitness vor
                       ; preservesValues     = toWitness pv
                       ; noDoubleSpending    = toWitness ndp
                       ; allInputsValidate   = toWitness aiv
+                      ; allPoliciesValidate = toWitness apv
                       ; validateValidHashes = toWitness vvh
                       ; forging             = toWitness frg }
 

@@ -3,21 +3,27 @@
 
 module UTxO.ExampleLedger where
 
+open import Agda.Builtin.Equality.Rewrite
+
 open import Data.Product  using (_,_)
-open import Data.Bool     using (Bool; true; false; _∧_)
+open import Data.Bool     using (Bool; true; false; _∧_; _∨_)
 open import Data.Nat      using (ℕ; _≟_; _≡ᵇ_)
 open import Data.List     using (List; []; [_]; _∷_)
 open import Data.Integer  using (ℤ)
 open import Data.Maybe    using (just)
 
+open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Binary.PropositionalEquality using (_≡_)
-open import Agda.Builtin.Equality.Rewrite
+
+open import Prelude.Default
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
 open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Validity
+
+open import UTxO.Defaults
 
 1ᵃ : Address
 1ᵃ = 111 -- first address
@@ -31,8 +37,8 @@ open import UTxO.Validity
 adaᵃ : Address
 adaᵃ = 1234 -- ADA identifier
 
-adaValidator : PendingTx → DATA → DATA → Bool
-adaValidator _ _ _ = true
+adaPolicy : PendingMPS → Bool
+adaPolicy (record {txInfo = record {range = r}}) = ⌊ r ≟ˢ (t= 0 ⋯ t= 0) ⌋ ∨ ⌊ r ≟ˢ (t= 3 ⋯ t= 3) ⌋
 
 dummyValidator : PendingTx → DATA → DATA → Bool
 dummyValidator _ _ _ = true
@@ -47,15 +53,8 @@ withScripts tin = record { outputRef = tin
                          ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
                                        {- λ _ → id tin , index tin -}
                          ; validator = mkValidator tin
-                         ; dataVal   = I (ℤ.pos 0)
+                         ; datum     = def
                          }
-
-withAda : TxOutputRef → TxInput
-withAda tin = record { outputRef = tin
-                     ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
-                     ; validator = adaValidator
-                     ; dataVal   = I (ℤ.pos 0)
-                     }
 
 $ : ℕ → Value
 $ v = [ (adaᵃ , [ 0 , v ]) ]
@@ -63,92 +62,67 @@ $ v = [ (adaᵃ , [ 0 , v ]) ]
 _at_ : Value → Address → TxOutput
 v at addr = record { value    = v
                    ; address  = addr
-                   ; dataHash = (I (ℤ.pos 0)) ♯ᵈ
+                   ; datumHash = def ♯ᵈ
                    }
 
 -- define transactions
-c₁ : Tx
-inputs  c₁ = []
-outputs c₁ = $0 at adaᵃ ∷ $0 at adaᵃ ∷ []
-forge   c₁ = $0
-fee     c₁ = $0
-range   c₁ = -∞ ⋯ +∞
-
-c₁₀ : TxOutputRef
-c₁₀ = (c₁ ♯ₜₓ) indexed-at 0
-
-c₁₁ : TxOutputRef
-c₁₁ = (c₁ ♯ₜₓ) indexed-at 1
 
 t₁ : Tx
-inputs  t₁ = [ withAda c₁₀ ]
-outputs t₁ = [ $ 1000 at 1ᵃ ]
-forge   t₁ = $ 1000
-fee     t₁ = $0
-range   t₁ = -∞ ⋯ +∞
-
-t₁₀ : TxOutputRef
+t₁ = record def
+  { outputs  = [ $ 1000 at 1ᵃ ]
+  ; forge    = $ 1000
+  ; policies = [ adaPolicy ]
+  ; range    = t= 0 ⋯ t= 0
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₁₀ = (t₁ ♯ₜₓ) indexed-at 0
 
 t₂ : Tx
-inputs  t₂ = [ withScripts t₁₀ ]
-outputs t₂ = $ 800 at 2ᵃ ∷ $ 200 at 1ᵃ ∷ []
-forge   t₂ = $0
-fee     t₂ = $0
-range   t₂ = -∞ ⋯ +∞
-
-t₂₀ : TxOutputRef
+t₂ = record def
+  { inputs   = [ withScripts t₁₀ ]
+  ; outputs  = $ 800 at 2ᵃ ∷ $ 200 at 1ᵃ ∷ []
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₂₀ = (t₂ ♯ₜₓ) indexed-at 0
-
-t₂₁ : TxOutputRef
 t₂₁ = (t₂ ♯ₜₓ) indexed-at 1
 
 t₃ : Tx
-inputs  t₃ = [ withScripts t₂₁ ]
-outputs t₃ = [ $ 199 at 3ᵃ ]
-forge   t₃ = $0
-fee     t₃ = $ 1
-range   t₃ = -∞ ⋯ +∞
-
-t₃₀ : TxOutputRef
+t₃ = record def
+  { inputs   = [ withScripts t₂₁ ]
+  ; outputs  = [ $ 199 at 3ᵃ ]
+  ; fee      = $ 1
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
 
 t₄ : Tx
-inputs  t₄ = withScripts t₃₀ ∷ withAda c₁₁ ∷ []
-outputs t₄ = [ $ 207 at 2ᵃ ]
-forge   t₄ = $ 10
-fee     t₄ = $ 2
-range   t₄ = -∞ ⋯ +∞
-
-t₄₀ : TxOutputRef
+t₄ = record
+  { inputs   = [ withScripts t₃₀ ]
+  ; outputs  = [ $ 207 at 2ᵃ ]
+  ; forge    = $ 10
+  ; policies = [ adaPolicy ]
+  ; fee      = $ 2
+  ; range    = t= 3 ⋯ t= 3
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
 
 t₅ : Tx
-inputs  t₅ = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
-outputs t₅ = $ 500 at 2ᵃ ∷ $ 500 at 3ᵃ ∷ []
-forge   t₅ = $0
-fee     t₅ = $ 7
-range   t₅ = -∞ ⋯ +∞
-
-t₅₀ : TxOutputRef
+t₅ = record def
+  { inputs   = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
+  ; outputs  = $ 500 at 2ᵃ ∷ $ 500 at 3ᵃ ∷ []
+  ; fee      = $ 7
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₅₀ = (t₅ ♯ₜₓ) indexed-at 0
-
-t₅₁ : TxOutputRef
 t₅₁ = (t₅ ♯ₜₓ) indexed-at 1
 
 t₆ : Tx
-inputs  t₆ = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
-outputs t₆ = [ $ 999 at 3ᵃ ]
-forge   t₆ = $0
-fee     t₆ = $ 1
-range   t₆ = -∞ ⋯ +∞
-
-t₆₀ : TxOutputRef
+t₆ = record def
+  { inputs   = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
+  ; outputs  = [ $ 999 at 3ᵃ ]
+  ; fee      = $ 1
+  ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₆₀ = (t₆ ♯ₜₓ) indexed-at 0
 
 -- hash postulates + rewriting
 postulate
-  adaValidator♯ : adaValidator ♯      ≡ adaᵃ
+  adaValidator♯ : adaPolicy ♯         ≡ adaᵃ
   validator♯₁₀  : (mkValidator t₁₀) ♯ ≡ 1ᵃ
   validator♯₂₀  : (mkValidator t₂₀) ♯ ≡ 2ᵃ
   validator♯₂₁  : (mkValidator t₂₁) ♯ ≡ 1ᵃ
@@ -168,5 +142,5 @@ postulate
 {-# REWRITE validator♯₅₁  #-}
 {-# REWRITE validator♯₆₀  #-}
 
-ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ c₁ ∷ [])
-ex-ledger = ∙ ⊕ c₁ ⊕ t₁ ⊕ t₂ ⊕ t₃ ⊕ t₄ ⊕ t₅ ⊕ t₆
+ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ [])
+ex-ledger = ∙ ⊕ t₁ ⊕ t₂ ⊕ t₃ ⊕ t₄ ⊕ t₅ ⊕ t₆
