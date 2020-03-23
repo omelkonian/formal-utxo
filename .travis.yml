@@ -1,10 +1,11 @@
-# Use new container infrastructure to enable caching
-sudo: false
+root:
+  os: linux
+  dist: xenial
 
 language: generic
 
 env:
-  - SH=bash AGDA_VERSION=2.6.0.1 AGDA_STDLIB_VERSION=1.2
+  - SH=bash AGDA_VERSION=2.6.1 AGDA_STDLIB_VERSION=1.3
 
 cache:
   directories:
@@ -24,11 +25,12 @@ before_install:
 
 script:
 - agda --version
-- travis_wait make
+- travis_wait 60 make
 
 deploy:
   provider: pages
-  skip-cleanup: true
-  github_token: $GITHUB_TOKEN
+  strategy: git
+  skip_cleanup: true
+  token: $GITHUB_TOKEN
   target_branch: gh-pages
   local_dir: ./docs

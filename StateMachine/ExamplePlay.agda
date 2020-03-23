@@ -3,16 +3,12 @@
 
 module StateMachine.ExamplePlay where
 
-open import Data.Product  using (_×_; _,_; proj₁)
-open import Data.Bool     using (Bool; true; _∧_)
-open import Data.Nat      using (ℕ)
-  renaming (_≟_ to _≟ℕ_)
-open import Data.List     using (List; []; [_]; _∷_; reverse)
-open import Data.Integer  using (ℤ)
-
-open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 open import Agda.Builtin.Equality.Rewrite
+
+open import Data.Product  using (_,_)
+open import Data.List     using ([]; [_]; _∷_)
+
+open import Relation.Binary.PropositionalEquality using (_≡_)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -31,17 +27,11 @@ open CEM {sm = GameStateMachine}
 -----------------------------------------------------------------------
 -- dummy concrete hashes, for decision procedure to compute
 
-postulate ℂ≡ : policyₛₘ ♯ ≡ 1
+postulate ℂ≡ : policyₛₘ ♯ ≡ 0
 {-# REWRITE ℂ≡ #-}
 
-postulate 𝕍≡ : validatorₛₘ ♯ ≡ 2
+postulate 𝕍≡ : validatorₛₘ ♯ ≡ 1
 {-# REWRITE 𝕍≡ #-}
-
--- smart constructors
-withState : GameState → Tx
-withState st = record def
-  { outputs        = [ st —→ threadₛₘ ]
-  ; datumWitnesses = [ toData st ♯ᵈ , toData st ] }
 
 -----------------------------------------------------------------------
 -- game states
@@ -52,12 +42,12 @@ st₂ = Locked ("1" ♯ₛₜᵣ)
 
 -- transactions
 t₁ : Tx
-t₁ = record (withState st₁)
+t₁ = record (withOutputs [ st₁ ])
   { forge    = threadₛₘ
   ; policies = [ policyₛₘ ] }
 
 t₂ : Tx
-t₂ = record (withState st₂)
+t₂ = record (withOutputs [ st₂ ])
   { inputs  = [ (t₁ ♯ₜₓ) indexed-at 0 ←— (Guess "0" ("1" ♯ₛₜᵣ) , st₁) ] }
 
 ex-play : ValidLedger (t₂ ∷ t₁ ∷ [])

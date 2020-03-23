@@ -17,7 +17,7 @@ open import StateMachine.GuessingGame
 open import Bisimulation.Base
 open import Bisimulation.Soundness
 open import Bisimulation.Completeness
--- open import Bisimulation
+open import Bisimulation
 
 -- open import UTxO.Preservation
 -- open import UTxO.Tracing

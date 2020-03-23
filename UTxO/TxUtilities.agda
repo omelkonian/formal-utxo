@@ -118,23 +118,23 @@ utxo-[] {l = tx ∷ l} {u} u∈
     = refl
 ... | no ¬p = utxo-[] {l} (utxo-≢ {l} {u} {tx} u∈ ¬p)
 
-_[_] : {X : Set} → List X → ℕ → Maybe X
-_[_] = _⁉_
+_⟦_⟧ : {X : Set} → List X → ℕ → Maybe X
+_⟦_⟧ = _⁉_
 
 utxo-⟨⟩ : ∀ {l u}
   → u ∈ utxo l
-  → outputs (prevTx u) [ index (outRef u) ] ≡ just (out u)
+  → outputs (prevTx u) ⟦ index (outRef u) ⟧ ≡ just (out u)
 utxo-⟨⟩ {tx ∷ l} {u} u∈
   with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
 ... | inj₁ u∈ˡ
     = utxo-⟨⟩ {l} {u} (proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ))
 ... | inj₂ u∈ʳ
-    = mapWith∈-∀ {P = λ u → outputs (prevTx u) [ index (outRef u) ] ≡ just (out u)}
+    = mapWith∈-∀ {P = λ u → outputs (prevTx u) ⟦ index (outRef u) ⟧ ≡ just (out u)}
                  (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong just (‼-index x∈))) u∈ʳ
 
 getSpentOutputRef : Ledger → TxOutputRef → Maybe TxOutput
 getSpentOutputRef l oRef =
-  outputs <$> (l ⟨ oRef ⟩) >>= _[ index oRef ]
+  outputs <$> (l ⟨ oRef ⟩) >>= _⟦ index oRef ⟧
 
 getSpentOutput : Ledger → TxInput → Maybe TxOutput
 getSpentOutput l i = getSpentOutputRef l (outputRef i)

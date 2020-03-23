@@ -50,9 +50,10 @@ open WeakBiSim
 
 module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
-  open import Bisimulation.Base {S}{I}{sm}
-  open import Bisimulation.Soundness {S}{I}{sm}
-  -- open import Bisimulation.Completeness
+  open CEM {sm = sm} hiding (_—→_)
+  open import Bisimulation.Base {sm = sm}
+  open import Bisimulation.Soundness {sm = sm}
+  -- open import Bisimulation.Completeness {sm = sm}
 
   open import Relation.Binary.PropositionalEquality
   open import Data.Empty

@@ -1,5 +1,5 @@
 open import Level          using (0ℓ)
-open import Function       using (_∘_; _$_)
+open import Function       using (_∘_; _$_; case_of_)
 open import Category.Monad using (RawMonad)
 
 open import Data.Unit    using (tt)
@@ -7,7 +7,7 @@ open import Data.Bool    using (true; false)
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂; map₁)
 open import Data.Fin     using (toℕ)
   renaming (zero to fzero)
-open import Data.Maybe   using (just; nothing)
+open import Data.Maybe   using (just; nothing; maybe)
 open import Data.Nat     using ()
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; []; _∷_; [_]; filter; map)
@@ -26,10 +26,11 @@ import Data.Maybe.Relation.Unary.Any as M
 import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
-open import Relation.Nullary                      using (¬_)
-open import Relation.Nullary.Decidable            using (toWitness; ⌊_⌋; True)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; inspect)
-  renaming ([_] to ≡[_])
+open import Relation.Nullary           using (¬_)
+open import Relation.Nullary.Decidable using (toWitness; ⌊_⌋; True)
+
+open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; sym; cong; subst)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import Prelude.General
 open import Prelude.Lists
@@ -65,6 +66,8 @@ soundness : ∀ {s i s′ tx≡ l} {vl : ValidLedger l}
 
 soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ , sp≥ , apv)
 -- *** Due to Agda bug, see https://github.com/personal-practice/agda/blob/master/bugs/With.agda
+--   with mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ sat
+-- ... | tx , verify≡
 --   with view-~ {vl = vl} vl~s
 -- ... | prevTx , v , prevOut∈ , u∈ , prev∈ , prev∈utxo , getSpent≡ , threadToken≡
   = tx , vtx , vl′ , vl→vl′ , vl′~s′ , verify≡
@@ -81,8 +84,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     threadToken≡ = (proj₂ ∘ proj₂ ∘ proj₂ ∘ proj₂ ∘ proj₂ ∘ proj₂ ∘ proj₂) view
 
     tx′ : Σ[ tx ∈ Tx ] (verifyTx l tx tx≡ ≡ true)
-    tx′ = mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ sat
-
+    tx′     = mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ sat
     tx      = proj₁ tx′
     verify≡ = proj₂ tx′
 
@@ -97,46 +99,18 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     ds  = toData s
     ds′ = toData s′
 
-    ptx = toPendingTx l tx fzero
-    txi = txInfo ptx
+    txOut : TxOutput
+    txOut = record
+      { value     = forge′ +ᶜ v
+      ; address   = 𝕍
+      ; datumHash = ds′ ♯ᵈ }
 
+    ptx    = toPendingTx l tx fzero
+    txi    = txInfo ptx
+    ptxIn  = mkInputInfo l txIn
+    ptxOut = mkOutputInfo txOut
 
     -- *** Valididty
-
-    runStep≡ : join ⦇ stepₛₘ (fromData ds) (fromData di) ⦈ ≡ just (s′ , tx≡)
-    runStep≡ rewrite from∘to s | from∘to i | s→s′ = refl
-
-    outputsOK≡ : outputsOK ptx di ds s′ ≡ true
-    outputsOK≡ rewrite final≡ | ≟-refl _≟ℕ_ 𝕍 | ≟-refl _≟ℕ_ (ds′ ♯ᵈ) = refl
-
-    valueAtⁱ≡ : valueAtⁱ 𝕍 txi ≡ v
-    valueAtⁱ≡ rewrite ≟-refl _≟ℕ_ 𝕍
-                    | getSpent≡
-                    | sum-single {v = v}
-                    = refl
-
-    valueAtᵒ≡ : valueAtᵒ 𝕍 txi ≡ forge′ +ᶜ v
-    valueAtᵒ≡ rewrite ≟-refl _≟ℕ_ 𝕍
-                    | getSpent≡
-                    | sum-single {v = forge′ +ᶜ v}
-                    = refl
-
-    valueAtⁱ≥ : (valueAtⁱ 𝕍 txi ≥ᶜ threadₛₘ) ≡ true
-    valueAtⁱ≥ rewrite valueAtⁱ≡ = threadToken≡
-
-    valueAtᵒ≥ : (valueAtᵒ 𝕍 txi ≥ᶜ threadₛₘ) ≡ true
-    valueAtᵒ≥ rewrite valueAtᵒ≡ = T⇒true $ ≥ᶜ-+ᶜ {x = forge′} {y = v} {z = threadₛₘ} (true⇒T threadToken≡)
-
-    propagates≡ : propagates threadₛₘ ptx ≡ true
-    propagates≡ rewrite valueAtⁱ≥ | valueAtᵒ≥ = refl
-
-    validate≡ : validatorₛₘ ptx di ds ≡ true
-    validate≡ rewrite runStep≡
-                    | outputsOK≡
-                    | verify≡
-                    | propagates≡
-                    = refl
-
 
     vtx : IsValidTx tx l
     withinInterval      vtx
@@ -153,13 +127,81 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     noDoubleSpending    vtx = [] ∷ []
 
     allInputsValidate   vtx = true⇒T validate≡ ∷ []
+      where
+        runStep≡ : join ⦇ stepₛₘ (fromData ds) (fromData di) ⦈ ≡ just (s′ , tx≡)
+        runStep≡ rewrite from∘to s | from∘to i | s→s′ = refl
+
+        thisVal≡ : thisValidator ptx ≡ 𝕍
+        thisVal≡ = cong InputInfo.validatorHash (ptx-‼ {l} {tx} {txIn} {here refl})
+
+        inputs≡ : inputsAt 𝕍 txi ≡ [ ptxIn ]
+        inputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ InputInfo.validatorHash} (≟-refl _≟ℕ_ 𝕍)
+
+        outputs≡ : outputsAt 𝕍 txi ≡ [ ptxOut ]
+        outputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ OutputInfo.validatorHash} (≟-refl _≟ℕ_ 𝕍)
+
+        getCont≡ : getContinuingOutputs ptx ≡ [ ptxOut ]
+        getCont≡ =
+          -- rewrite thisVal≡ | inputs≡
+          begin
+            getContinuingOutputs ptx
+          ≡⟨⟩
+            outputsAt (thisValidator ptx) txi
+          ≡⟨ cong (λ x → outputsAt x txi) thisVal≡ ⟩
+            outputsAt 𝕍 txi
+          ≡⟨ outputs≡ ⟩
+            [ ptxOut ]
+          ∎
+
+        outputsOK≡ : outputsOK ptx di ds s′ ≡ true
+        outputsOK≡ rewrite final≡ | getCont≡ | ≟-refl _≟ℕ_ (ds′ ♯ᵈ) = refl
+
+        valueAtⁱ≡ : valueAtⁱ 𝕍 txi ≡ v
+        valueAtⁱ≡ =
+          -- rewrite ≟-refl _≟ℕ_ 𝕍 | getSpent≡ = sum-single {v = v}
+          begin
+            valueAtⁱ 𝕍 txi
+          ≡⟨⟩
+            (sumᶜ ∘ map InputInfo.value) (inputsAt 𝕍 txi)
+          ≡⟨ cong (sumᶜ ∘ map InputInfo.value) inputs≡ ⟩
+            sumᶜ [ InputInfo.value ptxIn ]
+          ≡⟨ sum-single ⟩
+             maybe value [] (getSpentOutput l txIn)
+          ≡⟨ cong (maybe value []) getSpent≡ ⟩
+             v
+          ∎
+
+        valueAtᵒ≡ : valueAtᵒ 𝕍 txi ≡ forge′ +ᶜ v
+        valueAtᵒ≡ =
+          -- rewrite ≟-refl _≟ℕ_ 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
+          begin
+            (sumᶜ ∘ map OutputInfo.value ∘ outputsAt 𝕍) txi
+          ≡⟨ cong (sumᶜ ∘ map OutputInfo.value) outputs≡ ⟩
+             sumᶜ [ OutputInfo.value ptxOut ]
+          ≡⟨ sum-single ⟩
+             forge′ +ᶜ v
+          ∎
+
+        propagates≡ : propagates threadₛₘ ptx ≡ true
+        propagates≡ = subst P (sym valueAtⁱ≡) threadToken≡
+                ∧-× subst P (sym valueAtᵒ≡) P_v
+          where
+            P : Value → Set
+            P = λ v → (v ≥ᶜ threadₛₘ) ≡ true
+
+            P_v : P (forge′ +ᶜ v)
+            P_v = T⇒true (≥ᶜ-+ᶜ {x = forge′} {y = v} {z = threadₛₘ} (true⇒T threadToken≡))
+
+        validate≡ : validatorₛₘ ptx di ds ≡ true
+        validate≡ = do-pure runStep≡ (outputsOK≡ ∧-× verify≡ ∧-× propagates≡)
+
 
     allPoliciesValidate vtx = apv tx
 
     validateValidHashes vtx = vvh ∷ []
       where
-            vvh : M.Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ ds ♯ᵈ)) (getSpentOutput l txIn)
-            vvh rewrite getSpent≡ = M.just (refl , refl)
+        vvh : M.Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ ds ♯ᵈ)) (getSpentOutput l txIn)
+        vvh rewrite getSpent≡ = M.just (refl , refl)
 
     forging             vtx with
       forge≡ tx≡

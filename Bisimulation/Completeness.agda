@@ -34,7 +34,7 @@ open import Relation.Nullary.Decidable                  using (⌊_⌋; toWitnes
 open import Relation.Binary                             using (Decidable)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; _≢_; refl; cong; trans; sym; inspect)
   renaming ([_] to ≡[_])
-open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import Prelude.General
 open import Prelude.Lists

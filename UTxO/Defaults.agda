@@ -6,8 +6,6 @@ open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Validity
 
-open import StateMachine.Base
-
 open import Data.Nat using (ℕ)
 open import Prelude.Default
 
@@ -70,9 +68,3 @@ instance
     ; policies       = def
     ; range          = def
     ; datumWitnesses = def } ⌟
-
-  Default-TxConstraints : Default TxConstraints
-  Default-TxConstraints = ⌞ record
-    { forge≡ = def
-    ; range≡ = def
-    ; spent≥ = def } ⌟

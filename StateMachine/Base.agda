@@ -44,6 +44,8 @@ open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
 
+open import Prelude.Default
+open import UTxO.Defaults
 
 --------------------------
 -- Transaction constraints
@@ -55,6 +57,13 @@ record TxConstraints : Set where
     spent≥ : Maybe Value
 
 open TxConstraints public
+
+instance
+  Default-TxConstraints : Default TxConstraints
+  Default-TxConstraints = ⌞ record
+    { forge≡ = def
+    ; range≡ = def
+    ; spent≥ = def } ⌟
 
 _>>=ₜ_ : ∀ {a : Set} → Maybe a → (a → Bool) → Bool
 ma >>=ₜ f = fromMaybe true (ma >>= pure ∘ f)
@@ -137,3 +146,8 @@ module CEM
   value     (_ —→ v) = v
   address   (_ —→ _) = 𝕍
   datumHash (d —→ _) = toData d ♯ᵈ
+
+  withOutputs : List S → Tx
+  withOutputs ss = record def
+    { outputs        = map (_—→ threadₛₘ) ss
+    ; datumWitnesses = map (λ s → toData s ♯ᵈ , toData s) ss }

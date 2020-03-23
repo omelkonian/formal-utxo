@@ -187,6 +187,12 @@ open Pending public
 PendingTx  = Pending (Index ∘ TxInfo.inputInfo)
 PendingMPS = Pending (const HashId)
 
+lookupDatum : HashId → List (HashId × DATA) → Maybe DATA
+lookupDatum h = toMaybe ∘ map proj₂ ∘ filter ((h ≟ℕ_)∘ proj₁)
+
+lookupDatumPtx : ∀ {I} → HashId → Pending I → Maybe DATA
+lookupDatumPtx h = lookupDatum h ∘ TxInfo.datumWitnesses ∘ txInfo
+
 thisValidator : PendingTx → HashId
 thisValidator record {this = i; txInfo = record {inputInfo = is}} = InputInfo.validatorHash (is ‼ i)
 
@@ -199,6 +205,9 @@ inputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ InputInfo.validatorHash) ∘ TxInfo.inp
 outputsAt : HashId → TxInfo → List OutputInfo
 outputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ OutputInfo.validatorHash) ∘ TxInfo.outputInfo
 
+getContinuingOutputs : PendingTx → List OutputInfo
+getContinuingOutputs ptx = outputsAt (thisValidator ptx) (txInfo ptx)
+
 valueAtⁱ : HashId → TxInfo → Value
 valueAtⁱ ℍ = sumᶜ ∘ map InputInfo.value ∘ inputsAt ℍ
 
@@ -210,15 +219,6 @@ propagates v ptx@(record {txInfo = txi})
   = (valueAtⁱ ℍ txi ≥ᶜ v)
   ∧ (valueAtᵒ ℍ txi ≥ᶜ v)
   where ℍ = thisValidator ptx
-
-lookupDatum : HashId → List (HashId × DATA) → Maybe DATA
-lookupDatum h = toMaybe ∘ map proj₂ ∘ filter ((h ≟ℕ_)∘ proj₁)
-
-lookupDatumPtx : ∀ {I} → HashId → Pending I → Maybe DATA
-lookupDatumPtx h = lookupDatum h ∘ TxInfo.datumWitnesses ∘ txInfo
-
-getContinuingOutputs : PendingTx → List OutputInfo
-getContinuingOutputs ptx = outputsAt (thisValidator ptx) (txInfo ptx)
 
 outputsOf : ∀ {I} → (CurrencySymbol × TokenName) → Pending I → List OutputInfo
 outputsOf (c , t) = filter (T? ∘ ([ c , [ t , 1 ] ] ≤ᶜ_) ∘ OutputInfo.value) ∘ TxInfo.outputInfo ∘ txInfo
@@ -423,10 +423,3 @@ o ≟ᵒ o′
 
 module SETᵒ = SET {A = TxOutput} _≟ᵒ_
 Set⟨TxOutput⟩ = Set' where open SETᵒ
-
--- Properties
-≟-refl : ∀ {A : Set} (_≟_ : Decidable {A = A} _≡_) (x : A)
-  → x ≟ x ≡ yes refl
-≟-refl _≟_ x with x ≟ x
-... | no ¬p    = ⊥-elim (¬p refl)
-... | yes refl = refl

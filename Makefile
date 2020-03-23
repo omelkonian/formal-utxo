@@ -1,8 +1,8 @@
 default: site
 
 site:
-	agda --html --html-dir=docs --css=css/Agda.css Main.agda \
-	  && cp docs/Main.html docs/index.html
+	agda +RTS -M3G -RTS --html --html-dir=docs --css=css/Agda.css Main.agda \
+	  && cp docs/Main.html docs/index.html 
 
 clean:
 	rm -f docs/*.html

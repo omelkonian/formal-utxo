@@ -1,5 +1,3 @@
--- {-# OPTIONS --allow-unsolved-metas #-}
-
 open import Level          using (0ℓ)
 open import Function       using (_∘_; case_of_)
 open import Category.Monad using (RawMonad)
@@ -30,8 +28,7 @@ open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈
 
 open import Relation.Nullary.Decidable                  using (⌊_⌋; toWitness)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong)
-  renaming ([_] to ≡[_])
-open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import Prelude.General
 open import Prelude.Lists
