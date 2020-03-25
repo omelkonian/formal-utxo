@@ -78,3 +78,4 @@ step      GameStateMachine (Locked currentSecret) (Guess theGuess nextSecret) =
     just (Locked nextSecret , def)
   else
     nothing
+origin    GameStateMachine = nothing

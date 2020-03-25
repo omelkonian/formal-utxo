@@ -77,6 +77,7 @@ verifyTxInfo tx tx≡ =
 verifyTx : Ledger → Tx → TxConstraints → Bool
 verifyTx l tx = verifyTxInfo (mkTxInfo l tx)
 
+
 -------------------------------------
 -- Constraint Emitting Machines (CEM)
 
@@ -86,6 +87,7 @@ record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
     isInitial : S → Bool
     isFinal   : S → Bool
     step      : S → I → Maybe (S × TxConstraints)
+    origin    : Maybe TxOutputRef
 
 open StateMachine public
 
@@ -93,23 +95,33 @@ module CEM
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
 
-  initₛₘ  = isInitial sm
-  finalₛₘ = isFinal sm
-  stepₛₘ  = step sm
+  initₛₘ   = isInitial sm
+  finalₛₘ  = isFinal sm
+  stepₛₘ   = step sm
+  originₛₘ = origin sm
+
+
+  spentsOrigin : TxInfo → Bool
+  spentsOrigin txi =
+    originₛₘ >>=ₜ λ o → ⌊ o SETₒ.∈? map InputInfo.outputRef (TxInfo.inputInfo txi) ⌋
 
   policyₛₘ : MonetaryPolicy
   policyₛₘ pti@(record {this = c; txInfo = txi})
     = ⌊ lookupQuantity (c , c) (TxInfo.forge txi) ≟ℕ 1 ⌋
+    ∧ spentsOrigin txi
     ∧ (case outputsOf (c , c) pti of λ
         { (o ∷ []) → fromMaybe false $
                        lookupDatumPtx (OutputInfo.datumHash o) pti >>= fromData >>= pure ∘ initₛₘ
         ; _        → false })
 
-  ℂ : HashId
+  ℂ : CurrencySymbol
   ℂ = policyₛₘ ♯
 
+  𝕋 : TokenName
+  𝕋 = fromMaybe ℂ ⦇ originₛₘ ♯ₒᵣ ⦈
+
   threadₛₘ : Value
-  threadₛₘ = [ ℂ , [ ℂ , 1 ] ]
+  threadₛₘ = [ ℂ , [ 𝕋 , 1 ] ]
 
   validatorₛₘ : Validator
   validatorₛₘ ptx di ds

@@ -12,7 +12,9 @@ open import UTxO.ExampleLedger
 
 open import StateMachine.Base
 open import StateMachine.GuessingGame
+-- *** takes around 1 hour to type-check... T0D0: profile to debug performance
 -- open import StateMachine.ExamplePlay
+open import StateMachine.Properties
 
 open import Bisimulation.Base
 open import Bisimulation.Soundness
@@ -21,3 +23,4 @@ open import Bisimulation
 
 -- open import UTxO.Preservation
 -- open import UTxO.Tracing
+-- open import UTxO.RecallProtection
