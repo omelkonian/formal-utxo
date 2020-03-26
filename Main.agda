@@ -21,6 +21,6 @@ open import Bisimulation.Soundness
 open import Bisimulation.Completeness
 open import Bisimulation
 
--- open import UTxO.Preservation
--- open import UTxO.Tracing
+open import UTxO.GlobalPreservation
+open import UTxO.Tracing
 -- open import UTxO.RecallProtection

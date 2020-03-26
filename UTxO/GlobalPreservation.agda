@@ -1,16 +1,19 @@
 {-# OPTIONS --allow-unsolved-metas #-}
-module UTxO.Preservation where
+module UTxO.GlobalPreservation where
 
-open import Function using (_∘_; flip)
+open import Level          using (0ℓ)
+open import Function       using (_∘_; flip)
+open import Category.Monad using (RawMonad)
 
 open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax)
 open import Data.Bool  using (true)
 open import Data.List  using (List; []; _∷_; map; filter)
 open import Data.Maybe using (Maybe)
-  renaming (just to pure; ap to _<*>_; map to _<$>_) -- to use idiom brackets
 
 open import Data.Maybe.Properties using (just-injective)
 import Data.Maybe.Relation.Unary.Any as M
+import Data.Maybe.Categorical as MaybeCat
+open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
@@ -26,7 +29,7 @@ open import Data.List.Relation.Binary.Disjoint.Propositional         using (Disj
 open import Relation.Nullary.Decidable                  using (⌊_⌋)
 open import Relation.Binary                             using (Decidable)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; trans; cong; sym)
-open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; _≡⟨_⟩_; _∎)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -62,7 +65,7 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
           ∑M (map (getSpentOutput l) (inputs tx)) value
         ≡⟨⟩
           ∑M (map (getSpentOutputRef l ∘ outputRef) (inputs tx)) value
-        ≡⟨ ∑M-pure getSpent≡ ⟩
+        ≡⟨ ∑M-just getSpent≡ ⟩
           pure (∑ (mapWith∈ (inputs tx) (out ∘ getUTXO)) value)
         ≡⟨ cong pure (begin
               ∑ (mapWith∈ (inputs tx) (out ∘ getUTXO)) value
