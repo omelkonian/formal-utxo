@@ -150,6 +150,8 @@ record TxOutputRef : Set where
     id    : HashId -- hash of the referenced transaction
     index : ℕ      -- index into its outputs
 
+open TxOutputRef public
+
 --------------------------------------------------------------------------------------
 -- Pending transactions (i.e. parts of the transaction being passed to a validator).
 
@@ -225,8 +227,6 @@ outputsOf (c , t) = filter (T? ∘ ([ c , [ t , 1 ] ] ≤ᶜ_) ∘ OutputInfo.va
 
 --------------------------------------------------------------------------
 -- Inputs, outputs and ledgers.
-
-open TxOutputRef public
 
 Validator : Set
 Validator = PendingTx -- ^ parts of the currently validated transaction

@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.GlobalPreservation where
 
 open import Level          using (0ℓ)
@@ -15,35 +14,40 @@ import Data.Maybe.Relation.Unary.Any as M
 import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
-open import Data.List.Membership.Propositional            using (_∈_; mapWith∈)
-open import Data.List.Membership.Propositional.Properties using (∈-map⁻)
-open import Data.List.Relation.Unary.All as All using (All)
+open import Data.List.Properties                                           using (map-compose)
+open import Data.List.Membership.Propositional                             using (_∈_; mapWith∈)
+open import Data.List.Membership.Propositional.Properties                  using (∈-map⁻)
+open import Data.List.Relation.Unary.All as All                            using (All)
 import Data.List.Relation.Unary.Any as Any
+open import Data.List.Relation.Unary.All                                   using (All)
+open import Data.List.Relation.Unary.AllPairs                              using ([]; _∷_)
+open import Data.List.Relation.Unary.Unique.Propositional                  using (Unique)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties       using (++⁺; filter⁺)
+open import Data.List.Relation.Binary.Disjoint.Propositional               using (Disjoint)
+open import Data.List.Relation.Binary.Subset.Propositional                 using (_⊆_)
+open import Data.List.Relation.Binary.Permutation.Propositional            using (_↭_)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (map⁺)
 
-open import Data.List.Relation.Unary.All                             using (All)
-open import Data.List.Relation.Unary.AllPairs                        using ([]; _∷_)
-open import Data.List.Relation.Unary.Unique.Propositional            using (Unique)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties using (++⁺; filter⁺)
-open import Data.List.Relation.Binary.Disjoint.Propositional         using (Disjoint)
-
+open import Relation.Nullary                            using (Dec)
 open import Relation.Nullary.Decidable                  using (⌊_⌋)
 open import Relation.Binary                             using (Decidable)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; trans; cong; sym)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
+open import Prelude.Lists using (mapWith∈↭filter; ↭⇒≡)
+
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
 open import UTxO.Value
-open import UTxO.Types hiding (I)
-open import UTxO.TxUtilities hiding (prevTx)
+open import UTxO.Types
+open import UTxO.TxUtilities
 open import UTxO.Validity
-
-open import Prelude.Set' using (_∈?_)
+open import UTxO.Uniqueness
 
 globalPreservation : ∀ {l} {vl : ValidLedger l} →
   ∑ l forge ≡ ∑ l fee +ᶜ ∑ (utxo l) (value ∘ out)
 globalPreservation {[]}          {vl}              = refl
-globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
+globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
   where
     view-pv : ∀ {A : Set} {mx : Maybe A} {P : A → Set}
       → M.Any P mx
@@ -65,37 +69,36 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
           ∑M (map (getSpentOutput l) (inputs tx)) value
         ≡⟨⟩
           ∑M (map (getSpentOutputRef l ∘ outputRef) (inputs tx)) value
+        ≡⟨ cong (λ x → ∑M x value) (map-compose {g = getSpentOutputRef l} {f = outputRef} (inputs tx)) ⟩
+          ∑M (map (getSpentOutputRef l) (outputRefs tx)) value
         ≡⟨ ∑M-just getSpent≡ ⟩
-          pure (∑ (mapWith∈ (inputs tx) (out ∘ getUTXO)) value)
+          pure (∑ (mapWith∈ (outputRefs tx) (out ∘ getUTXO)) value)
         ≡⟨ cong pure (begin
-              ∑ (mapWith∈ (inputs tx) (out ∘ getUTXO)) value
-            ≡⟨ ∑-∘ {xs = inputs tx} {g = getUTXO} {g′ = out} {f = value} ⟩
-              ∑ (mapWith∈ (inputs tx) getUTXO) (value ∘ out)
-            ≡⟨ cong (flip ∑ (value ∘ out)) (mapWith∈≡filter vor ndp) ⟩
+              ∑ (mapWith∈ (outputRefs tx) (out ∘ getUTXO)) value
+            ≡⟨ ∑-∘ {xs = outputRefs tx} {g = getUTXO} {g′ = out} {f = value} ⟩
+              ∑ (mapWith∈ (outputRefs tx) getUTXO) (value ∘ out)
+            ≡⟨ ∑map≡∑filter ⟩
               ∑ (filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
             ∎) ⟩
           pure (∑ (filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out))
         ∎)
         where
-          getUTXO : ∀ {i} → i ∈ inputs tx → UTXO
-          getUTXO = proj₁ ∘ ∈-map⁻ outRef ∘ All.lookup vor
+          getUTXO : ∀ {o} → o ∈ outputRefs tx → UTXO
+          getUTXO = proj₁ ∘ ∈-map⁻ outRef ∘ vor
 
-          getSpent≡ : ∀ {i} → (i∈ : i ∈ inputs tx) → getSpentOutput l i ≡ pure ((out ∘ getUTXO) i∈)
-          getSpent≡ {i} i∈
-            with (∈-map⁻ outRef ∘ All.lookup vor) i∈
+          getSpent≡ : ∀ {o} → (o∈ : o ∈ outputRefs tx) → getSpentOutputRef l o ≡ pure ((out ∘ getUTXO) o∈)
+          getSpent≡ o∈
+            with ∈-map⁻ outRef (vor o∈)
           ... | u , u∈ , refl
               = utxo-getSpent {l} {u} u∈
 
+          map↭filter : mapWith∈ (outputRefs tx) getUTXO
+                     ↭ filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)
+          map↭filter = mapWith∈↭filter {_∈?_ = SETₒ._∈?_} vor (Unique-utxo vl)
 
-          mapWith∈≡filter : ∀ {A B C : Set} {_≟_ : Decidable (_≡_ {A = C})}
-                              {is : List A} {us : List B} {f : A → C} {g : B → C}
-            → (all               : All (λ i → f i ∈ map g us) is)
-            -- (All.lookup all _  : f i ∈ map g us
-            -- (∈-map⁻ g _        : ∃[ u ] (u ∈ us) × (f i ≡ g u)
-            → Unique (map f is)
-            → mapWith∈ is (proj₁ ∘ ∈-map⁻ g ∘ All.lookup all)
-            ≡ filter ((λ x → _∈?_ _≟_  x (map f is)) ∘ g) us
-          mapWith∈≡filter = {!!}
+          ∑map≡∑filter : ∑ (mapWith∈ (outputRefs tx) getUTXO) (value ∘ out)
+                       ≡ ∑ (filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
+          ∑map≡∑filter = ↭⇒≡ $0-identity +ᶜ-comm (map⁺ (value ∘ out) map↭filter)
 
     pv : forge tx +ᶜ ∑in vl₀ ≡ fee tx +ᶜ ∑ (outputs tx) value
     pv = proj₂ (proj₂ (view-pv (preservesValues vtx)))
@@ -116,13 +119,13 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
       → (x₁ +ᶜ x₂) +ᶜ x₃ ≡ (y₁ +ᶜ y₂) +ᶜ (y₃ +ᶜ y₄)
       → x₁ +ᶜ x₃ +ᶜ x₂ ≡ y₁ +ᶜ y₃ +ᶜ y₄ +ᶜ y₂
     +ᶜ-comm-helper {x₁} {x₂} {x₃} {y₁} {y₂} {y₃} {y₄} p
-      rewrite +ᶜ-assoc {x = x₁} {y = x₂} {z = x₃}
-            | +ᶜ-comm {x = x₂} {y = x₃}
-            | sym (+ᶜ-assoc {x = x₁} {y = x₃} {z = x₂})
-            | +ᶜ-assoc {x = y₁} {y = y₂} {z = y₃ +ᶜ y₄}
-            | +ᶜ-comm {x = y₂} {y = y₃ +ᶜ y₄} -- y₁ +ᶜ ((y₃ +ᶜ y₄) +ᶜ y₂)
-            | sym (+ᶜ-assoc {x = y₁} {y = y₃ +ᶜ y₄} {z = y₂})
-            | sym (+ᶜ-assoc {x = y₁} {y = y₃} {z = y₄})
+      rewrite +ᶜ-assoc x₁ x₂ x₃
+            | +ᶜ-comm x₂ x₃
+            | sym (+ᶜ-assoc x₁ x₃ x₂)
+            | +ᶜ-assoc y₁ y₂ (y₃ +ᶜ y₄)
+            | +ᶜ-comm y₂ (y₃ +ᶜ y₄) -- y₁ +ᶜ ((y₃ +ᶜ y₄) +ᶜ y₂)
+            | sym (+ᶜ-assoc y₁ (y₃ +ᶜ y₄) y₂)
+            | sym (+ᶜ-assoc y₁ y₃ y₄)
             = p
 
     pv-gpv′ : forge tx +ᶜ ∑ l forge +ᶜ ∑in vl₀
@@ -132,12 +135,12 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
                              {y₄ = ∑ (utxo l) (value ∘ out)}
                              pv-gpv
 
-    pv-gpv″ : ∑ l′ forge +ᶜ ∑in vl₀
-            ≡ ∑ l′ fee +ᶜ ∑ (outputs tx) value +ᶜ ∑ (utxo l) (value ∘ out)
+    pv-gpv″ : ∑ l₀ forge +ᶜ ∑in vl₀
+            ≡ ∑ l₀ fee +ᶜ ∑ (outputs tx) value +ᶜ ∑ (utxo l) (value ∘ out)
     pv-gpv″
-      rewrite +ᶜ-assoc {x = ∑ l′ fee} {y = ∑ (outputs tx) value} {z = ∑ (utxo l) (value ∘ out)}
-            | +ᶜ-comm {x = ∑ (outputs tx) value} {y = ∑ (utxo l) (value ∘ out)}
-            | sym (+ᶜ-assoc {x = ∑ l′ fee} {y = ∑ (utxo l) (value ∘ out)} {z = ∑ (outputs tx) value})
+      rewrite +ᶜ-assoc (∑ l₀ fee) (∑ (outputs tx) value) (∑ (utxo l) (value ∘ out))
+            | +ᶜ-comm (∑ (outputs tx) value) (∑ (utxo l) (value ∘ out))
+            | sym (+ᶜ-assoc (∑ l₀ fee) (∑ (utxo l) (value ∘ out)) (∑ (outputs tx) value))
             = pv-gpv′
 
     helper : ∀ {l tx} {vl : ValidLedger (tx ∷ l)} {x y : Value}
@@ -149,23 +152,23 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
                        {f = value ∘ out} {x = x} {y = y} p
             = refl
 
-    h : ∑ l′ forge
-      ≡ ∑ l′ fee
+    h : ∑ l₀ forge
+      ≡ ∑ l₀ fee
       +ᶜ ∑ (outputs tx) value
       +ᶜ ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
     h = helper {l = l} {tx = tx} {vl = vl₀}
-               {x = ∑ l′ forge}
-               {y = ∑ l′ fee +ᶜ ∑ (outputs tx) value} pv-gpv″
+               {x = ∑ l₀ forge}
+               {y = ∑ l₀ fee +ᶜ ∑ (outputs tx) value} pv-gpv″
 
-    h′ : ∑ l′ forge
-       ≡ ∑ l′ fee
+    h′ : ∑ l₀ forge
+       ≡ ∑ l₀ fee
        +ᶜ ( ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
          +ᶜ ∑ (outputs tx) value )
-    h′ rewrite +ᶜ-comm {x = ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)}
-                       {y = ∑ (outputs tx) value}
-             | sym (+ᶜ-assoc {x = ∑ l′ fee}
-                             {y = ∑ (outputs tx) value}
-                             {z = ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)})
+    h′ rewrite +ᶜ-comm (∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out))
+                       (∑ (outputs tx) value)
+             | sym (+ᶜ-assoc (∑ l₀ fee)
+                             (∑ (outputs tx) value)
+                             (∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)))
              = h
 
     ∑-utxo : ∀ {l tx}
@@ -178,5 +181,5 @@ globalPreservation {l′@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
             | ∑-mapWith∈ {xs = outputs tx} {fv = value} {gv = out} {f = mkUtxo tx} (λ _ → refl)
             = refl
 
-    h″ : ∑ l′ forge ≡ ∑ l′ fee +ᶜ ∑ (utxo l′) (value ∘ out)
+    h″ : ∑ l₀ forge ≡ ∑ l₀ fee +ᶜ ∑ (utxo l₀) (value ∘ out)
     h″ rewrite ∑-utxo {l} {tx} = h′

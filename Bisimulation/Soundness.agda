@@ -118,7 +118,8 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
     ... | nothing = tt
     ... | just _  rewrite range∋ = tt
 
-    validOutputRefs     vtx = prev∈utxo ∷ []
+    validOutputRefs     vtx (here refl) = prev∈utxo
+    validOutputRefs     vtx (there ())
 
     preservesValues     vtx
       rewrite getSpent≡

@@ -22,5 +22,5 @@ open import Bisimulation.Completeness
 open import Bisimulation
 
 open import UTxO.GlobalPreservation
-open import UTxO.Tracing
+open import UTxO.Provenance
 -- open import UTxO.RecallProtection

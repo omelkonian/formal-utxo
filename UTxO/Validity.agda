@@ -14,10 +14,11 @@ open import Data.Nat.Properties  using (suc-injective)
 open import Data.Fin             using (Fin; toℕ; fromℕ<)
 open import Data.List            using (List; []; _∷_; map; length)
 
-open import Data.List.Relation.Unary.Any as L             using (Any; any)
-open import Data.List.Relation.Unary.All                  using (All; all)
-open import Data.List.Membership.Propositional            using (_∈_;mapWith∈)
-open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
+open import Data.List.Relation.Unary.Any as L              using (Any; any)
+open import Data.List.Relation.Unary.All                   using (All; all)
+open import Data.List.Membership.Propositional             using (_∈_;mapWith∈)
+open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
+open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 
 open import Data.Maybe.Relation.Unary.Any as M using ()
   renaming (dec to any?)
@@ -53,8 +54,7 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
       T (range tx ∋ length l)
 
     validOutputRefs :
-      All (λ i → outputRef i ∈ map outRef (utxo l))
-          (inputs tx)
+      outputRefs tx ⊆ map outRef (utxo l)
 
     preservesValues :
       M.Any (λ q → forge tx +ᶜ q ≡ fee tx +ᶜ ∑ (outputs tx) value)
@@ -102,7 +102,7 @@ _⊕_ : ∀ {l}
   → ValidLedger l
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
-  → {vor : True (all (λ i → outputRef i SETₒ.∈? map outRef (utxo l)) (inputs tx))}
+  → {vor : True (outputRefs tx SETₒ.⊆? map outRef (utxo l))}
   → {pv  : True (any? (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
                       (∑M (map (getSpentOutput l) (inputs tx)) value))}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
@@ -125,59 +125,3 @@ _⊕_ : ∀ {l}
                       ; allPoliciesValidate = toWitness apv
                       ; validateValidHashes = toWitness vvh
                       ; forging             = toWitness frg }
-
-{-
-open import Data.Unit
-
--- below is an incomplete attempt to prove the following: if `validOutputRefs` is
--- satisfied then all the operations in the prop 5--8 that can fail,
--- won't.
-
--- if membership is satisfied then lookup cannot fail
-
-just∈ : ∀{X}(x : X)(xs : List X)(p : x ∈ xs) → Is-just (xs [ toℕ (L.index p) ])
-just∈ x .(_ ∷ _) (L.here px) = M.Any.just tt
-just∈ x .(_ ∷ _) (L.there p) = just∈ x _ p
-
-map∈ :  ∀{A B : Set} x (xs : List A)(f : ∀ {x} → x ∈ xs → B)
-  → (p : x ∈ xs)
-  → f p ∈ mapWith∈ xs f
-map∈ x .(_ ∷ _) f (L.here refl) = L.here refl
-map∈ x .(_ ∷ _) f (L.there p) = L.there (map∈ x _ (λ p → f (L.there p)) p)
-
--- if a output is a member of a list of outputs then its outputRef is
--- a member of the list of outputRefs
-
-o2oref : ∀ tx (o : TxOutput) → (os : List TxOutput)
-  → (p : o ∈ os)
-  → (tx ♯ₜₓ) indexed-at toℕ (L.index p)
-    ∈ mapWith∈ os (λ p → (tx ♯ₜₓ) indexed-at toℕ (L.index p))
-o2oref tx o os p = map∈ o os (λ p → (tx ♯ₜₓ) indexed-at toℕ (L.index p)) p
-
-scopeSafeIndex : ∀ tx (or : TxOutputRef) → (os : List TxOutput)
-  → (p : or ∈ mapWith∈ os (λ p → (tx ♯ₜₓ) indexed-at toℕ (L.index p)))
-  → Is-just (mapWith∈ os (λ p → (tx ♯ₜₓ) indexed-at toℕ (L.index p)) [ toℕ (L.index p) ])
-scopeSafeIndex tx or os p = just∈ _ _ p
-
-scopeSafeLem : (l : Ledger)(vl : ValidLedger l)(i : TxInput)
-  → outputRef i ∈ map outRef (utxo l)
-  → Is-just (getSpentOutput l i)
-scopeSafeLem (tx ∷ l) vl i p with id (outputRef i) ≟ℕ tx ♯ₜₓ
--- does our output come from tx?
-scopeSafeLem (tx ∷ l) vl i p | yes q = {!p!}
--- yes, so, it must be one of the ones that gets added
--- if our input points to the current tx, then looking it up by it's
--- index should work
-scopeSafeLem (tx ∷ l) vl i p | no ¬q = {!!}
--- no, so it's the filtered utxo, which means its in the unfiltered
--- one for l
-
-scopeSafe : (l : Ledger)(vl : ValidLedger l)(is : List TxInput)
-  -- if `validOutputRefs` is satisfied
-  → All (λ i → outputRef i ∈ map outRef (utxo l)) is
-  -- all inputs refer to legit outputs from the ledger
-  → All (λ i → Is-just (getSpentOutput l i)) is
-scopeSafe l vl [] All.[] = All.[]
-scopeSafe l vl (i ∷ is) (px All.∷ pxs) =
-  scopeSafeLem l vl i px All.∷ scopeSafe l vl is pxs
--}

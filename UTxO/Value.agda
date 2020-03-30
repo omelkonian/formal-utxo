@@ -4,6 +4,7 @@ open import Level          using (0ℓ)
 open import Function       using (_∘_; flip)
 open import Category.Monad using (RawMonad)
 
+
 open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂)
 open import Data.Bool    using (Bool; true; _∧_; T)
 open import Data.Maybe   using (Maybe; just; nothing; fromMaybe)
@@ -55,6 +56,8 @@ ex-map = (1 , (0 , 50) ∷ [])
        ∷ (2 , (0 , 77) ∷ (1 , 23) ∷ [])
        ∷ []
 
+open import Algebra.Definitions {A = Value} _≡_
+  using (LeftIdentity; RightIdentity; Identity; Commutative; Associative)
 
 --------------------------
 -- Implementation
@@ -89,20 +92,6 @@ c +ᶜ c′ = toListᶜ (fromListᶜ c +ᵛ fromListᶜ c′)
 
 sumᶜ : List Value → Value
 sumᶜ = foldr _+ᶜ_ $0
-
--- infix 4 _≟ᶜ′_
--- _≟ᶜ′_ : Decidable {A = SubValue} _≡_
--- v ≟ᶜ′ v′ = ≡-decs (≡-dec× _≟ℕ_ _≟ℕ_) (normalize v) (normalize v′)
---   where
---     normalize : SubValue → SubValue
---     normalize = filter λ{ (_ , v) → ¬? (v ≟ℕ 0)  }
-
--- infix 4 _≟ᶜ_
--- _≟ᶜ_ : Decidable {A = Value} _≡_
--- v ≟ᶜ v′ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_))) (normalize v) (normalize v′)
---   where
---     normalize : Value → Value
---     normalize = filter λ{ (_ , vs) → ¬? (vs ≟ᶜ′ []) }
 
 infix 4 _≟ᶜ_
 _≟ᶜ_ : Decidable {A = Value} _≡_
@@ -151,8 +140,8 @@ private
 
 postulate
   -- Properties of _+ᶜ_
-  +ᶜ-comm  : ∀ {x y} → x +ᶜ y ≡ y +ᶜ x
-  +ᶜ-assoc : ∀ {x y z} → x +ᶜ y +ᶜ z ≡ x +ᶜ (y +ᶜ z)
+  +ᶜ-comm  : Commutative _+ᶜ_
+  +ᶜ-assoc : Associative _+ᶜ_
 
   -- Properties of _≥ᶜ_
   ≥ᶜ-trans : ∀ {x y z} → T (x ≥ᶜ y) → T (y ≥ᶜ z) → T (x ≥ᶜ z)
@@ -206,20 +195,23 @@ x+ᶜ′0≡x : ∀ {m} → m +ᵛ′ empty ≡ m
 x+ᶜ′0≡x {m} rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + fromMaybe 0 v′} (λ {x} → +-identityʳ x)
                   = refl
 
-x+ᶜ0≡x : ∀ {v} → v +ᶜ $0 ≡ v
-x+ᶜ0≡x {v} rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
+$0-identityˡ : LeftIdentity $0 _+ᶜ_
+$0-identityˡ v = toListᶜ∘fromListᶜ {v = v}
+
+$0-identityʳ : RightIdentity $0 _+ᶜ_
+$0-identityʳ v rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
                  | toListᶜ∘fromListᶜ {v = v}
                  = refl
 
-0+ᶜx≡x : ∀ {v} → $0 +ᶜ v ≡ v
-0+ᶜx≡x {v} = toListᶜ∘fromListᶜ {v = v}
+$0-identity : Identity $0 _+ᶜ_
+$0-identity = $0-identityˡ , $0-identityʳ
 
 sum-single : ∀ {v} → sumᶜ [ v ] ≡ v
-sum-single {v} rewrite x+ᶜ0≡x {v} = refl
+sum-single {v} rewrite $0-identityʳ v = refl
 
 x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 : ∀ {x y} → x +ᶜ (y +ᶜ $0) ≡ $0 +ᶜ (x +ᶜ y +ᶜ $0)
 x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 {x} {y}
-  rewrite x+ᶜ0≡x {v = y}
-        | x+ᶜ0≡x {v = x +ᶜ y}
-        | 0+ᶜx≡x {v = x +ᶜ y}
+  rewrite $0-identityʳ y
+        | $0-identityʳ (x +ᶜ y)
+        | $0-identityˡ (x +ᶜ y)
         = refl
