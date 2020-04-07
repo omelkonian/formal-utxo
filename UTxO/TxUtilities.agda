@@ -145,6 +145,12 @@ utxo-getSpent {l} {u} u∈
         | utxo-⟨⟩ {l} {u} u∈
         = refl
 
+utxo-getSpentᵛ : ∀ {l u i}
+  → u ∈ utxo l
+  → outRef u ≡ outputRef i
+  → (value <$> getSpentOutput l i) ≡ just (value $ out u)
+utxo-getSpentᵛ {l} {u} {i} u∈ refl = cong (value <$>_) (utxo-getSpent {l} {u} u∈)
+
 --
 
 mkOutputInfo : TxOutput → OutputInfo

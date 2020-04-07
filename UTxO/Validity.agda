@@ -20,8 +20,7 @@ open import Data.List.Membership.Propositional             using (_∈_;mapWith�
 open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 
-open import Data.Maybe.Relation.Unary.Any as M using ()
-  renaming (dec to any?)
+import Data.Maybe.Relation.Unary.Any as M
 
 open import Relation.Nullary                      using (Dec; ¬_; yes; no)
 open import Relation.Nullary.Product              using (_×-dec_)
@@ -103,15 +102,15 @@ _⊕_ : ∀ {l}
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
   → {vor : True (outputRefs tx SETₒ.⊆? map outRef (utxo l))}
-  → {pv  : True (any? (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
-                      (∑M (map (getSpentOutput l) (inputs tx)) value))}
+  → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
+                       (∑M (map (getSpentOutput l) (inputs tx)) value))}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
   → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (datum i))})
                      (enumerate (inputs tx)))}
   → {apv : True (all (λ f → T? (f (toPendingMPS l tx (f ♯))))
                      (policies tx))}
-  → {vvh : True (all (λ i → any? (λ o → (address o ≟ℕ validator i ♯) ×-dec (datumHash o ≟ℕ datum i ♯ᵈ))
-                                 (getSpentOutput l i))
+  → {vvh : True (all (λ i → M.dec (λ o → (address o ≟ℕ validator i ♯) ×-dec (datumHash o ≟ℕ datum i ♯ᵈ))
+                                  (getSpentOutput l i))
                      (inputs tx))}
   → {frg : True (all (λ c → any (λ f → c ≟ℕ f ♯) (policies tx))
                      (currencies (forge tx)))}
