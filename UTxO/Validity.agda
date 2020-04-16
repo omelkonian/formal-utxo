@@ -1,3 +1,4 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Validity where
 
 open import Function using (_∘_; flip)
@@ -14,11 +15,14 @@ open import Data.Nat.Properties  using (suc-injective)
 open import Data.Fin             using (Fin; toℕ; fromℕ<)
 open import Data.List            using (List; []; _∷_; map; length)
 
-open import Data.List.Relation.Unary.Any as L              using (Any; any)
+open import Data.List.Relation.Unary.Any                   using (Any; any; here; there)
 open import Data.List.Relation.Unary.All                   using (All; all)
-open import Data.List.Membership.Propositional             using (_∈_;mapWith∈)
+open import Data.List.Membership.Propositional             using (_∈_; _∉_; mapWith∈)
 open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
+open import Data.List.Relation.Binary.Suffix.Heterogeneous using (Suffix; here; there)
+open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
+open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
 
 import Data.Maybe.Relation.Unary.Any as M
 
@@ -28,7 +32,7 @@ open import Relation.Nullary.Decidable            using (True; toWitness)
 open import Relation.Binary                       using (Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import Prelude.Lists using (enumerate)
+open import Prelude.Lists using (enumerate; Suffix≡)
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -124,3 +128,31 @@ _⊕_ : ∀ {l}
                       ; allPoliciesValidate = toWitness apv
                       ; validateValidHashes = toWitness vvh
                       ; forging             = toWitness frg }
+
+----------------------
+-- Properties.
+
+valid-suffix : ∀ {l l′}
+  → ValidLedger l
+  → Suffix≡ l′ l
+  → ValidLedger l′
+valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
+valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
+
+suf-utxo : ∀ {tx l l′ x}
+  → ValidLedger l
+  → Suffix≡ (tx ∷ l′) l
+  → x ∈ map outRef (utxo l′)
+  → x ∈ outputRefs tx
+  → x ∉ map outRef (utxo l)
+suf-utxo {tx} {l = x ∷ l} vl (here (refl ∷ p)) x∈′ x∈refs x∈
+  rewrite Pointwise-≡⇒≡ p
+        = {!!}
+suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
+
+-- traceRef : ∀ {tx l}
+--   → ValidLedger (tx ∷ l)
+--   → ∀ o → o ∈ outputRefs tx
+--   → ∃[ tx′ ] ( (tx′ ∈ l)
+--              × (tx′ ♯ ≡ id o) )
+-- traceRef {tx} {l} (vl ⊕ .tx ∶- vtx) o o∈ = {!!}

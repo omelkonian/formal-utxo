@@ -4,14 +4,17 @@ open import Level          using (0ℓ)
 open import Function       using (_$_; _∘_; flip)
 open import Category.Monad using (RawMonad)
 
+open import Induction.WellFounded using (Acc; acc)
+
 open import Data.Empty               using (⊥-elim)
-open import Data.Product             using (_×_; _,_; Σ-syntax; ∃; ∃-syntax; proj₁; proj₂)
+open import Data.Product             using (_×_; _,_; Σ-syntax; ∃; ∃-syntax; proj₁; proj₂; map₁; map₂)
 open import Data.Sum                 using (_⊎_; inj₁; inj₂)
 open import Data.Bool                using (T; if_then_else_)
 open import Data.List                using (List; []; _∷_; [_]; _++_; map; concat; _∷ʳ_; foldr; filter; concatMap)
 open import Data.List.NonEmpty as NE using (List⁺; _∷_; head; toList; _++⁺_; _∷⁺_)
 open import Data.Maybe               using (Maybe; just; nothing)
 open import Data.Fin                 using (toℕ)
+
 
 open import Data.Bool.Properties using (T?)
 
@@ -23,7 +26,7 @@ open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; �
 open import Data.List.Relation.Unary.All as All            using (All; []; _∷_; tabulate)
 open import Data.List.Relation.Unary.Any as Any            using (Any; here; there)
 open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
-open import Data.List.Relation.Binary.Pointwise            using (Pointwise-≡⇒≡)
+open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; _≢_; sym; subst; cong; module ≡-Reasoning)
@@ -36,19 +39,13 @@ open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
+open import UTxO.Induction
 
 ∑₁ : ∀ {H : Value → Set} → List (∃ H) → Value
 ∑₁ = flip ∑ proj₁
 
 ∑ᵥ : List TxOutput → Value
 ∑ᵥ = flip ∑ value
-
-valid-suffix : ∀ {l l′}
-  → ValidLedger l
-  → Suffix≡ l′ l
-  → ValidLedger l′
-valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
-valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
 
 ---------------
 -- Definitions
@@ -136,12 +133,14 @@ combine≢[] {v} {hs = (hᵥ , h) ∷ hs} {∑≥}
   = concat≢[] {xss = map (λ tr → map _ _) (toList h)}
               (_ , here refl , map≢[] (combine≢[] {∑₁ hs} {hs} {≥ᶜ-refl $ ∑₁ hs}))
 
-{-# NON_TERMINATING #-}
-history : ∀ {tx l} {vl : ValidLedger (tx ∷ l)} →
-  ∀ o → o ∈ outputs tx →
-    History (value o)
-history {tx} {l} {vl₀@(vl ⊕ tx ∶- vtx)} o@(record {value = v}) o∈ = toList⁺ traces traces≢[]
-  where
+history : ∀ l → ∀ {o} → o ∈ outputsₘ l → History (value o)
+history l = go _ (≺′-wf l)
+ where
+  go : ∀ l → Acc _≺′_ l → (∀ {o} → o ∈ outputsₘ l → History (value o))
+  go (.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o@(record {value = v})} o∈
+    = toList⁺ traces traces≢[]
+   where
+
     forgeHistory : History (forge tx)
     forgeHistory = NE.[ singletonTrace tx ]
 
@@ -149,14 +148,16 @@ history {tx} {l} {vl₀@(vl ⊕ tx ∶- vtx)} o@(record {value = v}) o∈ = toLi
       ∃[ v ] ( History v
              × ((value <$> getSpentOutput l i) ≡ just v) )
     prevHistory′ {i} i∈
-      with ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
-    ... | u , u∈ , refl
-      with ∈utxo⇒outRef≡ {l = l} u∈
-    ... | prev∈ , prevOut∈ , refl
-      with ∈⇒Suffix prev∈
-    ... | l′ , suf
-        = _ , history {tx = prevTx u} {l = l′} {vl = valid-suffix vl suf} (out u) prevOut∈
+      with u , u∈ , refl           ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
+      with prev∈ , prevOut∈ , refl ← ∈utxo⇒outRef≡ {l = l} u∈
+      with l′ , suf                ← ∈⇒Suffix prev∈
+      with vl′                     ← valid-suffix vl suf
+        = _ , go (_ , vl′) (a _ vl′≺vl) {out u} prevOut∈
             , utxo-getSpentᵛ {l} {u} {i} u∈ refl
+        where
+          vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl₀)
+          vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
+          -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
 
     prevHistory : ∀ {i} → i ∈ inputs tx → ∃ History
     prevHistory = drop₃ ∘ prevHistory′

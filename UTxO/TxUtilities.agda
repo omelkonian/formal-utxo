@@ -1,3 +1,4 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.TxUtilities where
 
 open import Level          using (0ℓ)
@@ -18,9 +19,9 @@ open import Data.List    using (List; []; _∷_; length; map; _++_; filter; look
 import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
-open import Data.List.Membership.Propositional                       using (_∈_; mapWith∈; find)
-open import Data.List.Membership.Propositional.Properties            using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
-open import Data.List.Relation.Unary.Any as Any                      using (Any; here; there)
+open import Data.List.Membership.Propositional             using (_∈_; mapWith∈; find)
+open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
+open import Data.List.Relation.Unary.Any as Any            using (Any; here; there)
 
 open import Relation.Nullary                      using (yes; no)
 open import Relation.Binary                       using (Decidable)
@@ -50,12 +51,6 @@ utxo : Ledger → List UTXO
 utxo []       = []
 utxo (tx ∷ l) = filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)
              ++ mapWith∈ (outputs tx) (mkUtxo tx)
-
-mapWith∈-∀ : ∀ {A B : Set} {xs : List A}  {f : ∀ {x : A} → x ∈ xs → B} {P : B → Set}
-  → (∀ {x} x∈ → P (f {x} x∈))
-  → (∀ {y} → y ∈ mapWith∈ xs f → P y)
-mapWith∈-∀ {xs = x ∷ xs} ∀P {y} (here px)  rewrite px = ∀P (Any.here refl)
-mapWith∈-∀ {xs = x ∷ xs} ∀P {y} (there y∈) = mapWith∈-∀ (∀P ∘ Any.there) y∈
 
 ∈utxo⇒outRef≡ : ∀ {u l}
   → u ∈ utxo l

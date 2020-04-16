@@ -7,6 +7,7 @@ open import UTxO.Value
 open import UTxO.Types
 open import UTxO.TxUtilities
 open import UTxO.Validity
+open import UTxO.Induction
 
 open import UTxO.ExampleLedger
 
