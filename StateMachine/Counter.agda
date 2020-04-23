@@ -100,7 +100,7 @@ lemmaP : ∀{tx l}
   → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
   → vl —→[ tx ∶- vtx ] vl′
   → ∀ s → vl ~ s
-  → Valid s
+  → P s
   → (Σ CounterState λ s′ → P s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
 lemmaP P X p s q v with completeness {s = s} p q
 lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =

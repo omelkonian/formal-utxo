@@ -28,7 +28,7 @@ open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈
 
 open import Relation.Nullary.Decidable                  using (⌊_⌋; toWitness)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; cong)
-open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
+-- open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import Prelude.General
 open import Prelude.Lists
