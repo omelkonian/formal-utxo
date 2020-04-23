@@ -48,21 +48,23 @@ CounterSM : StateMachine CounterState CounterInput
 isInitial CounterSM (counter (+ 0) ) = true
 isInitial CounterSM (counter _     ) = false
 -- isFinal   CounterSM (counter (+ 10)) = false
-isFinal   CounterSM (counter _     ) = false
+isFinal   CounterSM _ = false
 step      CounterSM (counter i) inc =
   just (counter (Data.Integer.suc i) , def Default-TxConstraints)
 origin    CounterSM = nothing -- this will probably break initiality
+
+-- Some basic properties of this machine
 
 Valid : CounterState → Set
 Valid s@(counter i)     =
   T (isInitial CounterSM s) ⊎ i ≥ (+ 0) -- ⊎ T (isFinal CounterSM s)
 
-_—→[_]_ : CounterState → CounterInput → (CounterState × TxConstraints) → Set
-s —→[ i ] (s′ , tx≡) =
-  Σ TxConstraints λ tx → step CounterSM s i ≡ just (s′ , tx≡)
+_—→[_]_ : CounterState → CounterInput → CounterState → Set
+s —→[ i ] s′ =
+  Σ TxConstraints λ tx≡ → step CounterSM s i ≡ just (s′ , tx≡)
 
 -- step preserves validity
-lemma-step : ∀{s s' : CounterState}{i : CounterInput}{tc : TxConstraints} → s —→[ i ] (s' , tc) → Valid s → Valid s'
+lemma-step : ∀{s s' : CounterState}{i : CounterInput} → s —→[ i ] s' → Valid s → Valid s'
 lemma-step {counter (+ 0)}       {i = inc} (_ , refl) (inj₁ p) = inj₂ (+≤+ z≤n)
 lemma-step {counter (+ (suc n))} {i = inc} (_ , refl) (inj₁ ())
 lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤n)
@@ -70,3 +72,38 @@ lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤
 -- initial state is valid
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
+
+--
+
+open CEM {sm = CounterSM}
+
+open import Bisimulation.Base {sm = CounterSM} hiding (_—→[_]_)
+open import Bisimulation.Completeness {sm = CounterSM}
+
+lemma : ∀{tx l}
+  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
+  → vl —→[ tx ∶- vtx ] vl′
+  → ∀ s → vl ~ s
+  → Valid s
+  → (Σ CounterState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
+lemma p s q v with completeness {s = s} p q
+lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
+  inj₁ (s′ , lemma-step (tx≡ , r) v , r′ refl)
+lemma p s q v | inj₂ r = inj₂ r
+
+-- this would also work for any property preserved by step,
+-- or for any SM for that matter
+
+lemmaP : ∀{tx l}
+  → (P : CounterState → Set)
+  → (X : ∀{s s' : CounterState}{i : CounterInput} → s —→[ i ] s' → P s → P s')
+  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
+  → vl —→[ tx ∶- vtx ] vl′
+  → ∀ s → vl ~ s
+  → Valid s
+  → (Σ CounterState λ s′ → P s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
+lemmaP P X p s q v with completeness {s = s} p q
+lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
+  inj₁ (s′ , X (tx≡ , r) v , r′ refl)
+lemmaP P X p s q v | inj₂ r = inj₂ r
+
