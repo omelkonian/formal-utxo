@@ -21,6 +21,7 @@ open import Data.Bool.Properties using (T?)
 import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
+open import Data.List.Properties                           using (map-compose; ∷-injective)
 open import Data.List.Membership.Propositional             using (_∈_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻; ∈-map⁺)
 open import Data.List.Relation.Unary.All as All            using (All; []; _∷_; tabulate)
@@ -28,8 +29,10 @@ open import Data.List.Relation.Unary.Any as Any            using (Any; here; the
 open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
 open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
 
-open import Relation.Nullary                      using (yes; no)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; _≢_; sym; subst; cong; module ≡-Reasoning)
+open import Relation.Nullary                            using (yes; no)
+open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; _≢_; sym; subst; cong; trans; inspect)
+  renaming ([_] to ≡[_])
+open Eq.≡-Reasoning
 
 open import Prelude.Lists
 
@@ -39,13 +42,6 @@ open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
-open import UTxO.Induction
-
-∑₁ : ∀ {H : Value → Set} → List (∃ H) → Value
-∑₁ = flip ∑ proj₁
-
-∑ᵥ : List TxOutput → Value
-∑ᵥ = flip ∑ value
 
 ---------------
 -- Definitions
@@ -102,10 +98,15 @@ singletonBranch tx = record
 
 singletonTrace : (tx : Tx) → Trace (forge tx)
 branches (singletonTrace tx) = [ _ , singletonBranch tx ]
-sums     (singletonTrace tx) rewrite $0-identityʳ (forge tx) = ≥ᶜ-refl (forge tx)
+sums     (singletonTrace tx) rewrite +ᶜ-identityʳ (forge tx) = ≥ᶜ-refl (forge tx)
 
 emptyTrace : ∀ {v} → v ≡ $0 → Trace v
 emptyTrace refl = record {branches = []; sums = ≥ᶜ-refl $0}
+
+weakenTrace : ∀ {v v′} → T $ v ≥ᶜ v′ → Trace v → Trace v′
+weakenTrace {v} {v′} v≥v′ tr = record
+  { branches = branches tr
+  ; sums     = ≥ᶜ-trans {x = ∑₁ (branches tr)} {y = v} {z = v′} (sums tr) v≥v′ }
 
 ---------------
 -- Provenance
@@ -115,15 +116,13 @@ combine : ∀ {v}
   → T (∑₁ hs ≥ᶜ v)
   → List (Trace v)
 combine {v} []                  ∑≥ = [ emptyTrace ($0-≥ᶜ v ∑≥) ]
-combine {v} hs₀@((hᵥ , h) ∷ hs) ∑≥
-  with combine {v = ∑₁ hs} hs (≥ᶜ-refl $ ∑₁ hs)
-... | trs
-    = concatMap (λ tr → map (tr ∷ᵗ_) trs) (toList h)
-  where
+combine {v} ((hᵥ , h) ∷ hs) ∑≥
+    = concatMap (λ tr → map (tr ∷ᵗ_) $ combine {v = ∑₁ hs} hs (≥ᶜ-refl $ ∑₁ hs)) (toList h)
+  module M₀ where
     _∷ᵗ_ : Trace hᵥ → Trace (∑₁ hs) → Trace v
     tr ∷ᵗ tr′ = record
       { branches = branches tr ++ branches tr′
-      ; sums     = ≥ᶜ-trans {x = ∑₁ (branches tr ++ branches tr′)} {y = ∑₁ hs₀} {z = v}
+      ; sums     = ≥ᶜ-trans {x = ∑₁ (branches tr ++ branches tr′)} {y = ∑₁ $ (_ , h) ∷ hs} {z = v}
                             (∑-++-≥ᶜ {fv = proj₁} {v₁ = hᵥ} {v₂ = ∑₁ hs} {xs = branches tr} {ys = branches tr′}
                                      (sums tr) (sums tr′)) ∑≥
       }
@@ -134,54 +133,33 @@ combine≢[] {v} {hs = (hᵥ , h) ∷ hs} {∑≥}
               (_ , here refl , map≢[] (combine≢[] {∑₁ hs} {hs} {≥ᶜ-refl $ ∑₁ hs}))
 
 history : ∀ l → ∀ {o} → o ∈ outputsₘ l → History (value o)
-history l = go _ (≺′-wf l)
- where
+history l = go l (≺′-wf l)
+ module M₁ where
   go : ∀ l → Acc _≺′_ l → (∀ {o} → o ∈ outputsₘ l → History (value o))
-  go (.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o@(record {value = v})} o∈
+  go (.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈
     = toList⁺ traces traces≢[]
-   where
+   module M₂ where
+    v = value o
 
-    forgeHistory : History (forge tx)
-    forgeHistory = NE.[ singletonTrace tx ]
+    forgeHistory : ∃ History
+    forgeHistory = forge tx , NE.[ singletonTrace tx ]
 
-    prevHistory′ : ∀ {i} → i ∈ inputs tx →
-      ∃[ v ] ( History v
-             × ((value <$> getSpentOutput l i) ≡ just v) )
-    prevHistory′ {i} i∈
-      with u , u∈ , refl           ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
-      with prev∈ , prevOut∈ , refl ← ∈utxo⇒outRef≡ {l = l} u∈
-      with l′ , suf                ← ∈⇒Suffix prev∈
-      with vl′                     ← valid-suffix vl suf
-        = _ , go (_ , vl′) (a _ vl′≺vl) {out u} prevOut∈
-            , utxo-getSpentᵛ {l} {u} {i} u∈ refl
-        where
-          vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl₀)
-          vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
-          -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
+    rs = prevs vl vtx
 
-    prevHistory : ∀ {i} → i ∈ inputs tx → ∃ History
-    prevHistory = drop₃ ∘ prevHistory′
-
-    prevLookup :  ∀ {i} → i ∈ inputs tx → ∃[ v ] ((value <$> getSpentOutput l i) ≡ just v)
-    prevLookup = drop₂ ∘ prevHistory′
+    res→history : Res vl vtx → ∃ History
+    res→history record {vl′ = vl′; prevOut∈ = prevOut∈; vl′≺vl = vl′≺vl}
+              = _ , go (_ , vl′) (a _ vl′≺vl) prevOut∈
 
     prevHistories : Histories
-    prevHistories = mapWith∈ (inputs tx) prevHistory
+    prevHistories = map res→history rs
+
+    ∑prev = ∑₁ prevHistories
+
+    allPrevs₀ : Histories
+    allPrevs₀ = forgeHistory ∷ prevHistories
 
     allPrevs : Histories
-    allPrevs = (_ , forgeHistory) ∷ prevHistories
-
-    lookupOutputs≡ : ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just (∑₁ prevHistories)
-    lookupOutputs≡ = ∑M-help prevHistory′
-
-    pv′ : forge tx +ᶜ ∑₁ prevHistories ≡ fee tx +ᶜ ∑ᵥ (outputs tx)
-    pv′ = ∑M≡just lookupOutputs≡ (preservesValues vtx)
-
-    pv″ : T $ forge tx +ᶜ ∑₁ prevHistories ≥ᶜ ∑ᵥ (outputs tx)
-    pv″ = +ᶜ-≡⇒≥ᶜ {x = forge tx} {y = ∑₁ prevHistories} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv′)
-
-    pv‴ : T $ forge tx +ᶜ ∑₁ prevHistories ≥ᶜ v
-    pv‴ = ≥ᶜ-trans {x = ∑₁ allPrevs} {y = ∑ᵥ (outputs tx)} {z = v} pv″ (∑-≥ᶜ {fv = value} o∈)
+    allPrevs = filter ((_-contributesTo?- v) ∘ proj₁) allPrevs₀
 
     choices : Choices
     choices = subsequences allPrevs
@@ -189,20 +167,45 @@ history l = go _ (≺′-wf l)
     validChoices : Choices
     validChoices = filter (λ hs → T? $ ∑₁ hs ≥ᶜ v) choices
 
-    validChoices≢[] : ¬Null validChoices
-    validChoices≢[] vc≡[] = All.lookup (filter≡[] {P = λ hs → T $ ∑₁ hs ≥ᶜ v} vc≡[])
-                                       (subsequences-refl {xs = allPrevs})
-                                       pv‴
-
     ∑≥ : ∀ {hs} → hs ∈ validChoices → T (∑₁ hs ≥ᶜ v)
     ∑≥ = proj₂ ∘ ∈-filter⁻ (λ hs → T? $ ∑₁ hs ≥ᶜ v) {xs = choices}
 
     traces : List (Trace v)
-    traces = concat $ mapWith∈ validChoices λ {hs} → combine {v} hs ∘ ∑≥
+    traces = concat $ mapWith∈ validChoices λ {hs} hs∈ → combine hs (∑≥ hs∈)
+
+  --
+
+    proj₁-ap≡ : forge tx ∷ map resValue rs ≡ map proj₁ allPrevs₀
+    proj₁-ap≡ rewrite map-compose {g = proj₁} {f = res→history} rs = refl
+
+    res≡ : ∑ rs resValue ≡ ∑prev
+    res≡ = cong sumᶜ $ proj₂ (∷-injective proj₁-ap≡)
+
+    lookupOutputs≡′ : ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just ∑prev
+    lookupOutputs≡′ = trans (∑prevs≡ vl vtx) $ cong just res≡
+
+    pv₀ : forge tx +ᶜ ∑prev ≡ fee tx +ᶜ ∑ᵥ (outputs tx)
+    pv₀ = ∑M≡just lookupOutputs≡′ (preservesValues vtx)
+
+    pv₁ : T $ forge tx +ᶜ ∑prev ≥ᶜ ∑ᵥ (outputs tx)
+    pv₁ = +ᶜ-≡⇒≥ᶜ {x = forge tx} {y = ∑prev} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
+
+    pv₂ : T $ forge tx +ᶜ ∑prev ≥ᶜ v
+       -- T $ ∑₁ allPrevs₀ ≥ᶜ v
+    pv₂ = ≥ᶜ-trans {x = ∑₁ allPrevs₀} {y = ∑ᵥ (outputs tx)} {z = v} pv₁ (∑-≥ᶜ {fv = value} o∈)
+
+    pv₃ : T $ ∑₁ allPrevs ≥ᶜ v
+       -- T $ ∑₁ (filter ((_-contributesTo?- v) ∘ proj₁) allPrevs₀) ≥ᶜ v
+    pv₃ = ∑filter {xs = allPrevs₀} {v = v} pv₂
+
+    validChoices≢[] : ¬Null validChoices
+    validChoices≢[] vc≡[] = All.lookup (filter≡[] {P = λ hs → T $ ∑₁ hs ≥ᶜ v} vc≡[])
+                                       (subsequences-refl {xs = allPrevs})
+                                       pv₃
 
     traces≢[] : ¬Null traces
     traces≢[] tr≡[]
-        = ∀mapWith∈≡[] {f = λ {hs} → combine {v} hs ∘ ∑≥}
+        = ∀mapWith∈≡[] {f = λ {hs} hs∈ → combine {v} hs (∑≥ hs∈)}
                        (λ {hs} hs∈ → combine≢[] {hs = hs} {∑≥ = ∑≥ hs∈})
                        validChoices≢[]
                        (concat≡[] {xss = mapWith∈ validChoices λ {hs} → combine {v} hs ∘ ∑≥} tr≡[])

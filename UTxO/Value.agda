@@ -1,13 +1,14 @@
+{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
 open import Level          using (0ℓ)
 open import Function       using (_∘_; flip; _$_)
 open import Category.Monad using (RawMonad)
 
-open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂; ∃-syntax)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂; ∃; ∃-syntax)
 open import Data.Bool    using (Bool; true; _∧_; T)
 open import Data.Maybe   using (Maybe; just; nothing; fromMaybe)
-open import Data.Nat     using (ℕ; _+_)
+open import Data.Nat     using (ℕ; _+_; suc; _≤_)
   renaming (_≟_ to _≟ℕ_)
 open import Data.List    using (List; _∷_; []; [_]; _++_; sum; map; foldr; and; filter)
 
@@ -19,9 +20,11 @@ open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; +-identit
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
 open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
 
-open import Data.List.Membership.Propositional  using (_∈_; mapWith∈)
+open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
+open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint)
 
-open import Relation.Nullary                      using (Dec; yes; no)
+
+open import Relation.Nullary                      using (¬_; Dec; yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Nullary.Negation             using (¬?)
 open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
@@ -45,6 +48,8 @@ Quantity       = ℕ
 -- Users works with a list representation of the underlying maps/trees.
 SubValue = List (TokenName × Quantity)
 Value = List (CurrencySymbol × SubValue)
+
+QuantityId = CurrencySymbol × TokenName
 
 currencies : Value → List ℕ
 currencies = map proj₁
@@ -118,7 +123,7 @@ _≤ᶜ_ = flip _≥ᶜ_
 ∑ : ∀ {A : Set} → List A → (A → Value) → Value
 ∑ xs f = sumᶜ (map f xs)
 
-∑∈ : ∀ {A : Set} → (xs : List A) → (∀ {x} → x ∈ xs → Value) → Value
+∑∈ : ∀ {A : Set} →  (xs : List A) → (∀ {x} → x ∈ xs → Value) → Value
 ∑∈ xs f = sumᶜ (mapWith∈ xs f)
 
 ∑M : ∀ {A : Set} → List (Maybe A) → (A → Value) → Maybe Value
@@ -128,6 +133,25 @@ _≤ᶜ_ = flip _≥ᶜ_
     seqM : ∀ {A : Set} → List (Maybe A) → Maybe (List A)
     seqM []       = just []
     seqM (x ∷ xs) = ⦇ x ∷ seqM xs ⦈
+
+
+-------------------
+-- _-contributesTo_
+
+quantityIds : Value → List QuantityId
+quantityIds []             = []
+quantityIds ((c , sv) ∷ v) = go sv ++ quantityIds v
+  where
+    go : SubValue → List QuantityId
+    go []                 = []
+    go ((t , 0)     ∷ sv) = go sv
+    go ((t , suc _) ∷ sv) = (c , t) ∷ go sv
+
+_-contributesTo-_ : Rel Value 0ℓ
+v′ -contributesTo- v = ¬ Disjoint (quantityIds v′) (quantityIds v)
+
+_-contributesTo?-_ : Decidable _-contributesTo-_
+v′ -contributesTo?- v = ¬? {!!} -- ¬? ((_∈? quantityIds v′) ×-dec (_∈? quantityIds v))
 
 -------------------
 -- Properties
@@ -165,13 +189,16 @@ postulate
   ∑-∘ : ∀ {xs : List A} {g : ∀ {x} → x ∈ xs → B} {g′ : B → C} {f : C → Value}
     → ∑ (mapWith∈ xs (g′ ∘ g)) f
     ≡ ∑ (mapWith∈ xs g) (f ∘ g′)
-  ∑-++-≥ᶜ : ∀ {A : Set} {fv : A → Value} {v₁ v₂ : Value} {xs ys : List A}
+  ∑-++-≥ᶜ : ∀ {fv : A → Value} {v₁ v₂ : Value} {xs ys : List A}
     → T $ ∑ xs fv ≥ᶜ v₁
     → T $ ∑ ys fv ≥ᶜ v₂
     → T $ ∑ (xs ++ ys) fv ≥ᶜ v₁ +ᶜ v₂
   ∑-≥ᶜ : ∀ {x : A} {xs : List A} {fv : A → Value}
     → x ∈ xs
     → T $ ∑ xs fv ≥ᶜ fv x
+  ∑filter : ∀ {P : Value → Set} {xs : List (∃ P)} {v : Value}
+    → T $ ∑ xs proj₁ ≥ᶜ v
+    → T $ ∑ (filter ((_-contributesTo?- v) ∘ proj₁) xs) proj₁ ≥ᶜ v
 
   -- Properties of ∑M
   ∑M-just : ∀ {m : A → Maybe B} {f : B → Value} {g : ∀ {x} → x ∈ xs → B}
@@ -188,6 +215,9 @@ postulate
   mapᶜ∘mapᶜ         : ∀ {g : A → B} {f : B → C} → (mapᶜ f ∘ mapᶜ g) v ≡ mapᶜ (f ∘ g) v
   mapᶜ-id          : ∀ {f : A → A} → (∀ {x} → f x ≡ x) → mapᶜ f v ≡ v
 
+  -- Properties of lookupQuantity
+  ≥ᶜ-lookupQuantity : ∀ {v v′} qid → T $ v ≥ᶜ v′ → lookupQuantity qid v′ ≤ lookupQuantity qid v
+
 ≥ᶜ-refl′ : ∀ {v v′}
   → v ≡ v′
   → T $ v ≥ᶜ v′
@@ -201,7 +231,7 @@ toListᶜ∘fromListᶜ {v}
         | toListᵛ∘fromListᵛ {v = v}
         = refl
 
-unionWith-empty-id : ∀ {A : Set} {m : Map A} {f : A → Maybe A → A}
+unionWith-empty-id : ∀ {m : Map A} {f : A → Maybe A → A}
   → (∀ {x} → f x nothing ≡ x)
   → unionWith f m empty ≡ m
 unionWith-empty-id {m = m} {f = f} f≡
@@ -213,65 +243,96 @@ x+ᶜ′0≡x : ∀ {m} → m +ᵛ′ empty ≡ m
 x+ᶜ′0≡x {m} rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + fromMaybe 0 v′} (λ {x} → +-identityʳ x)
                   = refl
 
-$0-identityˡ : LeftIdentity $0 _+ᶜ_
-$0-identityˡ v = toListᶜ∘fromListᶜ {v = v}
++ᶜ-identityˡ : LeftIdentity $0 _+ᶜ_
++ᶜ-identityˡ v = toListᶜ∘fromListᶜ {v = v}
 
-$0-identityʳ : RightIdentity $0 _+ᶜ_
-$0-identityʳ v rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
++ᶜ-identityʳ : RightIdentity $0 _+ᶜ_
++ᶜ-identityʳ v rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
                  | toListᶜ∘fromListᶜ {v = v}
                  = refl
 
-$0-identity : Identity $0 _+ᶜ_
-$0-identity = $0-identityˡ , $0-identityʳ
++ᶜ-identity : Identity $0 _+ᶜ_
++ᶜ-identity = +ᶜ-identityˡ , +ᶜ-identityʳ
 
 sum-single : ∀ {v} → sumᶜ [ v ] ≡ v
-sum-single {v} rewrite $0-identityʳ v = refl
+sum-single {v} rewrite +ᶜ-identityʳ v = refl
 
 x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 : ∀ {x y} → x +ᶜ (y +ᶜ $0) ≡ $0 +ᶜ (x +ᶜ y +ᶜ $0)
 x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 {x} {y}
-  rewrite $0-identityʳ y
-        | $0-identityʳ (x +ᶜ y)
-        | $0-identityˡ (x +ᶜ y)
+  rewrite +ᶜ-identityʳ y
+        | +ᶜ-identityʳ (x +ᶜ y)
+        | +ᶜ-identityˡ (x +ᶜ y)
         = refl
 
-∑M≡just : ∀ {A : Set} {x : A} {mx : Maybe A} {P : A → Set}
+∑M≡just : ∀ {x : A} {mx : Maybe A} {P : A → Set}
  → mx ≡ just x
  → M.Any P mx
  → P x
 ∑M≡just refl (M.just p) = p
 
-drop₂ : ∀ {A : Set} {P Q : A → Set}
+∑M-[] : ∀ {f : A → Value}
+  → ∑M [] f ≡ just $0
+∑M-[] = refl
+
+drop₂ : ∀ {P Q : A → Set}
   → ∃[ v ] (P v × Q v)
   → ∃[ v ] Q v
 drop₂ (v , _ , q) = v , q
 
-drop₃ : ∀ {A : Set} {P Q : A → Set}
+drop₃ : ∀ {P Q : A → Set}
   → ∃[ v ] (P v × Q v)
   → ∃[ v ] P v
 drop₃ (v , p , _) = v , p
 
 postulate
-  ∑M-help : ∀ {A B : Set} {H : Value → Set} {xs : List A} {f : A → Maybe B} {g : B → Value}
+  ∑M-help : ∀ {xs : List A}
+              {f : A → Maybe B}
+              {g : B → Value}
+              {R : Set}
+              {go : ∀ {x} → x ∈ xs → R}
+              {r : R → Value}
+    → (∀ {x} → (x∈ : x ∈ xs) → (g <$> f x) ≡ just (r $ go x∈))
+    → ∑M (map f xs) g ≡ just (∑ (mapWith∈ xs go) r)
+
+-- ∑prevs≡ : ∀ {tx l} (vl : ValidLedger l) (vtx : IsValidTx tx l)
+--         → ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just (∑ (prevs vl vtx) resValue)
+{-
+∑prevs-∷ : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
+  → inputs tx ≡ i ∷ is
+  → ∑ (prevs vl vtx) resValue ≡ ? ∷ ?
+∑prevs-∷ refl = refl
+
+∑prevs≡ {tx@(record {inputs = []})}     {l} vl vtx = refl
+∑prevs≡ {tx@(record {inputs = i ∷ is})} {l} vl vtx
+  with getSpentOutput l i | preservesValues vtx
+... | nothing | ()
+... | just _  | _ = {!!}
+-}
+
+
+{-
+  ∑M-help : ∀ {H : Value → Set} {xs : List A} {f : A → Maybe B} {g : B → Value}
     → (p : ∀ {x} → x ∈ xs → ∃[ v ] ( H v
                                  × ((g <$> f x) ≡ just v) ))
     → ∑M (map f xs) g ≡ just (∑ (mapWith∈ xs (drop₃ ∘ p)) proj₁)
-  -- ∑M-help {xs = []}     {f = f} {g} p = refl
-  -- ∑M-help {xs = x ∷ xs} {f = f} {g} p
-  --   with p {x} (here refl)
-  -- ... | v , hv , gfx≡
-  --   with f x | gfx≡
-  -- ... | nothing | ()
-  -- ... | just fx | refl
+  ∑M-help {xs = []}     {f = f} {g} p = refl
+  ∑M-help {xs = x ∷ xs} {f = f} {g} p
+    with p {x} (here refl)
+  ... | v , hv , gfx≡
+    with f x | gfx≡
+  ... | nothing | ()
+  ... | just fx | refl
 
-    -- rewrite ∑M-help {xs = xs} {f = f} {g} (p ∘ there)
-    -- = {!cong (v +ᶜ_) ?!}
+    rewrite ∑M-help {xs = xs} {f = f} {g} (p ∘ there)
+    = {!cong (v +ᶜ_) ?!}
 
-    -- = begin
-    --     ∑M (map f (x ∷ xs)) g
-    --   ≡⟨ {!!} ⟩
-    --   --   ((v +ᶜ_) <$> ∑M (map f xs) g)
-    --   -- ≡⟨ ? ⟩
-    --   --   ((v +ᶜ_) <$> just (∑ (mapWith∈ xs (drop₃ ∘ p)) proj₁))
-    --   -- ≡⟨ ? ⟩
-    --     just (∑ (mapWith∈ (x ∷ xs) (drop₃ ∘ p)) proj₁)
-    --   ∎ where open ≡-Reasoning
+    = begin
+        ∑M (map f (x ∷ xs)) g
+      ≡⟨ {!!} ⟩
+      --   ((v +ᶜ_) <$> ∑M (map f xs) g)
+      -- ≡⟨ ? ⟩
+      --   ((v +ᶜ_) <$> just (∑ (mapWith∈ xs (drop₃ ∘ p)) proj₁))
+      -- ≡⟨ ? ⟩
+        just (∑ (mapWith∈ (x ∷ xs) (drop₃ ∘ p)) proj₁)
+      ∎ where open ≡-Reasoning
+-}

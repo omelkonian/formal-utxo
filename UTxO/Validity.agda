@@ -1,11 +1,12 @@
 {-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Validity where
 
-open import Function using (_∘_; flip)
+open import Level    using (0ℓ)
+open import Function using (_∘_; flip; _$_)
 
 open import Data.Sum             using (_⊎_)
-open import Data.Product         using (_×_; _,_; proj₁)
-open import Data.Maybe           using (Maybe;Is-just)
+open import Data.Product         using (_×_; _,_; proj₁; ∃)
+open import Data.Maybe           using (Maybe; Is-just; just)
   renaming (map to _<$>_)
 open import Data.Bool            using (T; true)
 open import Data.Bool.Properties using (T?)
@@ -18,6 +19,7 @@ open import Data.List            using (List; []; _∷_; map; length)
 open import Data.List.Relation.Unary.Any                   using (Any; any; here; there)
 open import Data.List.Relation.Unary.All                   using (All; all)
 open import Data.List.Membership.Propositional             using (_∈_; _∉_; mapWith∈)
+open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-map⁺)
 open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 open import Data.List.Relation.Binary.Suffix.Heterogeneous using (Suffix; here; there)
@@ -29,10 +31,11 @@ import Data.Maybe.Relation.Unary.Any as M
 open import Relation.Nullary                      using (Dec; ¬_; yes; no)
 open import Relation.Nullary.Product              using (_×-dec_)
 open import Relation.Nullary.Decidable            using (True; toWitness)
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary                       using (Rel; Transitive; Decidable)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong; trans; subst; inspect)
+  renaming ([_] to ≡[_])
 
-open import Prelude.Lists using (enumerate; Suffix≡)
+open import Prelude.Lists
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -132,6 +135,10 @@ _⊕_ : ∀ {l}
 ----------------------
 -- Properties.
 
+outputsₘ : ∃ ValidLedger → List TxOutput
+outputsₘ ([]     , _) = []
+outputsₘ (tx ∷ _ , _) = outputs tx
+
 valid-suffix : ∀ {l l′}
   → ValidLedger l
   → Suffix≡ l′ l
@@ -156,3 +163,107 @@ suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
 --   → ∃[ tx′ ] ( (tx′ ∈ l)
 --              × (tx′ ♯ ≡ id o) )
 -- traceRef {tx} {l} (vl ⊕ .tx ∶- vtx) o o∈ = {!!}
+
+--------------------------------------------------------
+-- Well-founded recursion on suffixes of the ledger.
+
+open import Induction
+open import Induction.WellFounded
+
+infix 4 _≼_ _≼′_ _≺_ _≺′_
+
+_≼_ : Rel Ledger 0ℓ
+_≼_ = Suffix≡
+
+_≺_ : Rel Ledger 0ℓ
+l′ ≺ l = ∃ λ tx → tx ∷ l′ ≼ l
+
+_≼′_ : Rel (∃ ValidLedger) 0ℓ
+(l′ , _) ≼′ (l , _) = l′ ≼ l
+
+_≺′_ : Rel (∃ ValidLedger) 0ℓ
+(l , _) ≺′ (l′ , _) = l ≺ l′
+
+postulate
+  ≺-trans  : Transitive _≺_
+  ≺-transˡ : ∀ {x y z} → x ≼ y → y ≺ z → x ≺ z
+  ≺-∑forge : ∀ {l′ l} → l′ ≺ l → T $ ∑ l forge ≥ᶜ ∑ l′ forge
+
+≺-wf : WellFounded _≺_
+≺-wf l = acc $ go l
+  where
+    go : ∀ l l′ → l′ ≺ l → Acc _≺_ l′
+    go (_ ∷ l) l′ (_ , here (refl ∷ eq)) = acc λ y y<l′ → go l y (subst (y ≺_) (Pointwise-≡⇒≡ eq) y<l′)
+    go (_ ∷ l) l′ (_ , there l′<l)       = acc λ y y<l′ → go l y (≺-trans y<l′ (_ , l′<l))
+
+≺′-wf : WellFounded _≺′_
+≺′-wf vl = vl ≺′⇒≺ ≺-wf (proj₁ vl)
+  where
+    _≺′⇒≺_ : ∀ vl → Acc _≺_ (proj₁ vl) → Acc _≺′_ vl
+    (l , _) ≺′⇒≺ acc w = acc λ{ (l′ , _) l′<l → (l′ , _) ≺′⇒≺ w l′ l′<l }
+
+≺′-rec = All.wfRec ≺′-wf 0ℓ
+
+--------------------------------------------------------
+-- Packing up useful information about all predecessors
+-- (i.e. the inputs of a transaction)
+
+record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : Set where
+  field
+    prevTx   : Tx
+    l′       : Ledger
+    prevOut  : TxOutput
+    vl′      : ValidLedger (prevTx ∷ l′)
+    prevOut∈ : prevOut ∈ outputs prevTx
+    vl′≺vl   : (prevTx ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
+    spent≡   : ∃ λ i → getSpentOutput l i ≡ just prevOut
+
+resValue : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} → Res vl vtx → Value
+resValue = value ∘ Res.prevOut
+
+prevs : ∀ {tx l} (vl : ValidLedger l) (vtx : IsValidTx tx l) → List (Res vl vtx)
+prevs {tx} {l} vl vtx
+  = mapWith∈ (inputs tx) go
+  module P₀ where
+    go : ∀ {i} → i ∈ inputs tx → Res vl vtx
+    go {i} i∈
+      with u , u∈ , refl           ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
+      with prev∈ , prevOut∈ , refl ← ∈utxo⇒outRef≡ {l = l} u∈
+      with l′ , suf                ← ∈⇒Suffix prev∈
+        = record { prevTx   = prevTx u
+                 ; l′       = l′
+                 ; prevOut  = out u
+                 ; vl′      = vl′
+                 ; prevOut∈ = prevOut∈
+                 ; vl′≺vl   = vl′≺vl
+                 ; spent≡   = i , utxo-getSpent {l = l} u∈ }
+        where
+         v   = value $ out u
+         vl′ = valid-suffix vl suf
+
+         vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
+         vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
+         -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
+
+∑prevs≡ : ∀ {tx l} (vl : ValidLedger l) (vtx : IsValidTx tx l)
+        → ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just (∑ (prevs vl vtx) resValue)
+∑prevs≡ {tx} {l} vl vtx = ∑M-help {A = TxInput} {xs = inputs tx} {f = getSpentOutput l} {g = value}
+                                  {R = Res vl vtx} {go = go} {r = resValue} (cong (value <$>_) ∘ s≡)
+  where
+    open P₀ vl vtx
+
+    i′≡ : ∀ {i} i∈ → proj₁ (Res.spent≡ $ go {i} i∈) ≡ i
+    i′≡ {i} i∈
+      with u , u∈ , refl           ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
+      with prev∈ , prevOut∈ , refl ← ∈utxo⇒outRef≡ {l = l} u∈
+      with l′ , suf                ← ∈⇒Suffix prev∈
+         = refl
+
+    s≡ : ∀ {i} i∈ → getSpentOutput l i ≡ just (Res.prevOut $ go {i} i∈)
+    s≡ {i} i∈
+      with Res.spent≡ (go {i} i∈) | inspect Res.spent≡ (go {i} i∈)
+    ... | i′ , spent≡ | ≡[ go≡ ]
+         = trans (cong (getSpentOutput l) i≡) spent≡
+      where
+        i≡ : i ≡ i′
+        i≡ = trans (sym $ i′≡ {i} i∈) (cong proj₁ go≡)

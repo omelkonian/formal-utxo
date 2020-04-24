@@ -7,7 +7,6 @@ open import UTxO.Value
 open import UTxO.Types
 open import UTxO.TxUtilities
 open import UTxO.Validity
-open import UTxO.Induction
 
 open import UTxO.ExampleLedger
 
@@ -24,4 +23,4 @@ open import Bisimulation
 
 open import UTxO.GlobalPreservation
 open import UTxO.Provenance
--- open import UTxO.RecallProtection
+open import UTxO.ProvenanceNF

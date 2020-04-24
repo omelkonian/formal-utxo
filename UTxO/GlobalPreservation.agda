@@ -98,7 +98,7 @@ globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
 
           ∑map≡∑filter : ∑ (mapWith∈ (outputRefs tx) getUTXO) (value ∘ out)
                        ≡ ∑ (filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
-          ∑map≡∑filter = ↭⇒≡ $0-identity +ᶜ-comm (map⁺ (value ∘ out) map↭filter)
+          ∑map≡∑filter = ↭⇒≡ +ᶜ-identity +ᶜ-comm (map⁺ (value ∘ out) map↭filter)
 
     pv : forge tx +ᶜ ∑in vl₀ ≡ fee tx +ᶜ ∑ (outputs tx) value
     pv = proj₂ (proj₂ (view-pv (preservesValues vtx)))

@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.TxUtilities where
 
 open import Level          using (0ℓ)
@@ -8,7 +7,7 @@ open import Category.Monad using (RawMonad)
 open import Data.Empty   using (⊥; ⊥-elim)
 open import Data.Unit    using (⊤; tt)
 open import Data.Bool    using (Bool; T)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax; Σ-syntax; map₁)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃; ∃-syntax; Σ-syntax; map₁)
 open import Data.Maybe   using (Maybe; just; nothing; maybe)
 open import Data.Sum     using (inj₁; inj₂)
 open import Data.Nat     using (ℕ; zero; suc; _+_; _<_)
@@ -182,7 +181,15 @@ toPendingMPS l tx i = record
   { this   = i
   ; txInfo = mkTxInfo l tx }
 
+--
+
 ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
   let ptx = toPendingTx l tx (Any.index i∈)
   in  (TxInfo.inputInfo (txInfo ptx) ‼ this ptx) ≡ mkInputInfo l i
 ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl
+
+∑₁ : ∀ {H : Value → Set} → List (∃ H) → Value
+∑₁ = flip ∑ proj₁
+
+∑ᵥ : List TxOutput → Value
+∑ᵥ = flip ∑ value
