@@ -23,12 +23,13 @@ open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
 open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
 open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint)
 
-
 open import Relation.Nullary                      using (¬_; Dec; yes; no)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Nullary.Negation             using (¬?)
 open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
+
+open import Prelude.Lists
 
 open import UTxO.Hashing.Base
 
@@ -53,6 +54,9 @@ QuantityId = CurrencySymbol × TokenName
 
 currencies : Value → List ℕ
 currencies = map proj₁
+
+singleToken : QuantityId → Value
+singleToken (c , t) = [ c , [ t , 1 ] ]
 
 $0 : Value
 $0 = []
@@ -167,9 +171,8 @@ postulate
   -- Properties of _+ᶜ_
   +ᶜ-comm  : Commutative _+ᶜ_
   +ᶜ-assoc : Associative _+ᶜ_
-  +ᶜ-≡⇒≥ᶜ : ∀ {x y z w}
-    → T $ x +ᶜ y ≥ᶜ z +ᶜ w
-    → T $ x +ᶜ y ≥ᶜ w
+  +ᶜ-≡⇒≥ᶜ  : ∀ {x z w} → T $ x ≥ᶜ z +ᶜ w → T $ x ≥ᶜ w
+  +ᶜ-≡⇒≤ᶜ : ∀ {v v₁ v₂} → v ≡ v₁ +ᶜ v₂ → T $ v₂ ≤ᶜ v
 
   -- Properties of _≥ᶜ_
   ≥ᶜ-refl  : ∀ v → T (v ≥ᶜ v)
@@ -215,8 +218,32 @@ postulate
   mapᶜ∘mapᶜ         : ∀ {g : A → B} {f : B → C} → (mapᶜ f ∘ mapᶜ g) v ≡ mapᶜ (f ∘ g) v
   mapᶜ-id          : ∀ {f : A → A} → (∀ {x} → f x ≡ x) → mapᶜ f v ≡ v
 
-  -- Properties of lookupQuantity
-  ≥ᶜ-lookupQuantity : ∀ {v v′} qid → T $ v ≥ᶜ v′ → lookupQuantity qid v′ ≤ lookupQuantity qid v
+  -- Properties of lookupQuantity/-contributesTo-
+  ≥ᶜ-lookupQuantity : ∀ {v v′} qid
+    → T $ v ≥ᶜ v′
+    → lookupQuantity qid v′ ≤ lookupQuantity qid v
+
+  lookup-reject : ∀ {qid v vs}
+    → ¬ (v -contributesTo- singleToken qid)
+    → lookupQuantity qid (v +ᶜ vs) ≡ lookupQuantity qid vs
+
+  lookup≤1⇒count≤1 : ∀ {qid vs}
+    → lookupQuantity qid (sumᶜ vs) ≤ 1
+    → count (_-contributesTo?- (singleToken qid)) vs ≤ 1
+
+  lookup-contrib : ∀ {qid v vs n}
+    → lookupQuantity qid (v +ᶜ vs) ≤ (suc n)
+    → v -contributesTo- singleToken qid
+    → lookupQuantity qid vs ≤ n
+
+  lookup≡0⇒count≡0 : ∀ {qid vs}
+    → lookupQuantity qid (sumᶜ vs) ≡ 0
+    → count (_-contributesTo?- singleToken qid) vs ≡ 0
+
+  ≤ᶜ⇒lookup≤ : ∀ {qid v v′}
+    → T $ v′ ≤ᶜ v
+    → lookupQuantity qid v′ ≤ lookupQuantity qid v
+
 
 ≥ᶜ-refl′ : ∀ {v v′}
   → v ≡ v′

@@ -188,7 +188,7 @@ history l = go l (≺′-wf l)
     pv₀ = ∑M≡just lookupOutputs≡′ (preservesValues vtx)
 
     pv₁ : T $ forge tx +ᶜ ∑prev ≥ᶜ ∑ᵥ (outputs tx)
-    pv₁ = +ᶜ-≡⇒≥ᶜ {x = forge tx} {y = ∑prev} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
+    pv₁ = +ᶜ-≡⇒≥ᶜ {x = forge tx +ᶜ ∑prev} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
 
     pv₂ : T $ forge tx +ᶜ ∑prev ≥ᶜ v
        -- T $ ∑₁ allPrevs₀ ≥ᶜ v

@@ -1,7 +1,7 @@
 module UTxO.ProvenanceNF where
 
 open import Function
-open import Level
+open import Level using (0ℓ)
 open import Induction.WellFounded
 
 open import Data.Empty
@@ -9,7 +9,7 @@ open import Data.Unit using (⊤; tt)
 open import Data.Product hiding (map)
 open import Data.Bool using (T)
 open import Data.Bool.Properties using (T?)
-open import Data.Nat using (_≤_)
+open import Data.Nat using (suc; _≤_)
 open import Data.Nat.Properties using (≤-trans)
 open import Data.List
 open import Data.List.NonEmpty as NE using (List⁺; _∷_)
@@ -18,13 +18,15 @@ open import Data.List.Membership.Propositional.Properties
 open import Data.List.Properties
 open import Data.List.Relation.Unary.Any hiding (map)
 open import Data.List.Relation.Unary.All as All hiding (map; Null; lookup)
+open import Data.List.Relation.Binary.Sublist.Propositional using (_⊆_)
 
 open import Relation.Nullary
 open import Relation.Nullary.Decidable hiding (map)
-open import Relation.Unary as Unary using (Pred; _⊆_)
+open import Relation.Unary as Unary using (Pred)
 open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 open Eq.≡-Reasoning
 
+open import Prelude.General
 open import Prelude.Lists
 
 open import UTxO.Hashing.Base
@@ -34,35 +36,26 @@ open import UTxO.Types
 open import UTxO.TxUtilities
 open import UTxO.Validity
 open import UTxO.Provenance
+open import UTxO.GlobalPreservation
 
-NF-Token : Set
-NF-Token = CurrencySymbol × TokenName
+NF-Token = QuantityId -- = CurrencySymbol × TokenName
 
-mkSingle : NF-Token → Value
-mkSingle (c , t) = [ c , [ t , 1 ] ]
 
 NF-Output : TxOutput → NF-Token → Set
 NF-Output (record {value = v}) nft
-  = (v ≡ mkSingle nft)
+  = (v ≡ singleToken nft)
   × (∀ v′ → v′ -contributesTo- v → v′ ≡ v)
-  -- ^ NB. We do not allow mixing the NF-token with other values
+  -- ^ NB. We do not allow mixing the NF-token with other values (c.f. Github issue #15)
 
 NonFungible : ∃ ValidLedger → NF-Token → Set
-NonFungible (l , _) nfv = lookupQuantity nfv (∑ l forge) ≤ 1
-
-postulate
-  NF-postulate : ∀ {nft tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} {o}
-    → NF-Output o nft
-    → NonFungible (_ , vl ⊕ tx ∶- vtx) nft
-    → AtMostSingleton $ filter (_-contributesTo?- value o) (forge tx ∷ map resValue (prevs vl vtx))
+NonFungible (l , _) nft = lookupQuantity nft (∑ l forge) ≤ 1
 
 NF-weaken : ∀ {nft l l′}
   → l′ ≺′ l
   → NonFungible l nft
   → NonFungible l′ nft
-NF-weaken {nft} {l , _} {l′ , _} vl′≺ nf =
-  ≤-trans (≥ᶜ-lookupQuantity {v = ∑ l forge} {v′ = ∑ l′ forge} nft $ ≺-∑forge vl′≺)
-          nf
+NF-weaken {nft} {l , _} {l′ , _} vl′≺ =
+  ≤-trans (≤ᶜ⇒lookup≤ {qid = nft} {v = ∑ l forge} {v′ = ∑ l′ forge} $ ≺-∑forge vl′≺)
 
 nonFungibleProvenance : ∀ l → ∀ {o} (o∈ : o ∈ outputsₘ l) (nft : NF-Token)
   → NF-Output o nft
@@ -85,14 +78,67 @@ nonFungibleProvenance l
      where
       open M₂ {o} tx l vl vtx a {o} o∈
 
+      frg = forge tx
+      nfv = singleToken nft
+      P?  = T? ∘ (_≥ᶜ v) ∘ ∑₁
+      cv? = (_-contributesTo?- singleToken nft)
+      cv₁? = (_-contributesTo?- v) ∘ proj₁
+
+      nf′ : AtMostSingleton $ filter (_-contributesTo?- value o) (forge tx ∷ map resValue (prevs vl vtx))
+      nf′ rewrite proj₁ nfo = qed
+        where
+          ∑utxo  = ∑ (utxo l) (value ∘ out)
+          ∑forge = ∑ l forge
+
+          ∑utxo≤∑forge : T $ ∑utxo ≤ᶜ ∑forge
+          ∑utxo≤∑forge = +ᶜ-≡⇒≤ᶜ {v₁ = ∑ l fee} {v₂ = ∑utxo} $ globalPreservation {l} {vl}
+
+          lookup≤ₗ : lookupQuantity nft ∑utxo ≤ lookupQuantity nft ∑forge
+          lookup≤ₗ = ≤ᶜ⇒lookup≤ {qid = nft} {v = ∑forge} {v′ = ∑utxo} ∑utxo≤∑forge
+
+          count≤ₗ : count cv? (map resValue rs) ≤ count cv? (map (value ∘ out) (utxo l))
+          count≤ₗ = ⊆⇒count≤ cv? (prevs⊆utxo {tx} {l} {vl} {vtx})
+
+          qed : AtMostSingleton $ filter cv? (frg ∷ map resValue rs)
+          qed
+            with cv? frg
+          ... | no ¬p = ams-filter-reject cv? ¬p qed′
+            where
+              lookup≤ᵣ : lookupQuantity nft ∑forge ≤ 1
+              lookup≤ᵣ = subst (_≤ 1) (lookup-reject {v = frg} {vs = ∑forge} ¬p) nf₀
+
+              lookup≤ : lookupQuantity nft ∑utxo ≤ 1
+              lookup≤ = ≤-trans lookup≤ₗ lookup≤ᵣ
+
+              count≤ᵣ : count cv? (map (value ∘ out) (utxo l)) ≤ 1
+              count≤ᵣ = lookup≤1⇒count≤1 {qid = nft} {vs = map (value ∘ out) (utxo l)} lookup≤
+
+              count≤ : count cv? (map resValue rs) ≤ 1
+              count≤ = ≤-trans count≤ₗ count≤ᵣ
+
+              qed′ : AtMostSingleton $ filter cv? (map resValue rs)
+              qed′ = length≤1⇒ams count≤
+
+          ... | yes p = ams-filter-accept cv? p qed′
+            where
+              lookup≤ᵣ : lookupQuantity nft ∑forge ≤ 0
+              lookup≤ᵣ = lookup-contrib {qid = nft} {v = frg} {vs = ∑forge} {n = 0} nf₀ p
+
+              lookup≡ : lookupQuantity nft ∑utxo ≡ 0
+              lookup≡ = ≤0⇒≡0 $ ≤-trans lookup≤ₗ lookup≤ᵣ
+
+              count≡0′ : count cv? (map (value ∘ out) (utxo l)) ≡ 0
+              count≡0′ = lookup≡0⇒count≡0 {qid = nft} {vs = map (value ∘ out) (utxo l)} lookup≡
+
+              count≡0 : count cv? (map resValue rs) ≡ 0
+              count≡0 = ≤0⇒≡0′ count≡0′ count≤ₗ
+
+              qed′ : Null $ filter cv? (map resValue rs)
+              qed′ = count≡0⇒null-filter {xs = map resValue rs} cv? count≡0
+
       nf : AtMostSingleton allPrevs
       nf = ams-filter-map {xs = allPrevs₀} {f = proj₁} {P? = _-contributesTo?- v}
-         $ subst (AtMostSingleton ∘ filter (_-contributesTo?- v)) proj₁-ap≡ (NF-postulate {o = o} nfo nf₀)
-
-      frg = forge tx
-      nfv = mkSingle nft
-      P?  = T? ∘ (_≥ᶜ v) ∘ ∑₁
-      cv? = (_-contributesTo?- v) ∘ proj₁
+         $ subst (AtMostSingleton ∘ filter (_-contributesTo?- v)) proj₁-ap≡ nf′
 
       rec′ : ∀ {x} → x ∈ prevHistories → proj₁ x -contributesTo- v → Singleton⁺ (proj₂ x)
       rec′ {hᵥ , h} x∈ hᵥ-contribs
@@ -124,16 +170,16 @@ nonFungibleProvenance l
         with frg -contributesTo?- v
       ... | yes p = construct-∃Singleton² ap≡
         where
-          nfˡ : AtMostSingleton (forgeHistory ∷ filter cv? prevHistories)
-          nfˡ = subst AtMostSingleton (filter-accept cv? p) nf
+          nfˡ : AtMostSingleton (forgeHistory ∷ filter cv₁? prevHistories)
+          nfˡ = subst AtMostSingleton (filter-accept cv₁? p) nf
 
-          filter≡ : filter cv? prevHistories ≡ []
+          filter≡ : filter cv₁? prevHistories ≡ []
           filter≡ = ams-single nfˡ
 
           ap≡ : allPrevs ≡ [ forgeHistory ]
-          ap≡ = begin allPrevs                                ≡⟨ filter-accept cv? p ⟩
-                      forgeHistory ∷ filter cv? prevHistories ≡⟨ cong (forgeHistory ∷_) filter≡ ⟩
-                      [ forgeHistory ]                        ∎
+          ap≡ = begin allPrevs                                 ≡⟨ filter-accept cv₁? p ⟩
+                      forgeHistory ∷ filter cv₁? prevHistories ≡⟨ cong (forgeHistory ∷_) filter≡ ⟩
+                      [ forgeHistory ]                         ∎
 
       ... | no ¬p = s-ap , s-ap²
         where

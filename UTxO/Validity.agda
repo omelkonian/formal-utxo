@@ -267,3 +267,8 @@ prevs {tx} {l} vl vtx
       where
         i≡ : i ≡ i′
         i≡ = trans (sym $ i′≡ {i} i∈) (cong proj₁ go≡)
+
+postulate
+  prevs⊆utxo : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
+    → map resValue (prevs vl vtx)
+    ⊆ map (value ∘ out) (utxo l)
