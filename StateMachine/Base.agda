@@ -100,19 +100,23 @@ module CEM
   stepₛₘ   = step sm
   originₛₘ = origin sm
 
-
   spentsOrigin : TxInfo → Bool
   spentsOrigin txi =
     originₛₘ >>=ₜ λ o → ⌊ o SETₒ.∈? map InputInfo.outputRef (TxInfo.inputInfo txi) ⌋
 
+  𝕍 : HashId
+
   policyₛₘ : MonetaryPolicy
   policyₛₘ pti@(record {this = c; txInfo = txi})
-    = ⌊ lookupQuantity (c , c) (TxInfo.forge txi) ≟ℕ 1 ⌋
+    = ⌊ lookupQuantity (c , 𝕋) (TxInfo.forge txi) ≟ℕ 1 ⌋
     ∧ spentsOrigin txi
-    ∧ (case outputsOf (c , c) pti of λ
-        { (o ∷ []) → fromMaybe false $
-                       lookupDatumPtx (OutputInfo.datumHash o) pti >>= fromData >>= pure ∘ initₛₘ
-        ; _        → false })
+    ∧ (case outputsOf (c , 𝕋) pti of λ
+        { (record {validatorHash = v♯; datumHash = d♯} ∷ [])
+          → ⌊ v♯ ≟ℕ 𝕍 ⌋
+          ∧ (fromMaybe false $ lookupDatumPtx d♯ pti >>= fromData >>= pure ∘ initₛₘ)
+        ; _ → false })
+    where
+      𝕋 = fromMaybe c ⦇ originₛₘ ♯ₒᵣ ⦈
 
   ℂ : CurrencySymbol
   ℂ = policyₛₘ ♯
@@ -141,7 +145,6 @@ module CEM
           case outs of λ{ (o ∷ []) → ⌊ OutputInfo.datumHash o ≟ℕ toData st ♯ᵈ ⌋
                         ; _        → false }
 
-  𝕍 : HashId
   𝕍 = validatorₛₘ ♯
 
   -- Create a transaction input.
