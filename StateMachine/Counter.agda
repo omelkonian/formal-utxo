@@ -51,7 +51,7 @@ isInitial CounterSM (counter _     ) = false
 isFinal   CounterSM _ = false
 step      CounterSM (counter i) inc =
   just (counter (Data.Integer.suc i) , def Default-TxConstraints)
-origin    CounterSM = nothing -- this will probably break initiality
+origin    CounterSM = nothing
 
 -- Some basic properties of this machine
 
@@ -72,6 +72,12 @@ lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤
 -- initial state is valid
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
+
+
+--
+
+liveness : ∀ s → Σ CounterInput λ i → Σ CounterState λ s' → s —→[ i ] s'
+liveness (counter x) = inc , _ , _ , refl
 
 --
 
@@ -106,4 +112,19 @@ lemmaP P X p s q v with completeness {s = s} p q
 lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
   inj₁ (s′ , X (tx≡ , r) v , r′ refl)
 lemmaP P X p s q v | inj₂ r = inj₂ r
+
+-- liveness on chain
+
+open import Bisimulation.Soundness {sm = CounterSM}
+
+-- not sure what to do about satisfiability
+
+liveness-lem : ∀ {l vl} s → vl ~ s →
+  Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl'
+liveness-lem s b =
+ let
+   i , s' , tx≡ , p = liveness s
+   tx , vtx , vl' , p , b' , X = soundness refl p b {!!}
+  in
+    tx , vtx , vl' , p
 

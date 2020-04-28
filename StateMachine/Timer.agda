@@ -89,6 +89,8 @@ progress (timer (+_ (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))
 progress (timer (ℤ.negsuc n)) (inj₂ (inj₁ ()))
 progress (timer (ℤ.negsuc n)) (inj₂ (inj₂ ()))
 
+
+
 --
 
 open CEM {sm = TimerSM}
@@ -111,6 +113,9 @@ lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
 lemma p s q v | inj₂ r = inj₂ r
 -}
 
+-- this isn't very satisfactory
+-- v
+
 lemma : ∀{tx l}
   → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
   → vl —→[ tx ∶- vtx ] vl′
@@ -121,3 +126,15 @@ lemma p s q v with completeness {s = s} p q
 lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
   inj₁ (s′ , i , lemma-step (tx≡ , r) v , tx≡ , r)
 lemma p s q v | inj₂ r = inj₂ r
+
+open import Bisimulation.Soundness {sm = TimerSM}
+
+lemmaProgress : ∀{l}
+  → (vl : ValidLedger l)
+  → ∀ s → vl ~ s
+  → Valid s
+  → (Σ TimerState λ s′ → Σ TimerInput λ t → Valid s′ × s —→[ t ] s′)
+  ⊎ T (isFinal TimerSM s) -- s is final, so no progress possible
+lemmaProgress p s q v with progress s v
+... | inj₁ (s' , i , r) = {!soundness!}
+... | inj₂ r = inj₂ r
