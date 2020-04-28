@@ -79,6 +79,9 @@ open CEM {sm = TimerSM}
 open import Bisimulation.Base {sm = TimerSM} hiding (_—→[_]_)
 open import Bisimulation.Completeness {sm = TimerSM}
 
+-- This doesn't work for final states
+
+{-
 lemma : ∀{tx l}
   → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
   → vl —→[ tx ∶- vtx ] vl′
@@ -87,5 +90,17 @@ lemma : ∀{tx l}
   → (Σ TimerState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
 lemma p s q v with completeness {s = s} p q
 lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , lemma-step (tx≡ , r) v , {!!})
+  inj₁ (s′ , lemma-step (tx≡ , r) v , {!r′!})
+lemma p s q v | inj₂ r = inj₂ r
+-}
+
+lemma : ∀{tx l}
+  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
+  → vl —→[ tx ∶- vtx ] vl′
+  → ∀ s → vl ~ s
+  → Valid s
+  → (Σ TimerState λ s′ → Σ TimerInput λ t → Valid s′ × s —→[ t ] s′) ⊎ vl′ ~ s
+lemma p s q v with completeness {s = s} p q
+lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
+  inj₁ (s′ , i , lemma-step (tx≡ , r) v , tx≡ , r)
 lemma p s q v | inj₂ r = inj₂ r

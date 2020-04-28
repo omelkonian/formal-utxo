@@ -2,11 +2,15 @@ module StateMachine.TeaCoffee where
 
 open import StateMachine.Base
 open import UTxO.Types
+open import Prelude.Default
 
 open import Data.List
 open import Data.Maybe
 open import Relation.Binary.PropositionalEquality
 open import Data.Nat
+open import Data.Product
+open import Data.Bool
+open import Data.Unit
 
 data State : Set where
   P₁ P₂ P₃ P₄ : _
@@ -73,3 +77,65 @@ instance
   from-inj ⦃ IsData-CI ⦄ (H n) s ()
   from-inj ⦃ IsData-CI ⦄ (LIST xs) s ()
   from-inj ⦃ IsData-CI ⦄ (MAP xs) s ()
+
+SM : StateMachine State Input
+isInitial SM s = false -- can you return to the initial state? P₁ would work
+isFinal SM s = false
+step SM P₁ coin  = just (P₂ , def Default-TxConstraints)
+step SM P₁ _ = nothing
+step SM P₂ request-tea = just (P₃ , def Default-TxConstraints)
+step SM P₂ request-coffee = just (P₄ , def Default-TxConstraints)
+step SM P₂ _ = nothing
+step SM P₃ tea = just (P₁ , def Default-TxConstraints)
+step SM P₃ _ = nothing
+step SM P₄ coffee = just (P₁ , def Default-TxConstraints)
+step SM P₄ _ = nothing
+origin SM = nothing
+
+_—→[_]_ : State → Input → State → Set
+s —→[ i ] s′ =
+    Σ TxConstraints λ tx≡ → step SM s i ≡ just (s′ , tx≡)
+
+-- all states are valid here
+
+Valid : State → Set
+Valid s = ⊤
+
+lemma-step : ∀{s s' : State}{i : Input} → s —→[ i ] s' → Valid s → Valid s'
+lemma-step p _ = _
+
+-- completeness already gives us that a step from a state machine
+-- state goes to a state machine state
+
+-- a trace of execution
+
+data _—→[_]+_ s : List Input → State → Set where
+  one  : ∀{i s'} → s —→[ i ] s' → s —→[ Data.List.[ i ] ]+ s'
+  cons : ∀{i s' is s''} → s —→[ i ] s' → s' —→[ is ]+ s'' → s —→[ i ∷ is ]+ s''
+
+-- predicate on the incoming state holding somewhere in a trace
+
+data Any—→S {s} : ∀{is s'} → (P : State → Set) → s —→[ is ]+ s' → Set where
+  here : ∀{i s' P} → P s → (p : s —→[ i ] s') → Any—→S P (one p)
+  there : ∀{i s' is s'' P}(p : s —→[ i ] s')(ps : s' —→[ is ]+ s'')
+    → Any—→S P ps
+    → Any—→S P (cons p ps)
+
+-- predicate on the input holding somewhere in a trace
+
+data Any—→I {s} : ∀{is s'} → (P : Input → Set) → s —→[ is ]+ s' → Set where
+  here : ∀{i s' P} → P i → (p : s —→[ i ] s') → Any—→I P (one p)
+  there : ∀{i s' is s'' P}(p : s —→[ i ] s')(ps : s' —→[ is ]+ s'')
+    → Any—→I P ps
+    → Any—→I P (cons p ps)
+
+-- sequence of predicates on the input ...P...Q...R... holding
+-- sequentially in a trace
+
+data Any—→Is {s} : ∀{is s'} → (Ps : List (Input → Set)) → s —→[ is ]+ s' → Set
+  where
+  here : ∀{i s' is s'' P Ps}(p : P i)(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
+    → Any—→Is Ps qs → Any—→Is (P ∷ Ps) (cons q qs)
+  there : ∀{i s' is s'' Ps}(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
+    → Any—→Is Ps qs → Any—→Is Ps (cons q qs)
+
