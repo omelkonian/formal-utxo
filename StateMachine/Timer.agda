@@ -72,6 +72,23 @@ lemma-step {timer (+ 8)}  {timer (+ 9)} (tx≡ , p) v = inj₂ (inj₁ (+<+ (s�
 lemma-step {timer (+ 9)}  {timer (+ 10)} (tx≡ , p) v = inj₂ (inj₂ _)
 lemma-step {timer (ℤ.negsuc n)} (tx≡ , ()) v
 
+progress : ∀ s → Valid s → 
+  (Σ TimerState λ s' → Σ TimerInput λ i → s —→[ i ] s') ⊎ T (isFinal TimerSM s)
+progress (timer (+ 0)) p = inj₁ (timer (+ 1) , inc , _ , refl)
+progress (timer (+ 1)) p = inj₁ (timer (+ 2) , inc , _ , refl) 
+progress (timer (+ 2)) p = inj₁ (timer (+ 3) , inc , _ , refl)
+progress (timer (+ 3)) p = inj₁ (timer (+ 4) , inc , _ , refl)
+progress (timer (+ 4)) p = inj₁ (timer (+ 5) , inc , _ , refl)
+progress (timer (+ 5)) p = inj₁ (timer (+ 6) , inc , _ , refl)
+progress (timer (+ 6)) p = inj₁ (timer (+ 7) , inc , _ , refl)
+progress (timer (+ 7)) p = inj₁ (timer (+ 8) , inc , _ , refl)
+progress (timer (+ 8)) p = inj₁ (timer (+ 9) , inc , _ , refl)
+progress (timer (+ 9)) p = inj₁ (timer (+ 10) , inc , _ , refl)
+progress (timer (+ 10)) p = inj₂ _
+progress (timer (+_ (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))) (inj₂ (inj₁ (_ , +<+ (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s ())))))))))))))
+progress (timer (ℤ.negsuc n)) (inj₂ (inj₁ ()))
+progress (timer (ℤ.negsuc n)) (inj₂ (inj₂ ()))
+
 --
 
 open CEM {sm = TimerSM}
