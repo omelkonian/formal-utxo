@@ -118,6 +118,13 @@ lemma p s q v | inj₂ r = inj₂ r
 
 open import Bisimulation.Soundness {sm = TimerSM}
 
+open import Data.List.Relation.Unary.All
+
+lemmaSat : ∀ {s l} {vl : ValidLedger l}
+  → (p : vl ~ s)
+  → Satisfiable {s}{l}{vl} (def Default-TxConstraints) p
+lemmaSat p = refl , (refl , (λ tx → []))
+
 lemmaProgress : ∀{l}
   → (vl : ValidLedger l)
   → ∀ s → vl ~ s
@@ -128,7 +135,7 @@ lemmaProgress : ∀{l}
 lemmaProgress p s q v with progress s v
 ... | inj₁ (s' , i , (tx≡ , r)) =
   let
-    tx , vtx , vl' , p' , b , X = soundness r q {!!}
+    tx , vtx , vl' , p' , b , X = soundness {s = s} r q {!lemmaSat q!}
   in
     inj₁ (tx , (vtx , vl' , p'))
 ... | inj₂ r            = inj₂ r

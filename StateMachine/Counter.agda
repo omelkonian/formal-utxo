@@ -120,12 +120,22 @@ open import Bisimulation.Soundness {sm = CounterSM}
 -- not sure what to do about satisfiability
 -- the constraints are trivial/default so it should be ok 
 
+
+open import Data.List.Relation.Unary.All
+
+lemmaSat : ∀ {s l} {vl : ValidLedger l}
+  → (p : vl ~ s)
+  → Satisfiable {s}{l}{vl} (def Default-TxConstraints) p
+lemmaSat p = refl , (refl , (λ tx → []))
+
+livesat-lem : ∀ s → (proj₁ (proj₂ (proj₂ (liveness s)))) ≡ def Default-TxConstraints
+livesat-lem (counter x) = refl
+
 liveness-lem : ∀ {l vl} s → vl ~ s →
   Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl'
-liveness-lem s b =
+liveness-lem {l}{vl} s@(counter x) b =
  let
    i , s' , tx≡ , p = liveness s
-   tx , vtx , vl' , p , b' , X = soundness p b {!!}
+   tx , vtx , vl' , p , b' , X = soundness {s = s} p b (lemmaSat {s}{l}{vl} b)
   in
     tx , vtx , vl' , p
-
