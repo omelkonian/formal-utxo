@@ -85,7 +85,7 @@ record StateMachine (S I : Set) {{_ : IsData S}} {{_ : IsData I}} : Set where
   constructor SM[_,_,_]
   field
     isInitial : S → Bool
-    isFinal   : S → Bool
+--    isFinal   : S → Bool
     step      : S → I → Maybe (S × TxConstraints)
     origin    : Maybe TxOutputRef
 
@@ -96,7 +96,7 @@ module CEM
   where
 
   initₛₘ   = isInitial sm
-  finalₛₘ  = isFinal sm
+--  finalₛₘ  = isFinal sm
   stepₛₘ   = step sm
   originₛₘ = origin sm
 
@@ -139,9 +139,9 @@ module CEM
 
       outputsOK : S → Bool
       outputsOK st =
-        if finalₛₘ st then
-          null outs
-        else
+ --       if finalₛₘ st then
+ --         null outs
+ --       else
           case outs of λ{ (o ∷ []) → ⌊ OutputInfo.datumHash o ≟ℕ toData st ♯ᵈ ⌋
                         ; _        → false }
 

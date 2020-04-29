@@ -72,7 +72,7 @@ instance
 
 GameStateMachine : StateMachine GameState GameInput
 isInitial GameStateMachine = const true
-isFinal   GameStateMachine = const false
+--isFinal   GameStateMachine = const false
 step      GameStateMachine (Locked currentSecret) (Guess theGuess nextSecret) =
   if ⌊ (theGuess ♯ₛₜᵣ) ≟ℕ currentSecret ⌋ then
     just (Locked nextSecret , def)

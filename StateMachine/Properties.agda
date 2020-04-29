@@ -53,7 +53,7 @@ module StateMachine.Properties
   T-outputsOK : ∀ {l tx di ds s′} {txIn : TxInput} {txIn∈ : txIn ∈ inputs tx}
     → let ptx = toPendingTx l tx (Any.index txIn∈) in
       outputsOK ptx di ds s′ ≡ true
-    → finalₛₘ s′ ≡ false
+--    → finalₛₘ s′ ≡ false
       --------------------------------
     → ∃[ o ] ( (o ∈ outputs tx)
              × (getContinuingOutputs ptx ≡ [ mkOutputInfo o ])
@@ -61,10 +61,10 @@ module StateMachine.Properties
              × (value o ≡ valueAtᵒ (thisValidator ptx) (txInfo ptx))
              × (address o ≡ validator txIn ♯)
              )
-  T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} eq ¬fin
-    with finalₛₘ s′ | ¬fin
-  ... | true  | ()
-  ... | false | _
+  T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} eq -- ¬fin
+ --   with finalₛₘ s′ | ¬fin
+ -- ... | true  | ()
+ -- ... | false | _
     with getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
        | inspect getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
   ... | (o ∷ []) | ≡[ out≡ ]

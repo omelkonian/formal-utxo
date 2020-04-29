@@ -48,7 +48,7 @@ CounterSM : StateMachine CounterState CounterInput
 isInitial CounterSM (counter (+ 0) ) = true
 isInitial CounterSM (counter _     ) = false
 -- isFinal   CounterSM (counter (+ 10)) = false
-isFinal   CounterSM _ = false
+-- isFinal   CounterSM _ = false
 step      CounterSM (counter i) inc =
   just (counter (Data.Integer.suc i) , def Default-TxConstraints)
 origin    CounterSM = nothing
@@ -94,7 +94,7 @@ lemma : ∀{tx l}
   → (Σ CounterState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
 lemma p s q v with completeness {s = s} p q
 lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , lemma-step (tx≡ , r) v , r′ refl)
+  inj₁ (s′ , lemma-step (tx≡ , r) v ,  r′)
 lemma p s q v | inj₂ r = inj₂ r
 
 -- this would also work for any property preserved by step,
@@ -110,7 +110,7 @@ lemmaP : ∀{tx l}
   → (Σ CounterState λ s′ → P s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
 lemmaP P X p s q v with completeness {s = s} p q
 lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , X (tx≡ , r) v , r′ refl)
+  inj₁ (s′ , X (tx≡ , r) v , r′)
 lemmaP P X p s q v | inj₂ r = inj₂ r
 
 -- liveness on chain
@@ -118,13 +118,14 @@ lemmaP P X p s q v | inj₂ r = inj₂ r
 open import Bisimulation.Soundness {sm = CounterSM}
 
 -- not sure what to do about satisfiability
+-- the constraints are trivial/default so it should be ok 
 
 liveness-lem : ∀ {l vl} s → vl ~ s →
   Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl'
 liveness-lem s b =
  let
    i , s' , tx≡ , p = liveness s
-   tx , vtx , vl' , p , b' , X = soundness refl p b {!!}
+   tx , vtx , vl' , p , b' , X = soundness p b {!!}
   in
     tx , vtx , vl' , p
 

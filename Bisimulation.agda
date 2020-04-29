@@ -57,10 +57,10 @@ module _ {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
 
   open import Relation.Binary.PropositionalEquality
   open import Data.Empty
-
+{-
   _—→_ : S → S → Set
   s —→ s′ = Σ I λ i → Σ TxConstraints λ tx≡ → stepₛₘ s i ≡ pure (s′ , tx≡) × ¬ T (finalₛₘ s′)
-
+-}
   _—→∶_ : (Σ Ledger ValidLedger) → (Σ Ledger ValidLedger) → Set
   (l , vl) —→∶ (l' , vl') = Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (l' ≡ tx ∷ l) λ p → subst ValidLedger p vl' ≡ vl ⊕ tx ∶- vtx
 

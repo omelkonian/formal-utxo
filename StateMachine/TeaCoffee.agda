@@ -80,7 +80,7 @@ instance
 
 SM : StateMachine State Input
 isInitial SM s = false -- can you return to the initial state? P₁ would work
-isFinal SM s = false
+--isFinal SM s = false
 step SM P₁ coin  = just (P₂ , def Default-TxConstraints)
 step SM P₁ _ = nothing
 step SM P₂ request-tea = just (P₃ , def Default-TxConstraints)

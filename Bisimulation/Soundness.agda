@@ -54,7 +54,7 @@ open CEM {sm = sm}
 open import Bisimulation.Base {sm = sm}
 
 soundness : ∀ {s i s′ tx≡ l} {vl : ValidLedger l}
-  → finalₛₘ s′ ≡ false
+--  → finalₛₘ s′ ≡ false
   → s —→[ i ] (s′ , tx≡)
   → (vl~s : vl ~ s)
   → Satisfiable {vl = vl} tx≡ vl~s
@@ -64,7 +64,7 @@ soundness : ∀ {s i s′ tx≡ l} {vl : ValidLedger l}
       × vl′ ~ s′
       × (verifyTx l tx tx≡ ≡ true) )
 
-soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ , sp≥ , apv)
+soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(range∋ , sp≥ , apv)
 -- *** Due to Agda bug, see https://github.com/personal-practice/agda/blob/master/bugs/With.agda
 --   with mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ sat
 -- ... | tx , verify≡
@@ -155,7 +155,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} final≡ s→s′ vl~s sat@(range∋ ,
           ∎
 
         outputsOK≡ : outputsOK ptx di ds s′ ≡ true
-        outputsOK≡ rewrite final≡ | getCont≡ | ≟-refl _≟ℕ_ (ds′ ♯ᵈ) = refl
+        outputsOK≡ rewrite {- final≡ | -} getCont≡ | ≟-refl _≟ℕ_ (ds′ ♯ᵈ) = refl
 
         valueAtⁱ≡ : valueAtⁱ 𝕍 txi ≡ v
         valueAtⁱ≡ =
