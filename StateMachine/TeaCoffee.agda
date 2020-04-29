@@ -110,7 +110,7 @@ lemma-step p _ = _
 -- a trace of execution
 
 data _—→[_]+_ s : List Input → State → Set where
-  one  : ∀{i s'} → s —→[ i ] s' → s —→[ Data.List.[ i ] ]+ s'
+  one  : ∀{i s'} → s —→[ i ] s' → s —→[ i ∷ [] ]+ s'
   cons : ∀{i s' is s''} → s —→[ i ] s' → s' —→[ is ]+ s'' → s —→[ i ∷ is ]+ s''
 
 -- predicate on the incoming state holding somewhere in a trace
@@ -121,21 +121,54 @@ data Any—→S {s} : ∀{is s'} → (P : State → Set) → s —→[ is ]+ s' 
     → Any—→S P ps
     → Any—→S P (cons p ps)
 
--- predicate on the input holding somewhere in a trace
-
 data Any—→I {s} : ∀{is s'} → (P : Input → Set) → s —→[ is ]+ s' → Set where
   here : ∀{i s' P} → P i → (p : s —→[ i ] s') → Any—→I P (one p)
   there : ∀{i s' is s'' P}(p : s —→[ i ] s')(ps : s' —→[ is ]+ s'')
     → Any—→I P ps
     → Any—→I P (cons p ps)
 
+
+-- predicate on the input holding somewhere in a trace
+
+open import Relation.Nullary
+
+
+data All—→I {s} : ∀{is s'} → (P : Input → Set) → s —→[ is ]+ s' → Set where
+  one : ∀{i s' P} → P i → (p : s —→[ i ] s') → All—→I P (one p)
+  cons : ∀{i s' is s'' P} → P i → (p : s —→[ i ] s')(ps : s' —→[ is ]+ s'')
+    → All—→I P ps → All—→I P (cons p ps)
+
 -- sequence of predicates on the input ...P...Q...R... holding
 -- sequentially in a trace
 
+
 data Any—→Is {s} : ∀{is s'} → (Ps : List (Input → Set)) → s —→[ is ]+ s' → Set
   where
-  here : ∀{i s' is s'' P Ps}(p : P i)(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
+  here-cons : ∀{i s' is s'' P Ps}(p : P i)(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
     → Any—→Is Ps qs → Any—→Is (P ∷ Ps) (cons q qs)
-  there : ∀{i s' is s'' Ps}(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
-    → Any—→Is Ps qs → Any—→Is Ps (cons q qs)
+  nothere : ∀{i s' is s'' P Ps}(notp : ¬ (P i))(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'')
+    → Any—→Is (P ∷ Ps) qs → Any—→Is (P ∷ Ps) (cons q qs)
+  here-one : ∀{i s' P}(p : P i)(q : s —→[ i ] s') → Any—→Is (P ∷ []) (one q)
+  end-one : ∀{i s'}(q : s —→[ i ] s') → Any—→Is [] (one q)
+  end-cons : ∀{i s' is s''}(q : s —→[ i ] s')(qs : s' —→[ is ]+ s'') → Any—→Is [] (cons q qs)
 
+open import Data.Empty
+
+lemma-simple : P₁ —→[ coin ∷ request-coffee ∷ [] ]+ P₄ → P₄ —→[ coffee ] P₁
+lemma-simple _ = _ , refl
+
+lemma : ∀{s is}(ps : P₁ —→[ is ]+ s)
+  -- if you paid and chose coffee
+  → Any—→Is ((_≡ coin) ∷ (_≡ request-coffee) ∷ []) ps
+  -- and you haven't chosen tea
+  → All—→I (λ i → ¬ (i ≡ request-tea)) ps
+  -- and you haven't had it already
+  → All—→I (λ i → ¬ (i ≡ coffee)) ps
+  -- you can have a coffee
+  → s —→[ coffee ] P₁
+
+lemma (cons {coin} {P₂} x (one {request-tea} x₁)) p (cons x₂ .x .(one x₁) (one x₃ .x₁)) r = ⊥-elim (x₃ refl)
+lemma {P₄} (cons {coin} {P₂} x (one {request-coffee} x₁)) p q r = _ , refl
+lemma (cons {coin} {P₂} x (cons {request-tea} x₁ ps)) p (cons x₂ .x .(cons x₁ ps) (cons x₃ .x₁ .ps q)) r = ⊥-elim (x₃ refl)
+lemma (cons {coin} {P₂} x (cons {request-coffee} {P₄} x₁ (one {coffee} x₂))) p q (cons x₃ .x .(cons x₁ (one x₂)) (cons x₄ .x₁ .(one x₂) (one x₅ .x₂))) = ⊥-elim (x₅ refl)
+lemma (cons {coin} {P₂} x (cons {request-coffee} {P₄} x₁ (cons {coffee} x₂ ps))) p q (cons x₃ .x .(cons x₁ (cons x₂ ps)) (cons x₄ .x₁ .(cons x₂ ps) (cons x₅ .x₂ .ps r))) = ⊥-elim (x₅ refl)
