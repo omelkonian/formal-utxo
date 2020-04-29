@@ -119,25 +119,29 @@ lemma p s q v | inj₂ r = inj₂ r
 open import Bisimulation.Soundness {sm = TimerSM}
 
 open import Data.List.Relation.Unary.All
+open import Relation.Binary.PropositionalEquality
 
 lemmaSat : ∀ {s l} {vl : ValidLedger l}
   → (p : vl ~ s)
   → Satisfiable {s}{l}{vl} (def Default-TxConstraints) p
 lemmaSat p = refl , (refl , (λ tx → []))
 
+step-sat-lem : ∀ s i s' tx≡ → step TimerSM s i ≡ just (s' , tx≡) → tx≡ ≡ def Default-TxConstraints
+step-sat-lem s@(timer (+ x)) i s' tx≡ p with x <? 10
+step-sat-lem (timer (+_ x)) i s' tx≡ () | no ¬q
+step-sat-lem (timer (+_ x)) i .(timer (+ suc x)) ._ refl | yes q = refl
+step-sat-lem s@(timer (ℤ.negsuc x)) i s' tx≡ ()
+
 lemmaProgress : ∀{l}
   → (vl : ValidLedger l)
   → ∀ s → vl ~ s
   → Valid s
---  → (Σ TimerState λ s′ → Σ TimerInput λ t → Valid s′ × s —→[ t ] s′)
   → (Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl')
   ⊎ Final s -- s is final, so no progress possible
-lemmaProgress p s q v with progress s v
+lemmaProgress {l} p s q v with progress s v
 ... | inj₁ (s' , i , (tx≡ , r)) =
   let
-    tx , vtx , vl' , p' , b , X = soundness {s = s} r q {!lemmaSat q!}
+    tx , vtx , vl' , p' , b , X = soundness {s = s} r q (subst (λ tx≡ → Satisfiable {s}{l}{p} tx≡ q) (sym (step-sat-lem s i s' tx≡ r)) (lemmaSat {s}{l}{p} q))
   in
     inj₁ (tx , (vtx , vl' , p'))
 ... | inj₂ r            = inj₂ r
-
--- ^ this can be improved via soundness
