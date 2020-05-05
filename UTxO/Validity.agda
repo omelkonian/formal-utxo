@@ -146,6 +146,7 @@ valid-suffix : ∀ {l l′}
 valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
 valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
 
+-- An output spent in a previous transaction cannot be spent again.
 suf-utxo : ∀ {tx l l′ x}
   → ValidLedger l
   → Suffix≡ (tx ∷ l′) l

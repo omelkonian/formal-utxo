@@ -7,16 +7,17 @@ open import Category.Monad using (RawMonad)
 
 open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂; ∃; ∃-syntax)
 open import Data.Bool    using (Bool; true; _∧_; T)
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe)
-open import Data.Nat     using (ℕ; _+_; suc; _≤_)
+open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; Is-nothing)
+open import Data.Nat     using (ℕ; _+_; suc; _≤_; _≥_; _>_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; _∷_; []; [_]; _++_; sum; map; foldr; and; filter)
+open import Data.List    using (List; _∷_; []; [_]; _++_; map; foldr; and; filter; mapMaybe)
+  renaming (sum to ∑ℕ)
 
 import Data.Maybe.Relation.Unary.Any as M
 import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
-open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; +-identityʳ)
+open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; _>?_; +-identityʳ)
 open import Data.List.Properties    renaming (≡-dec to ≡-decs)
 open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
 
@@ -40,6 +41,8 @@ CurrencySymbol = HashId
 TokenName      = HashId
 Quantity       = ℕ
 
+TokenClass = CurrencySymbol × TokenName
+
 ------------------------------------------------------------------------
 -- Values are maps from currency identifiers to maps from tokens to quantities.
 --   1) A traditional currency will have a single token with infinite supply.
@@ -50,12 +53,11 @@ Quantity       = ℕ
 SubValue = List (TokenName × Quantity)
 Value = List (CurrencySymbol × SubValue)
 
-QuantityId = CurrencySymbol × TokenName
 
 currencies : Value → List ℕ
 currencies = map proj₁
 
-singleToken : QuantityId → Value
+singleToken : TokenClass → Value
 singleToken (c , t) = [ c , [ t , 1 ] ]
 
 $0 : Value
@@ -107,8 +109,12 @@ infix 4 _≟ᶜ_
 _≟ᶜ_ : Decidable {A = Value} _≡_
 _≟ᶜ_ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_)))
 
-lookupQuantity : CurrencySymbol × TokenName → Value → Quantity
+lookupQuantity : TokenClass → Value → Quantity
 lookupQuantity (c , t) v = fromMaybe 0 (lookup c (fromListᶜ v) >>= lookup t)
+
+infix 5 _◇_
+_◇_ : Value → TokenClass → Quantity
+_◇_ = flip lookupQuantity
 
 infix 4 _≥ᶜ_
 _≥ᶜ_ : Value → Value → Bool
@@ -142,20 +148,26 @@ _≤ᶜ_ = flip _≥ᶜ_
 -------------------
 -- _-contributesTo_
 
-quantityIds : Value → List QuantityId
-quantityIds []             = []
-quantityIds ((c , sv) ∷ v) = go sv ++ quantityIds v
+tokenClasses : Value → List TokenClass
+tokenClasses []             = []
+tokenClasses ((c , sv) ∷ v) = go sv ++ tokenClasses v
   where
-    go : SubValue → List QuantityId
+    go : SubValue → List TokenClass
     go []                 = []
     go ((t , 0)     ∷ sv) = go sv
     go ((t , suc _) ∷ sv) = (c , t) ∷ go sv
 
 _-contributesTo-_ : Rel Value 0ℓ
-v′ -contributesTo- v = ¬ Disjoint (quantityIds v′) (quantityIds v)
+v′ -contributesTo- v = ¬ Disjoint (tokenClasses v′) (tokenClasses v)
 
 _-contributesTo?-_ : Decidable _-contributesTo-_
-v′ -contributesTo?- v = ¬? {!!} -- ¬? ((_∈? quantityIds v′) ×-dec (_∈? quantityIds v))
+v′ -contributesTo?- v = ¬? {!!} -- ¬? ((_∈? tokenClasses v′) ×-dec (_∈? tokenClasses v))
+
+_∈ᶜ_ : TokenClass → Value → Set
+nft ∈ᶜ v = v ◇ nft > 0
+
+_∈?ᶜ_ : Decidable _∈ᶜ_
+nft ∈?ᶜ v = v ◇ nft >? 0
 
 -------------------
 -- Properties
@@ -218,32 +230,35 @@ postulate
   mapᶜ∘mapᶜ         : ∀ {g : A → B} {f : B → C} → (mapᶜ f ∘ mapᶜ g) v ≡ mapᶜ (f ∘ g) v
   mapᶜ-id          : ∀ {f : A → A} → (∀ {x} → f x ≡ x) → mapᶜ f v ≡ v
 
-  -- Properties of lookupQuantity/-contributesTo-
-  ≥ᶜ-lookupQuantity : ∀ {v v′} qid
-    → T $ v ≥ᶜ v′
-    → lookupQuantity qid v′ ≤ lookupQuantity qid v
 
-  lookup-reject : ∀ {qid v vs}
-    → ¬ (v -contributesTo- singleToken qid)
-    → lookupQuantity qid (v +ᶜ vs) ≡ lookupQuantity qid vs
+module FocusTokenClass (tk : TokenClass) where
 
-  lookup≤1⇒count≤1 : ∀ {qid vs}
-    → lookupQuantity qid (sumᶜ vs) ≤ 1
-    → count (_-contributesTo?- (singleToken qid)) vs ≤ 1
+  _◆ : Value → Quantity
+  _◆ = lookupQuantity tk
 
-  lookup-contrib : ∀ {qid v vs n}
-    → lookupQuantity qid (v +ᶜ vs) ≤ (suc n)
-    → v -contributesTo- singleToken qid
-    → lookupQuantity qid vs ≤ n
+  1◆   = singleToken tk
+  ◆∈_  = tk ∈ᶜ_
+  ◆∈?_ = tk ∈?ᶜ_
 
-  lookup≡0⇒count≡0 : ∀ {qid vs}
-    → lookupQuantity qid (sumᶜ vs) ≡ 0
-    → count (_-contributesTo?- singleToken qid) vs ≡ 0
+  -- Properties of focusing values (lookupQuantity/_◇_/_◆)
+  postulate
+    +ᶜ-◆ : ∀ {x y} → (x +ᶜ y) ◆ ≡ x ◆ + y ◆
+    ≥ᶜ-◆ : ∀ {x y} → T $ x ≥ᶜ y → x ◆ ≥ y ◆
+    ◆-+ᶜ-reject : ∀ {v vs} → ¬ ◆∈ v → (v +ᶜ vs) ◆ ≡ vs ◆
+    ∑◆≤1⇒count≤1 : ∀ {vs} → (sumᶜ vs) ◆ ≤ 1 → count ◆∈?_ vs ≤ 1
+    ◆-≤-weaken : ∀ {v vs n} → (v +ᶜ vs) ◆ ≤ (suc n) → ◆∈ v → vs ◆ ≤ n
+    ∑◆≡0⇒count≡0 : ∀ {vs} → sumᶜ vs ◆ ≡ 0 → count ◆∈?_ vs ≡ 0
+    ◆-currencies∈ : ∀ {v} → ◆∈ v → proj₁ tk ∈ currencies v
+    ◆>0⇒◆∈ : ∀ {v n} → v ◆ ≥ n → n > 0 → ◆∈ v
+    ◆-≥ : ∀ {v v′} → v ◆ ≥ v′ ◆ → ◆∈ v′ → ◆∈ v
 
-  ≤ᶜ⇒lookup≤ : ∀ {qid v v′}
-    → T $ v′ ≤ᶜ v
-    → lookupQuantity qid v′ ≤ lookupQuantity qid v
+    ∑-◆ : ∀ {xs : List A} {f : A → Value}
+      → ∑ xs f ◆ ≡ ∑ℕ (map (_◆ ∘ f) xs)
 
+    ∑-mapMaybe : ∀ {X : Quantity → Set} {xs : List A} {fm : A → Maybe (∃ X)} {g : A → Value}
+      → (∀ x → Is-nothing (fm x) → g x ◆ ≡ 0)
+      → (∀ x v → fm x ≡ just v → g x ◆ ≡ proj₁ v)
+      → ∑ℕ (map (_◆ ∘ g) xs) ≡ ∑₁ (mapMaybe fm xs)
 
 ≥ᶜ-refl′ : ∀ {v v′}
   → v ≡ v′

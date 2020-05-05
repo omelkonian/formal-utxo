@@ -188,8 +188,13 @@ ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
   in  (TxInfo.inputInfo (txInfo ptx) ‼ this ptx) ≡ mkInputInfo l i
 ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl
 
-∑₁ : ∀ {H : Value → Set} → List (∃ H) → Value
-∑₁ = flip ∑ proj₁
+∑₁ᶜ : ∀ {H : Value → Set} → List (∃ H) → Value
+∑₁ᶜ = flip ∑ proj₁
 
 ∑ᵥ : List TxOutput → Value
 ∑ᵥ = flip ∑ value
+
+postulate
+  outRef∈txi : ∀ {tx l o}
+    → o ∈ map InputInfo.outputRef (TxInfo.inputInfo $ mkTxInfo l tx)
+    → o ∈ outputRefs tx

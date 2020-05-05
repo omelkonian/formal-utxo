@@ -78,7 +78,7 @@ open Branch public
 record Trace (v : Value) : Set where
   field
     branches : List (∃ Branch)
-    sums     : T (∑₁ branches ≥ᶜ v)
+    sums     : T (∑₁ᶜ branches ≥ᶜ v)
 
 open Trace public
 
@@ -106,31 +106,31 @@ emptyTrace refl = record {branches = []; sums = ≥ᶜ-refl $0}
 weakenTrace : ∀ {v v′} → T $ v ≥ᶜ v′ → Trace v → Trace v′
 weakenTrace {v} {v′} v≥v′ tr = record
   { branches = branches tr
-  ; sums     = ≥ᶜ-trans {x = ∑₁ (branches tr)} {y = v} {z = v′} (sums tr) v≥v′ }
+  ; sums     = ≥ᶜ-trans {x = ∑₁ᶜ (branches tr)} {y = v} {z = v′} (sums tr) v≥v′ }
 
 ---------------
 -- Provenance
 
 combine : ∀ {v}
   → (hs : Histories)
-  → T (∑₁ hs ≥ᶜ v)
+  → T (∑₁ᶜ hs ≥ᶜ v)
   → List (Trace v)
 combine {v} []                  ∑≥ = [ emptyTrace ($0-≥ᶜ v ∑≥) ]
 combine {v} ((hᵥ , h) ∷ hs) ∑≥
-    = concatMap (λ tr → map (tr ∷ᵗ_) $ combine {v = ∑₁ hs} hs (≥ᶜ-refl $ ∑₁ hs)) (toList h)
+    = concatMap (λ tr → map (tr ∷ᵗ_) $ combine {v = ∑₁ᶜ hs} hs (≥ᶜ-refl $ ∑₁ᶜ hs)) (toList h)
   module M₀ where
-    _∷ᵗ_ : Trace hᵥ → Trace (∑₁ hs) → Trace v
+    _∷ᵗ_ : Trace hᵥ → Trace (∑₁ᶜ hs) → Trace v
     tr ∷ᵗ tr′ = record
       { branches = branches tr ++ branches tr′
-      ; sums     = ≥ᶜ-trans {x = ∑₁ (branches tr ++ branches tr′)} {y = ∑₁ $ (_ , h) ∷ hs} {z = v}
-                            (∑-++-≥ᶜ {fv = proj₁} {v₁ = hᵥ} {v₂ = ∑₁ hs} {xs = branches tr} {ys = branches tr′}
+      ; sums     = ≥ᶜ-trans {x = ∑₁ᶜ (branches tr ++ branches tr′)} {y = ∑₁ᶜ $ (_ , h) ∷ hs} {z = v}
+                            (∑-++-≥ᶜ {fv = proj₁} {v₁ = hᵥ} {v₂ = ∑₁ᶜ hs} {xs = branches tr} {ys = branches tr′}
                                      (sums tr) (sums tr′)) ∑≥
       }
 
-combine≢[] : ∀ {v} {hs : Histories} {∑≥ : T (∑₁ hs ≥ᶜ v)} → ¬Null (combine {v} hs ∑≥)
+combine≢[] : ∀ {v} {hs : Histories} {∑≥ : T (∑₁ᶜ hs ≥ᶜ v)} → ¬Null (combine {v} hs ∑≥)
 combine≢[] {v} {hs = (hᵥ , h) ∷ hs} {∑≥}
   = concat≢[] {xss = map (λ tr → map _ _) (toList h)}
-              (_ , here refl , map≢[] (combine≢[] {∑₁ hs} {hs} {≥ᶜ-refl $ ∑₁ hs}))
+              (_ , here refl , map≢[] (combine≢[] {∑₁ᶜ hs} {hs} {≥ᶜ-refl $ ∑₁ᶜ hs}))
 
 history : ∀ l → ∀ {o} → o ∈ outputsₘ l → History (value o)
 history l = go l (≺′-wf l)
@@ -153,7 +153,7 @@ history l = go l (≺′-wf l)
     prevHistories : Histories
     prevHistories = map res→history rs
 
-    ∑prev = ∑₁ prevHistories
+    ∑prev = ∑₁ᶜ prevHistories
 
     allPrevs₀ : Histories
     allPrevs₀ = forgeHistory ∷ prevHistories
@@ -165,10 +165,10 @@ history l = go l (≺′-wf l)
     choices = subsequences allPrevs
 
     validChoices : Choices
-    validChoices = filter (λ hs → T? $ ∑₁ hs ≥ᶜ v) choices
+    validChoices = filter (λ hs → T? $ ∑₁ᶜ hs ≥ᶜ v) choices
 
-    ∑≥ : ∀ {hs} → hs ∈ validChoices → T (∑₁ hs ≥ᶜ v)
-    ∑≥ = proj₂ ∘ ∈-filter⁻ (λ hs → T? $ ∑₁ hs ≥ᶜ v) {xs = choices}
+    ∑≥ : ∀ {hs} → hs ∈ validChoices → T (∑₁ᶜ hs ≥ᶜ v)
+    ∑≥ = proj₂ ∘ ∈-filter⁻ (λ hs → T? $ ∑₁ᶜ hs ≥ᶜ v) {xs = choices}
 
     traces : List (Trace v)
     traces = concat $ mapWith∈ validChoices λ {hs} hs∈ → combine hs (∑≥ hs∈)
@@ -191,15 +191,15 @@ history l = go l (≺′-wf l)
     pv₁ = +ᶜ-≡⇒≥ᶜ {x = forge tx +ᶜ ∑prev} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
 
     pv₂ : T $ forge tx +ᶜ ∑prev ≥ᶜ v
-       -- T $ ∑₁ allPrevs₀ ≥ᶜ v
-    pv₂ = ≥ᶜ-trans {x = ∑₁ allPrevs₀} {y = ∑ᵥ (outputs tx)} {z = v} pv₁ (∑-≥ᶜ {fv = value} o∈)
+       -- T $ ∑₁ᶜ allPrevs₀ ≥ᶜ v
+    pv₂ = ≥ᶜ-trans {x = ∑₁ᶜ allPrevs₀} {y = ∑ᵥ (outputs tx)} {z = v} pv₁ (∑-≥ᶜ {fv = value} o∈)
 
-    pv₃ : T $ ∑₁ allPrevs ≥ᶜ v
-       -- T $ ∑₁ (filter ((_-contributesTo?- v) ∘ proj₁) allPrevs₀) ≥ᶜ v
+    pv₃ : T $ ∑₁ᶜ allPrevs ≥ᶜ v
+       -- T $ ∑₁ᶜ (filter ((_-contributesTo?- v) ∘ proj₁) allPrevs₀) ≥ᶜ v
     pv₃ = ∑filter {xs = allPrevs₀} {v = v} pv₂
 
     validChoices≢[] : ¬Null validChoices
-    validChoices≢[] vc≡[] = All.lookup (filter≡[] {P = λ hs → T $ ∑₁ hs ≥ᶜ v} vc≡[])
+    validChoices≢[] vc≡[] = All.lookup (filter≡[] {P = λ hs → T $ ∑₁ᶜ hs ≥ᶜ v} vc≡[])
                                        (subsequences-refl {xs = allPrevs})
                                        pv₃
 

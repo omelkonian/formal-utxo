@@ -12,6 +12,9 @@ open import Data.Nat      using (ℕ; _+_)
 open import Data.Nat.Show using (show)
 open import Data.List     using (List; []; _∷_; map; sum)
 
+open import Data.List.Membership.Propositional  using (_∈_)
+open import Data.List.Relation.Unary.Any as Any using (Any)
+
 open import Relation.Binary.PropositionalEquality using (_≡_)
 
 --------------------------------------------------------------------------------
@@ -56,3 +59,8 @@ _♯ₛₜᵣ = hashList toℕ ∘ toList
 postulate
   _♯ : ∀ {A : Set} → Hash A
   ♯-injective : ∀ {A : Set} → Injective {A = A} _≡_ _≡_ _♯
+
+∈♯ : ∀ {A : Set} {x : A} {xs : List A}
+  → Any ((x ♯ ≡_) ∘  _♯) xs
+  → x ∈ xs
+∈♯ = Any.map ♯-injective
