@@ -22,12 +22,12 @@ open import Data.Sum
 --open import Data.Unit
 --open import Data.Empty
 
-
 data CounterState : Set where
   counter : ℤ → CounterState
 
 data CounterInput : Set where
   inc : CounterInput
+
 
 instance
   IsData-CS : IsData CounterState
@@ -53,15 +53,17 @@ step      CounterSM (counter i) inc =
   just (counter (Data.Integer.suc i) , def Default-TxConstraints)
 origin    CounterSM = nothing
 
--- Some basic properties of this machine
-
-Valid : CounterState → Set
-Valid s@(counter i)     =
-  T (isInitial CounterSM s) ⊎ i ≥ (+ 0) -- ⊎ T (isFinal CounterSM s)
+-- some notation
 
 _—→[_]_ : CounterState → CounterInput → CounterState → Set
 s —→[ i ] s′ =
   Σ TxConstraints λ tx≡ → step CounterSM s i ≡ just (s′ , tx≡)
+
+-- An invariant/safety property: all reachable states are non-negative
+
+Valid : CounterState → Set
+Valid s@(counter i)     =
+  T (isInitial CounterSM s) ⊎ i ≥ (+ 0) -- ⊎ T (isFinal CounterSM s)
 
 -- step preserves validity
 lemma-step : ∀{s s' : CounterState}{i : CounterInput} → s —→[ i ] s' → Valid s → Valid s'
@@ -73,13 +75,12 @@ lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
 
-
---
+-- A liveness property: all states can advance/the machine cannot get stuck
 
 liveness : ∀ s → Σ CounterInput λ i → Σ CounterState λ s' → s —→[ i ] s'
 liveness (counter x) = inc , _ , _ , refl
 
---
+-- Validity holds on chain
 
 open CEM {sm = CounterSM}
 
@@ -97,8 +98,7 @@ lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
   inj₁ (s′ , lemma-step (tx≡ , r) v ,  r′)
 lemma p s q v | inj₂ r = inj₂ r
 
--- this would also work for any property preserved by step,
--- or for any SM for that matter
+-- Any such invariant holds on chain
 
 lemmaP : ∀{tx l}
   → (P : CounterState → Set)
@@ -113,15 +113,12 @@ lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
   inj₁ (s′ , X (tx≡ , r) v , r′)
 lemmaP P X p s q v | inj₂ r = inj₂ r
 
--- liveness on chain
 
 open import Bisimulation.Soundness {sm = CounterSM}
 
--- not sure what to do about satisfiability
--- the constraints are trivial/default so it should be ok 
-
-
 open import Data.List.Relation.Unary.All
+
+-- trivial constraints are satisfiable, could be proved elsewhere
 
 lemmaSat : ∀ {s l} {vl : ValidLedger l}
   → (p : vl ~ s)
@@ -131,6 +128,8 @@ lemmaSat p = refl , (refl , (λ tx → []))
 livesat-lem : ∀ s → (proj₁ (proj₂ (proj₂ (liveness s)))) ≡ def Default-TxConstraints
 livesat-lem (counter x) = refl
 
+-- liveness holds on chain
+
 liveness-lem : ∀ {l vl} s → vl ~ s →
   Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl'
 liveness-lem {l}{vl} s@(counter x) b =
@@ -139,3 +138,4 @@ liveness-lem {l}{vl} s@(counter x) b =
    tx , vtx , vl' , p , b' , X = soundness {s = s} p b (lemmaSat {s}{l}{vl} b)
   in
     tx , vtx , vl' , p
+
