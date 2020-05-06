@@ -82,7 +82,6 @@ ap-ap-map-just (just _) a (just _) b (just _) c f p q =
  in
   cong just r , cong just r' , cong just r''
 
-
 ,-injective : {A B : Set}{a a' : A}{b b' : B}
   → (a , b) ≡ (a' , b') → a ≡ a' × b ≡ b'
 ,-injective refl = refl , refl
@@ -93,6 +92,11 @@ t=-injective refl = refl
 payment-injective : ∀{v v' r r' d d'}
   → payment v r d ≡ payment v' r' d' → v ≡ v' × r ≡ r' × d ≡ d'
 payment-injective refl = refl , refl , refl
+
+CollectingSignatures-injective : ∀{p p' sigs sigs'}
+  → CollectingSignatures p sigs ≡ CollectingSignatures p' sigs'
+  → p ≡ p' × sigs ≡ sigs'
+CollectingSignatures-injective refl = refl , refl
 
 cong₃ : {A B C D : Set}(f : A → B → C → D){a a' : A}{b b' : B}{c c' : C}
   → a ≡ a' → b ≡ b' → c ≡ c' → f a b c ≡ f a' b' c'
@@ -123,10 +127,10 @@ instance
   from-inj ⦃ isData-Bound ⦄ (CONSTR 0 [])        -∞ refl = refl
   from-inj ⦃ isData-Bound ⦄ (CONSTR 0 (_ ∷ _))   b ()
   from-inj ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ [])) (t= t) p = cong (λ dt → CONSTR 1 [ dt ]) (from-inj dt t (map-just' (fromData dt) t  t=_ t=-injective p))
-  from-inj ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ []))   +∞ p with IsData.fromData isData-ℕ dt
+  from-inj ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ [])) +∞ p with IsData.fromData isData-ℕ dt
   from-inj isData-Bound (CONSTR (suc zero) (dt ∷ [])) +∞ () | nothing
   from-inj isData-Bound (CONSTR (suc zero) (dt ∷ [])) +∞ () | just x
-  from-inj ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ []))   -∞ p with IsData.fromData isData-ℕ dt
+  from-inj ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ [])) -∞ p with IsData.fromData isData-ℕ dt
   from-inj isData-Bound (CONSTR (suc zero) (dt ∷ [])) -∞ () | nothing
   from-inj isData-Bound (CONSTR (suc zero) (dt ∷ [])) -∞ () | just x
   from-inj ⦃ isData-Bound ⦄ (CONSTR 1 [])   b ()
@@ -168,12 +172,40 @@ instance
   toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1 
     (toData p ∷ toData sigs ∷ [])
   fromData ⦃ IsData-MS ⦄ (CONSTR 0 []) = just Holding
-  fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) = {!ap (Data.Maybe.map CollectingSignatures (fromData p)) !}  
-  from∘to ⦃ IsData-MS ⦄ = {!!}
-  from-inj ⦃ IsData-MS ⦄ = {!!}
+  fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) =
+    ap (Data.Maybe.map CollectingSignatures (fromData p)) (fromData sigs)
+  fromData ⦃ IsData-MS ⦄ _ = nothing
+  from∘to ⦃ IsData-MS ⦄ Holding = refl
+  from∘to ⦃ IsData-MS ⦄ (CollectingSignatures p sigs)
+    rewrite from∘to p | from∘to sigs = refl
+
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) Holding p = refl
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (dp ∷ dsigs ∷ [])) (CollectingSignatures p sigs) q =
+    let
+      x , x' = ap-map-just (fromData dp) p (fromData dsigs) sigs CollectingSignatures CollectingSignatures-injective q
+    in
+      cong₂ (λ p sigs → CONSTR 1 (p ∷ sigs ∷ [])) (from-inj dp p x) (from-inj dsigs sigs x')
+      
+  from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) (_ ∷ _)) Holding ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (dp ∷ dsigs ∷ [])) Holding q with (fromData {Payment} dp)
+  from-inj IsData-MS _ _ () | nothing
+  ... | just x with fromData {List ℕ} dsigs
+  from-inj IsData-MS _ _ () | just _ | just _
+  from-inj IsData-MS _ _ () | just _ | nothing
+
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 (_ ∷ _)) Holding ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) Holding ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) Holding ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) []) Holding ()
+  
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) (CollectingSignatures _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 (_ ∷ _)) (CollectingSignatures _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) (CollectingSignatures _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) (CollectingSignatures _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) _) _ ()
 
   IsData-MI : IsData Input
-  toData ⦃ IsData-MI ⦄ = {!!}
+  toData ⦃ IsData-MI ⦄ i = {!!}
   fromData ⦃ IsData-MI ⦄ = {!!}
   from∘to ⦃ IsData-MI ⦄ = {!!}
   from-inj ⦃ IsData-MI ⦄ = {!!}
