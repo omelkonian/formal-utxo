@@ -28,6 +28,7 @@ Threshold : ℕ
 Threshold = 3
 
 record Payment : Set where
+  constructor payment
   field
     paymentAmount    : Value
     paymentRecipient : PubKeyHash
@@ -56,8 +57,6 @@ map-nothing' : {A B : Set}(ma : Maybe A)
   → ma ≡ nothing
 map-nothing' nothing f p = refl
 
-
-
 ap-map-just : {A B C : Set}(ma : Maybe A)(a : A)(mb : Maybe B)(b : B)
   → (f : A → B → C)
   → (∀{a a'}{b b'} → f a b ≡ f a' b' → a ≡ a' × b ≡ b')
@@ -69,12 +68,35 @@ ap-map-just (just _) a (just _) b f p q =
  in
   cong just r , cong just r'
 
+ap-ap-map-just : {A B C D : Set}
+  → (ma : Maybe A)(a : A)
+  → (mb : Maybe B)(b : B)
+  → (mc : Maybe C)(c : C)
+  → (f : A → B → C → D)
+  → (∀{a a'}{b b'}{c c'} → f a b c ≡ f a' b' c' → a ≡ a' × b ≡ b' × c ≡ c')
+  → Data.Maybe.ap (Data.Maybe.ap (Data.Maybe.map f ma) mb) mc ≡ just (f a b c)
+  → ma ≡ just a × mb ≡ just b × mc ≡ just c
+ap-ap-map-just (just _) a (just _) b (just _) c f p q =
+ let
+   r , r' , r'' = p (just-injective q)
+ in
+  cong just r , cong just r' , cong just r''
+
+
 ,-injective : {A B : Set}{a a' : A}{b b' : B}
   → (a , b) ≡ (a' , b') → a ≡ a' × b ≡ b'
 ,-injective refl = refl , refl
 
 t=-injective : ∀{n n'} → t= n ≡ t= n' → n ≡ n'
 t=-injective refl = refl
+
+payment-injective : ∀{v v' r r' d d'}
+  → payment v r d ≡ payment v' r' d' → v ≡ v' × r ≡ r' × d ≡ d'
+payment-injective refl = refl , refl , refl
+
+cong₃ : {A B C D : Set}(f : A → B → C → D){a a' : A}{b b' : B}{c c' : C}
+  → a ≡ a' → b ≡ b' → c ≡ c' → f a b c ≡ f a' b' c'
+cong₃ f refl refl refl = refl
 
 -- not making any attempt to do anything special for values
 instance
@@ -127,17 +149,28 @@ instance
       cong₂ (λ a b → LIST (a ∷ b ∷ [])) (from-inj da a q) (from-inj db b q') 
 
 instance
+  IsData-Payment : IsData Payment
+  toData   ⦃ IsData-Payment ⦄ (payment v r d) =
+    LIST (toData v ∷ toData r ∷ toData d ∷ []) 
+  fromData ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) =
+    ap (ap (Data.Maybe.map payment (fromData dv)) (fromData dr)) (fromData dd)
+  fromData ⦃ IsData-Payment ⦄ _ = nothing
+  from∘to ⦃ IsData-Payment ⦄ (payment v r d) rewrite from∘to v | from∘to r | from∘to d = refl
+  from-inj ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) (payment v r d) p =
+    let
+      q , q' , q'' = ap-ap-map-just (fromData dv) v (fromData dr) r (fromData dd) d payment payment-injective p 
+    in
+      cong₃ (λ v r d → LIST (v ∷ r ∷ d ∷ [])) (from-inj dv v q) (from-inj dr r q') (from-inj dd d q'')
+instance
   IsData-MS : IsData State
   
   toData ⦃ IsData-MS ⦄ Holding = CONSTR 0 []
-  toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1
-    (LIST (toData (Payment.paymentAmount p) ∷ toData (Payment.paymentRecipient p) ∷ toData (Payment.paymentDeadline p) ∷ [])
-    ∷
-    toData (Payment.paymentDeadline p)
-    ∷ [])
-  fromData ⦃ IsData-MS ⦄ = {!!}
+  toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1 
+    (toData p ∷ toData sigs ∷ [])
+  fromData ⦃ IsData-MS ⦄ (CONSTR 0 []) = just Holding
+  fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) = {!ap (Data.Maybe.map CollectingSignatures (fromData p)) !}  
   from∘to ⦃ IsData-MS ⦄ = {!!}
-  from-inj ⦃ IsData-MS ⦄ = {!pay!}
+  from-inj ⦃ IsData-MS ⦄ = {!!}
 
   IsData-MI : IsData Input
   toData ⦃ IsData-MI ⦄ = {!!}
