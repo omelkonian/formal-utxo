@@ -1,5 +1,6 @@
 module UTxO.GlobalPreservation where
 
+open import Function       using (_$_)
 open import Level          using (0ℓ)
 open import Function       using (_∘_; flip)
 open import Category.Monad using (RawMonad)
@@ -45,8 +46,8 @@ open import UTxO.Validity
 open import UTxO.Uniqueness
 
 globalPreservation : ∀ {l} {vl : ValidLedger l} →
-  ∑ l forge ≡ ∑ l fee +ᶜ ∑ (utxo l) (value ∘ out)
-globalPreservation {[]}          {vl}              = refl
+  ∑ l forge ≡ ∑ (utxo l) (value ∘ out)
+globalPreservation {[]}          {vl}                    = refl
 globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
   where
     view-pv : ∀ {A : Set} {mx : Maybe A} {P : A → Set}
@@ -100,47 +101,33 @@ globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
                        ≡ ∑ (filter ((SETₒ._∈? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
           ∑map≡∑filter = ↭⇒≡ +ᶜ-identity +ᶜ-comm (map⁺ (value ∘ out) map↭filter)
 
-    pv : forge tx +ᶜ ∑in vl₀ ≡ fee tx +ᶜ ∑ (outputs tx) value
+    pv : forge tx +ᶜ ∑in vl₀ ≡ ∑ (outputs tx) value
     pv = proj₂ (proj₂ (view-pv (preservesValues vtx)))
 
-    gpv : ∑ l forge ≡ ∑ l fee +ᶜ ∑ (utxo l) (value ∘ out)
+    gpv : ∑ l forge ≡ ∑ (utxo l) (value ∘ out)
     gpv = globalPreservation {l} {vl}
 
     +ᶜ-helper : ∀ {x x′ y y′ : Value} → x ≡ x′ → y ≡ y′ → x +ᶜ y ≡ x′ +ᶜ y′
     +ᶜ-helper refl refl = refl
 
-    pv-gpv : (forge tx +ᶜ ∑in vl₀) +ᶜ ∑ l forge
-           ≡ (fee tx +ᶜ ∑ (outputs tx) value) +ᶜ (∑ l fee +ᶜ ∑ (utxo l) (value ∘ out))
-    pv-gpv = +ᶜ-helper {x = forge tx +ᶜ ∑in vl₀} {x′ = fee tx +ᶜ ∑ (outputs tx) value}
-                       {y = ∑ l forge} {y′ = ∑ l fee +ᶜ ∑ (utxo l) (value ∘ out)}
+    pv-gpv : forge tx +ᶜ ∑in vl₀ +ᶜ ∑ l forge
+           ≡ ∑ (outputs tx) value +ᶜ ∑ (utxo l) (value ∘ out)
+    pv-gpv = +ᶜ-helper {x = forge tx +ᶜ ∑in vl₀} {x′ = ∑ (outputs tx) value}
+                       {y = ∑ l forge} {y′ = ∑ (utxo l) (value ∘ out)}
                        pv gpv
 
-    +ᶜ-comm-helper : ∀ {x₁ x₂ x₃ y₁ y₂ y₃ y₄ : Value}
-      → (x₁ +ᶜ x₂) +ᶜ x₃ ≡ (y₁ +ᶜ y₂) +ᶜ (y₃ +ᶜ y₄)
-      → x₁ +ᶜ x₃ +ᶜ x₂ ≡ y₁ +ᶜ y₃ +ᶜ y₄ +ᶜ y₂
-    +ᶜ-comm-helper {x₁} {x₂} {x₃} {y₁} {y₂} {y₃} {y₄} p
-      rewrite +ᶜ-assoc x₁ x₂ x₃
-            | +ᶜ-comm x₂ x₃
-            | sym (+ᶜ-assoc x₁ x₃ x₂)
-            | +ᶜ-assoc y₁ y₂ (y₃ +ᶜ y₄)
-            | +ᶜ-comm y₂ (y₃ +ᶜ y₄) -- y₁ +ᶜ ((y₃ +ᶜ y₄) +ᶜ y₂)
-            | sym (+ᶜ-assoc y₁ (y₃ +ᶜ y₄) y₂)
-            | sym (+ᶜ-assoc y₁ y₃ y₄)
-            = p
-
     pv-gpv′ : forge tx +ᶜ ∑ l forge +ᶜ ∑in vl₀
-            ≡ fee tx +ᶜ ∑ l fee +ᶜ ∑ (utxo l) (value ∘ out) +ᶜ ∑ (outputs tx) value
-    pv-gpv′ = +ᶜ-comm-helper {x₁ = forge tx} {x₂ = ∑in vl₀} {x₃ = ∑ l forge}
-                             {y₁ = fee tx} {y₂ = ∑ (outputs tx) value} {y₃ = ∑ l fee}
-                             {y₄ = ∑ (utxo l) (value ∘ out)}
-                             pv-gpv
+            ≡ ∑ (utxo l) (value ∘ out) +ᶜ ∑ (outputs tx) value
+    pv-gpv′ rewrite +ᶜ-assoc (forge tx) (∑ l forge) (∑in vl₀)
+                  | +ᶜ-comm (∑ l forge) (∑in vl₀)
+                  | sym $ +ᶜ-assoc (forge tx) (∑in vl₀) (∑ l forge)
+                  | +ᶜ-comm (∑ (utxo l) (value ∘ out)) (∑ (outputs tx) value)
+                  = pv-gpv
 
     pv-gpv″ : ∑ l₀ forge +ᶜ ∑in vl₀
-            ≡ ∑ l₀ fee +ᶜ ∑ (outputs tx) value +ᶜ ∑ (utxo l) (value ∘ out)
+            ≡ ∑ (outputs tx) value +ᶜ ∑ (utxo l) (value ∘ out)
     pv-gpv″
-      rewrite +ᶜ-assoc (∑ l₀ fee) (∑ (outputs tx) value) (∑ (utxo l) (value ∘ out))
-            | +ᶜ-comm (∑ (outputs tx) value) (∑ (utxo l) (value ∘ out))
-            | sym (+ᶜ-assoc (∑ l₀ fee) (∑ (utxo l) (value ∘ out)) (∑ (outputs tx) value))
+      rewrite +ᶜ-comm (∑ (outputs tx) value) (∑ (utxo l) (value ∘ out))
             = pv-gpv′
 
     helper : ∀ {l tx} {vl : ValidLedger (tx ∷ l)} {x y : Value}
@@ -153,22 +140,17 @@ globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
             = refl
 
     h : ∑ l₀ forge
-      ≡ ∑ l₀ fee
-      +ᶜ ∑ (outputs tx) value
+      ≡  ∑ (outputs tx) value
       +ᶜ ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
     h = helper {l = l} {tx = tx} {vl = vl₀}
                {x = ∑ l₀ forge}
-               {y = ∑ l₀ fee +ᶜ ∑ (outputs tx) value} pv-gpv″
+               {y = ∑ (outputs tx) value} pv-gpv″
 
     h′ : ∑ l₀ forge
-       ≡ ∑ l₀ fee
-       +ᶜ ( ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
+       ≡ ( ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
          +ᶜ ∑ (outputs tx) value )
     h′ rewrite +ᶜ-comm (∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out))
                        (∑ (outputs tx) value)
-             | sym (+ᶜ-assoc (∑ l₀ fee)
-                             (∑ (outputs tx) value)
-                             (∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)))
              = h
 
     ∑-utxo : ∀ {l tx}
@@ -181,5 +163,5 @@ globalPreservation {l₀@(tx ∷ l)} {vl₀@(vl ⊕ .tx ∶- vtx)} = h″
             | ∑-mapWith∈ {xs = outputs tx} {fv = value} {gv = out} {f = mkUtxo tx} (λ _ → refl)
             = refl
 
-    h″ : ∑ l₀ forge ≡ ∑ l₀ fee +ᶜ ∑ (utxo l₀) (value ∘ out)
+    h″ : ∑ l₀ forge ≡ ∑ (utxo l₀) (value ∘ out)
     h″ rewrite ∑-utxo {l} {tx} = h′

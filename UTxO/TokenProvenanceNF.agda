@@ -52,43 +52,53 @@ open import UTxO.Validity
 open import UTxO.GlobalPreservation
 
 
-module UTxO.FocusedProvenanceNF (nft : TokenClass) where
+module UTxO.TokenProvenanceNF (nft : TokenClass) where
 
 open FocusTokenClass nft
-open import UTxO.FocusedProvenance nft
+open import UTxO.TokenProvenance nft
 
 -- ** Definitions
 
 NonFungible : ∃ ValidLedger → TokenClass → Set
 NonFungible (l , _) nft = ∑ l forge ◇ nft ≤ 1
 
-SingleOrigin : ∀ {n} → Origins n → Set
+NF-weaken : ∀ {l l′} → l′ ≺′ l → NonFungible l nft → NonFungible l′ nft
+NF-weaken {l , _} {l′ , _} vl′≺ = ≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
+
+--
+
+private
+  variable
+    L : ∃ ValidLedger
+    n : Quantity
+
+SingleOrigin : Origins L n → Set
 SingleOrigin = Singleton ∘ origins
 
-SingleOrigin⁺ : ∀ {n} → Origins⁺ n → Set
+SingleOrigin⁺ : Origins⁺ L n → Set
 SingleOrigin⁺ = Singleton⁺ ∘ origins⁺
 
-SingleOrigin² : List (∃ Origins⁺) → Set
+SingleOrigin² : List (∃ $ Origins⁺ L) → Set
 SingleOrigin² os = Singleton os × All (SingleOrigin⁺ ∘ proj₂) os
 
-SingleOrigin²⁺ : List⁺ (∃ Origins⁺) → Set
+SingleOrigin²⁺ : List⁺ (∃ $ Origins⁺ L) → Set
 SingleOrigin²⁺ os = Singleton⁺ os × All⁺ (SingleOrigin⁺ ∘ proj₂) os
 
-destruct-SingleOrigin⁺ : ∀ {n} {os : Origins⁺ n}
+destruct-SingleOrigin⁺ : ∀ {os : Origins⁺ L n}
   → SingleOrigin⁺ os
-  → Σ[ tx ∈ ∃ ForgingTx ] (origins⁺ os ≡ [ tx ]⁺)
+  → Σ[ tx ∈ ∃ (ForgingTx L) ] (origins⁺ os ≡ [ tx ]⁺)
 destruct-SingleOrigin⁺ {n} {os} s-os
   with tx , refl ← destruct-Singleton⁺ s-os
      = tx , refl
 
 -- ** Lemmas
 
-singleOrigin²⇒singleOrigin²⁺ : ∀ {oss : List (∃ Origins⁺)} {p : ¬Null oss}
+singleOrigin²⇒singleOrigin²⁺ : ∀ {oss : List (∃ $ Origins⁺ L)} {p : ¬Null oss}
   → SingleOrigin² oss
   → SingleOrigin²⁺ (toList⁺ oss p)
-singleOrigin²⇒singleOrigin²⁺ {oss} {p} (s-oss , ∀p) = singleton⇒singleton⁺ {xs≢[] = p} s-oss , All⇒All⁺ ∀p
+singleOrigin²⇒singleOrigin²⁺ {oss = oss} {p} (s-oss , ∀p) = singleton⇒singleton⁺ {xs≢[] = p} s-oss , All⇒All⁺ ∀p
 
-singleOrigin-merge : ∀ {n} {oss : List⁺ (∃ Origins⁺)} {p : ∑₁⁺ oss ≥ n}
+singleOrigin-merge : ∀ {oss : List⁺ (∃ $ Origins⁺ L)} {p : ∑₁⁺ oss ≥ n}
   → SingleOrigin²⁺ oss
   → SingleOrigin⁺ (merge⁺ oss p)
 singleOrigin-merge {n = n} {oss} {p} (s-oss , ∀-oss)
@@ -97,9 +107,6 @@ singleOrigin-merge {n = n} {oss} {p} (s-oss , ∀-oss)
   rewrite ++-identityʳ (tail $ origins⁺ os)
         | proj₂ $ destruct-Singleton⁺ s-os
         = tt
-
-NF-weaken : ∀ {l l′} → l′ ≺′ l → NonFungible l nft → NonFungible l′ nft
-NF-weaken {l , _} {l′ , _} vl′≺ = ≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
 
 nf-prevs : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
   → NonFungible (_ , vl ⊕ tx ∶- vtx) nft
@@ -113,7 +120,7 @@ nf-prevs {tx} {l} {vl} {vtx} nf
     ∑frg  = ∑ l forge
 
     frg≥utxo : T $ ∑frg ≥ᶜ ∑utxo
-    frg≥utxo = +ᶜ-≡⇒≤ᶜ {v₁ = ∑ l fee} {v₂ = ∑utxo} $ globalPreservation {l} {vl}
+    frg≥utxo = ≥ᶜ-refl′ $ globalPreservation {l} {vl}
 
     lookup≤ₗ : ∑frg ◆ ≥ ∑utxo ◆
     lookup≤ₗ = ≥ᶜ-◆ {x = ∑frg} {y = ∑utxo} frg≥utxo
@@ -180,7 +187,7 @@ provenanceNF l = go′ l (≺′-wf l)
         → (◆∈v : ◆∈ value o)
         → NonFungible l nft
         → SingleOrigin⁺ (go {o} l ac {o} o∈ ◆∈v)
-    go′ (.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v nf
+    go′ L@(.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v nf
       = qed′
       where
         open Provenance₁ {o} tx l vl vtx a {o} o∈ ◆∈v
@@ -194,13 +201,23 @@ provenanceNF l = go′ l (≺′-wf l)
         ... | no  _ | ()
 
         s-allPrevs₂ {y} y∈ | inj₂ y∈ʳ
-          with r@(record {vl′ = vl′; prevOut∈ = prevOut∈; vl′≺vl = vl′≺vl})
+          with r@(record {vl′ = vl′; prevOut = o′; prevOut∈ = o∈′; vl′≺vl = vl′≺vl})
              , r∈ , rj ← ∈-mapMaybe⁻ {xs = rs} {f = res→origins} y∈ʳ
-          with resValue r ◆ >? 0 | rj
-        ... | yes p | refl = go′ (_ , vl′) (a _ vl′≺vl) prevOut∈ p nf′
+          with ◆∈? resValue r | rj
+        ... | yes p | refl = singleton⁺-map⁺ so
           where
-            nf′ : NonFungible (_ , vl′) nft
-            nf′ = NF-weaken {l = _ , vl₀} {l′ = _ , vl′} vl′≺vl nf
+            L′ : ∃ ValidLedger
+            L′ = _ , vl′
+
+            nf′ : NonFungible L′ nft
+            nf′ = NF-weaken {l = L} {l′ = L′} vl′≺vl nf
+
+            os : Origins⁺ L′ (resValue r ◆)
+            os = go {o′} (_ , vl′) (a _ vl′≺vl) o∈′ p
+
+            so : SingleOrigin⁺ os
+            so = go′ (_ , vl′) (a _ vl′≺vl) o∈′ p nf′
+
         ... | no  _ | ()
 
         nf′ : count (◆∈?_ ∘ resValue) (prevs vl vtx) + forge tx ◆ ≤ 1
@@ -211,7 +228,7 @@ provenanceNF l = go′ l (≺′-wf l)
           with ◆∈? forge tx | allPrevs≢[]
         ... | yes p | _ = fin
           where
-            fromForge′ = [ forge tx ◆ , singleOrigins tx vtx ]
+            fromForge′ = [ forge tx ◆ , singleOrigins vl₀ ]
 
             frg≤1 : forge tx ◆ ≤ 1
             frg≤1 = ≤-+ˡ {x = forge tx ◆} {y = ∑ l forge ◆} {z = 1}

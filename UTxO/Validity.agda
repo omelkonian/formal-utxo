@@ -22,8 +22,7 @@ open import Data.List.Membership.Propositional             using (_∈_; _∉_; 
 open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-map⁺)
 open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (Suffix; here; there)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
+open import Data.List.Relation.Binary.Suffix.Heterogeneous using (Suffix; here; there; tail)
 open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
 
 import Data.Maybe.Relation.Unary.Any as M
@@ -63,7 +62,7 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
       outputRefs tx ⊆ map outRef (utxo l)
 
     preservesValues :
-      M.Any (λ q → forge tx +ᶜ q ≡ fee tx +ᶜ ∑ (outputs tx) value)
+      M.Any (λ q → forge tx +ᶜ q ≡ ∑ (outputs tx) value)
             (∑M (map (getSpentOutput l) (inputs tx)) value)
 
     noDoubleSpending :
@@ -109,7 +108,7 @@ _⊕_ : ∀ {l}
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
   → {vor : True (outputRefs tx SETₒ.⊆? map outRef (utxo l))}
-  → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ᶜ fee tx +ᶜ ∑ (outputs tx) value)
+  → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ᶜ ∑ (outputs tx) value)
                        (∑M (map (getSpentOutput l) (inputs tx)) value))}
   → {ndp : True (SETₒ.unique? (outputRefs tx))}
   → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (datum i))})
@@ -133,37 +132,14 @@ _⊕_ : ∀ {l}
                       ; forging             = toWitness frg }
 
 ----------------------
--- Properties.
+-- Utilities.
 
 outputsₘ : ∃ ValidLedger → List TxOutput
 outputsₘ ([]     , _) = []
 outputsₘ (tx ∷ _ , _) = outputs tx
 
-valid-suffix : ∀ {l l′}
-  → ValidLedger l
-  → Suffix≡ l′ l
-  → ValidLedger l′
-valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
-valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
-
--- An output spent in a previous transaction cannot be spent again.
-suf-utxo : ∀ {tx l l′ x}
-  → ValidLedger l
-  → Suffix≡ (tx ∷ l′) l
-  → x ∈ map outRef (utxo l′)
-  → x ∈ outputRefs tx
-  → x ∉ map outRef (utxo l)
-suf-utxo {tx} {l = x ∷ l} vl (here (refl ∷ p)) x∈′ x∈refs x∈
-  rewrite Pointwise-≡⇒≡ p
-        = {!!}
-suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
-
--- traceRef : ∀ {tx l}
---   → ValidLedger (tx ∷ l)
---   → ∀ o → o ∈ outputRefs tx
---   → ∃[ tx′ ] ( (tx′ ∈ l)
---              × (tx′ ♯ ≡ id o) )
--- traceRef {tx} {l} (vl ⊕ .tx ∶- vtx) o o∈ = {!!}
+_∈′_ : Tx → ∃ ValidLedger → Set
+tx ∈′ (l , _) = tx ∈ l
 
 --------------------------------------------------------
 -- Well-founded recursion on suffixes of the ledger.
@@ -190,6 +166,9 @@ postulate
   ≺-transˡ : ∀ {x y z} → x ≼ y → y ≺ z → x ≺ z
   ≺-∑forge : ∀ {l′ l} → l′ ≺ l → T $ ∑ l forge ≥ᶜ ∑ l′ forge
 
+≺′⇒≼′ : ∀ {l l′} → l′ ≺′ l → l′ ≼′ l
+≺′⇒≼′ (_ , p) = tail p
+
 ≺-wf : WellFounded _≺_
 ≺-wf l = acc $ go l
   where
@@ -204,6 +183,36 @@ postulate
     (l , _) ≺′⇒≺ acc w = acc λ{ (l′ , _) l′<l → (l′ , _) ≺′⇒≺ w l′ l′<l }
 
 ≺′-rec = All.wfRec ≺′-wf 0ℓ
+
+----------------------
+-- Decision Procedure.
+
+valid-suffix : ∀ {l l′}
+  → ValidLedger l
+  → l′ ≼ l
+  → ValidLedger l′
+valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
+valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
+
+-- An output spent in a previous transaction cannot be spent again.
+suf-utxo : ∀ {tx l l′ x}
+  → ValidLedger l
+  → Suffix≡ (tx ∷ l′) l
+  → x ∈ map outRef (utxo l′)
+  → x ∈ outputRefs tx
+  → x ∉ map outRef (utxo l)
+suf-utxo {tx} {l = x ∷ l} vl (here (refl ∷ p)) x∈′ x∈refs x∈
+  rewrite Pointwise-≡⇒≡ p
+        = {!!}
+suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
+
+-- traceRef : ∀ {tx l}
+--   → ValidLedger (tx ∷ l)
+--   → ∀ o → o ∈ outputRefs tx
+--   → ∃[ tx′ ] ( (tx′ ∈ l)
+--              × (tx′ ♯ ≡ id o) )
+-- traceRef {tx} {l} (vl ⊕ .tx ∶- vtx) o o∈ = {!!}
+
 
 --------------------------------------------------------
 -- Packing up useful information about all predecessors

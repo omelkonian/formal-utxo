@@ -123,7 +123,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
 
     preservesValues     vtx
       rewrite getSpent≡
-            = M.just (x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 {x = forge′} {y = v})
+            = M.just (x+ᶜy+ᶜ0≡x+ᶜy+0 {x = forge′} {y = v})
 
     noDoubleSpending    vtx = [] ∷ []
 

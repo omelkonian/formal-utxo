@@ -1,4 +1,4 @@
-module UTxO.Provenance where
+module UTxO.ValueProvenance where
 
 open import Level          using (0ℓ)
 open import Function       using (_$_; _∘_; flip)
@@ -184,24 +184,21 @@ history l = go l (≺′-wf l)
     lookupOutputs≡′ : ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just ∑prev
     lookupOutputs≡′ = trans (∑prevs≡ vl vtx) $ cong just res≡
 
-    pv₀ : forge tx +ᶜ ∑prev ≡ fee tx +ᶜ ∑ᵥ (outputs tx)
+    pv₀ : forge tx +ᶜ ∑prev ≡ ∑ᵥ (outputs tx)
     pv₀ = ∑M≡just lookupOutputs≡′ (preservesValues vtx)
 
-    pv₁ : T $ forge tx +ᶜ ∑prev ≥ᶜ ∑ᵥ (outputs tx)
-    pv₁ = +ᶜ-≡⇒≥ᶜ {x = forge tx +ᶜ ∑prev} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
-
-    pv₂ : T $ forge tx +ᶜ ∑prev ≥ᶜ v
+    pv₁ : T $ forge tx +ᶜ ∑prev ≥ᶜ v
        -- T $ ∑₁ᶜ allPrevs₀ ≥ᶜ v
-    pv₂ = ≥ᶜ-trans {x = ∑₁ᶜ allPrevs₀} {y = ∑ᵥ (outputs tx)} {z = v} pv₁ (∑-≥ᶜ {fv = value} o∈)
+    pv₁ = ≥ᶜ-trans {x = ∑₁ᶜ allPrevs₀} {y = ∑ᵥ (outputs tx)} {z = v} (≥ᶜ-refl′ pv₀) (∑-≥ᶜ {fv = value} o∈)
 
-    pv₃ : T $ ∑₁ᶜ allPrevs ≥ᶜ v
+    pv₂ : T $ ∑₁ᶜ allPrevs ≥ᶜ v
        -- T $ ∑₁ᶜ (filter ((_-contributesTo?- v) ∘ proj₁) allPrevs₀) ≥ᶜ v
-    pv₃ = ∑filter {xs = allPrevs₀} {v = v} pv₂
+    pv₂ = ∑filter {xs = allPrevs₀} {v = v} pv₁
 
     validChoices≢[] : ¬Null validChoices
     validChoices≢[] vc≡[] = All.lookup (filter≡[] {P = λ hs → T $ ∑₁ᶜ hs ≥ᶜ v} vc≡[])
                                        (subsequences-refl {xs = allPrevs})
-                                       pv₃
+                                       pv₂
 
     traces≢[] : ¬Null traces
     traces≢[] tr≡[]

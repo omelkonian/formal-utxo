@@ -18,9 +18,9 @@ open import UTxO.Uniqueness
 open import UTxO.GlobalPreservation
 
 -- ** Provenance
-open import UTxO.Provenance
-open import UTxO.FocusedProvenance
-open import UTxO.FocusedProvenanceNF
+open import UTxO.ValueProvenance
+open import UTxO.TokenProvenance
+open import UTxO.TokenProvenanceNF
 
 -- ** Constraint-emitting Machines
 open import StateMachine.Base
@@ -28,7 +28,7 @@ open import StateMachine.GuessingGame
 -- *** takes around 1 hour to type-check... T0D0: profile to debug performance
 -- open import StateMachine.ExamplePlay
 open import StateMachine.Properties
-open import StateMachine.ReplayProtection
+open import StateMachine.Initiality
 
 -- ** Bisimulation between CEMs and UTxO ledgers
 open import Bisimulation.Base

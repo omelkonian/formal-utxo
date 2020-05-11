@@ -38,7 +38,7 @@ open import UTxO.TxUtilities
 open import UTxO.Validity
 open import StateMachine.Base
 
-module StateMachine.ReplayProtection
+module StateMachine.Initiality
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
   where
 
@@ -48,8 +48,8 @@ nft : TokenClass
 nft = ℂ , 𝕋
 
 open FocusTokenClass nft
-open import UTxO.FocusedProvenance nft
-open import UTxO.FocusedProvenanceNF nft
+open import UTxO.TokenProvenance nft
+open import UTxO.TokenProvenanceNF nft
 
 ◆∈⇒Tpolicy : ∀ {tx l}
   → IsValidTx tx l
@@ -134,32 +134,32 @@ module JustOrigin (just-origin : Is-just originₛₘ) where
       Tspents : T (spentsOrigin txi)
       Tspents = proj₁ $ T-∧ {l = spentsOrigin txi} $ proj₂ $ T-∧ {l = ⌊ forge tx ◆ ≟ℕ 1 ⌋} Tpolicy
 
-replay-protection : ∀ l → ∀ {o} (o∈ : o ∈ outputsₘ l)
+initiality : ∀ L → ∀ {o} (o∈ : o ∈ outputsₘ L)
   → (◆∈v : ◆∈ value o)
   → Is-just originₛₘ
     --------------------------------------------------------
-  → Σ[ tx ∈ ∃ ForgingTx ] ∃ λ l₀ →
-         (origins⁺ (provenance l o∈ ◆∈v) ≡ [ tx ]⁺)
-       × T (policyₛₘ $ toPendingMPS l₀ (proj₁ $ proj₂ tx) ℂ)
-replay-protection l {o} o∈ ◆∈v just-origin
-  = ∃tx , l₀ , prov≡ , policy≡
+  → Σ (∃ $ ForgingTx L) λ tx →
+         (origins⁺ (provenance L o∈ ◆∈v) ≡ [ tx ]⁺)
+       × T (policyₛₘ $ mkPendingMPS {L = L} (proj₂ tx) ℂ)
+initiality L@(l , vl) {o} o∈ ◆∈v just-origin
+  = ∃tx , prov≡ , policy≡
   where
     v    = value o
-    prov = provenance l o∈ ◆∈v
+    prov = provenance L o∈ ◆∈v
 
 --
 
-    nf : NonFungible l nft
+    nf : NonFungible L nft
     nf = ¬>⇒≤ nf′
       where
         open JustOrigin just-origin
 
-        nf′ : ¬ (∑ (proj₁ l) forge ◆ > 1)
+        nf′ : ¬ (∑ l forge ◆ > 1)
         nf′ ∑>1
           with tx₁ , l₁ , tx₂ , l₂
              , vl₁ ⊕ .tx₁ ∶- vtx₁ , vl₂ ⊕ .tx₂ ∶- vtx₂
              , l₁≺l₂ , ◆∈₁ , ◆∈₂
-             ← ∃forging² (proj₂ l) ∑>1
+             ← ∃forging² vl ∑>1
           = o∉utxo₂ o∈utxo₂
           where
             o∈₁ : 𝕆 ∈ outputRefs tx₁
@@ -178,13 +178,13 @@ replay-protection l {o} o∈ ◆∈v just-origin
             o∈utxo₂ = validOutputRefs vtx₂ o∈₂
 
     nfp : SingleOrigin⁺ prov
-    nfp = provenanceNF l {o} o∈ ◆∈v nf
+    nfp = provenanceNF L {o} o∈ ◆∈v nf
 
 --
     des-nfp : ∃ λ ∃tx → origins⁺ prov ≡ [ ∃tx ]⁺
     des-nfp = destruct-SingleOrigin⁺ {os = prov} nfp
 
-    ∃tx : ∃ ForgingTx
+    ∃tx : ∃ $ ForgingTx L
     ∃tx = proj₁ des-nfp
 
     prov≡ : origins⁺ prov ≡ [ ∃tx ]⁺
@@ -202,7 +202,7 @@ replay-protection l {o} o∈ ◆∈v just-origin
     n≥ : n ≥ v ◆
     n≥ = subst (_≥ v ◆) (+-identityʳ n) ∑≥′
 
-    frgTx : ForgingTx n
+    frgTx : ForgingTx L n
     frgTx = proj₂ ∃tx
 
     tx₀ : Tx
@@ -211,19 +211,13 @@ replay-protection l {o} o∈ ◆∈v just-origin
     frg≥ : forge tx₀ ◆ ≥ n
     frg≥ = proj₁ $ proj₂ frgTx
 
-    ∃vtx₀ : ∃ (IsValidTx tx₀)
-    ∃vtx₀ = proj₂ $ proj₂ frgTx
-
---
-
-    l₀ : Ledger
-    l₀ = proj₁ ∃vtx₀
-
-    vtx₀ : IsValidTx tx₀ l₀
-    vtx₀ = proj₂ ∃vtx₀
+    tx₀∈ : tx₀ ∈′ L
+    tx₀∈ = proj₂ $ proj₂ frgTx
 
     ◆∈frg : ◆∈ (forge tx₀)
     ◆∈frg = ◆-≥ {v = forge tx₀} {v′ = v} (≥-trans frg≥ n≥) ◆∈v
 
-    policy≡ : T (policyₛₘ $ toPendingMPS l₀ tx₀ ℂ)
-    policy≡ = ◆∈⇒Tpolicy {tx = tx₀} {l = l₀} vtx₀ ◆∈frg
+    policy≡ : T (policyₛₘ $ mkPendingMPS {L = L} frgTx ℂ)
+    policy≡ with l₀ , l₀≼      ← ∈⇒Suffix tx₀∈
+            with _ ⊕ _ ∶- vtx₀ ← valid-suffix vl l₀≼
+               = ◆∈⇒Tpolicy {tx = tx₀} {l = l₀} vtx₀ ◆∈frg

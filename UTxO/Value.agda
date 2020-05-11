@@ -299,11 +299,10 @@ x+ᶜ′0≡x {m} rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + from
 sum-single : ∀ {v} → sumᶜ [ v ] ≡ v
 sum-single {v} rewrite +ᶜ-identityʳ v = refl
 
-x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 : ∀ {x y} → x +ᶜ (y +ᶜ $0) ≡ $0 +ᶜ (x +ᶜ y +ᶜ $0)
-x+ᶜy+ᶜ0≡0+ᶜx+ᶜy+0 {x} {y}
+x+ᶜy+ᶜ0≡x+ᶜy+0 : ∀ {x y} → x +ᶜ (y +ᶜ $0) ≡ x +ᶜ y +ᶜ $0
+x+ᶜy+ᶜ0≡x+ᶜy+0 {x} {y}
   rewrite +ᶜ-identityʳ y
         | +ᶜ-identityʳ (x +ᶜ y)
-        | +ᶜ-identityˡ (x +ᶜ y)
         = refl
 
 ∑M≡just : ∀ {x : A} {mx : Maybe A} {P : A → Set}

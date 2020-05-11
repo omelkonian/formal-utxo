@@ -167,7 +167,6 @@ mkTxInfo l tx = record
   ; outputInfo     = map mkOutputInfo (outputs tx)
   ; datumWitnesses = datumWitnesses tx
   ; range          = range tx
-  ; fee            = fee tx
   ; policies       = map _♯ (policies tx)
   ; forge          = forge tx }
 

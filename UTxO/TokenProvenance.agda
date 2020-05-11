@@ -22,7 +22,7 @@ open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 open import Data.List
   renaming (sum to ∑ℕ)
 open import Data.List.NonEmpty using (List⁺; _∷_; head; toList; _⁺++_; _++⁺_; _∷⁺_)
-  renaming ([_] to [_]⁺)
+  renaming ([_] to [_]⁺; map to map⁺)
 open import Data.List.Properties
 open import Data.List.Membership.Propositional             using (_∈_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻; ∈-map⁺)
@@ -50,7 +50,7 @@ open import UTxO.TxUtilities
 open import UTxO.Validity
 
 
-module UTxO.FocusedProvenance (nft : TokenClass) where
+module UTxO.TokenProvenance (nft : TokenClass) where
 
 open FocusTokenClass nft
 
@@ -60,59 +60,94 @@ private
 
 -- ** Definitions
 
-ForgingTx : Quantity → Set
-ForgingTx n = ∃ λ tx → (forge tx ◆ ≥ n) × ∃ (IsValidTx tx)
+ForgingTx : ∃ ValidLedger → Quantity → Set
+ForgingTx L n = ∃ λ tx → (forge tx ◆ ≥ n) × (tx ∈′ L)
 
-mkForgingTx : ∀ {l} tx → IsValidTx tx l → ForgingTx (forge tx ◆)
-mkForgingTx tx vtx = tx , ≤-refl , _ , vtx
+mkForgingTx : ∀ {tx l} → (vl : ValidLedger (tx ∷ l)) → ForgingTx (_ , vl) (forge tx ◆)
+mkForgingTx (vl ⊕ tx ∶- _) = tx , ≤-refl , here refl
 
-record Origins (n : Quantity) : Set where
+mkPendingMPS : ∀ {L} → ForgingTx L n → HashId → PendingMPS
+mkPendingMPS (tx , _ , tx∈) = toPendingMPS (proj₁ $ ∈⇒Suffix tx∈) tx
+
+record Origins (L : ∃ ValidLedger) (n : Quantity) : Set where
   field
-    origins : List (∃ ForgingTx)
+    origins : List (∃ $ ForgingTx L)
     sums    : ∑₁ origins ≥ n
 open Origins public
 
-record Origins⁺ (n : Quantity) : Set where
+record Origins⁺ (L : ∃ ValidLedger) (n : Quantity) : Set where
   field
-    origins⁺ : List⁺ (∃ ForgingTx)
+    origins⁺ : List⁺ (∃ $ ForgingTx L)
     sums⁺    : ∑₁⁺ origins⁺ ≥ n
 open Origins⁺ public
 
 ---------------
 -- Utilities
 
-emptyOrigins : ∀ {n} → n ≡ 0 → Origins n
+weakenForgingTx : ∀ {L L′} → L′ ≼′ L → ForgingTx L′ n → ForgingTx L n
+weakenForgingTx L′≼ (tx , frg≥ , tx∈) = tx , frg≥ , Suffix⇒⊆ L′≼ tx∈
+
+weakenOrigins : ∀ {L L′} → L′ ≼′ L → Origins L′ n → Origins L n
+weakenOrigins {n} {L} {L′} L′≼ record {origins = os; sums = sums} = record { origins = os′; sums = sums′ }
+  where
+    os′ : List (∃ $ ForgingTx L)
+    os′ = map (map₂ $ weakenForgingTx {L = L}{L′} L′≼) os
+
+    ∑≡ : ∑₁ os′ ≡ ∑₁ os
+    ∑≡ = ∑₁-map₂ {X = ForgingTx L′} {Y = ForgingTx L} {xs = os}
+                 {f = λ {n} frgTx → weakenForgingTx {L = L}{L′} L′≼ frgTx}
+
+    sums′ : ∑₁ os′ ≥ n
+    sums′ rewrite ∑≡ = sums
+
+weakenOrigins⁺ : ∀ {L L′} → L′ ≼′ L → Origins⁺ L′ n → Origins⁺ L n
+weakenOrigins⁺ {n} {L} {L′} L′≼ record {origins⁺ = os; sums⁺ = sums} = record {origins⁺ = os′; sums⁺ = sums′}
+  where
+    os′ : List⁺ (∃ $ ForgingTx L)
+    os′ = map⁺ (map₂ $ weakenForgingTx {L = L}{L′} L′≼) os
+
+
+    ∑≡ : ∑₁⁺ os′ ≡ ∑₁⁺ os
+    ∑≡ rewrite ∑₁-map₂ {X = ForgingTx L′} {Y = ForgingTx L} {xs = toList os}
+                       {f = λ {n} frgTx → weakenForgingTx {L = L}{L′} L′≼ frgTx}
+             = refl
+
+    sums′ : ∑₁⁺ os′ ≥ n
+    sums′ rewrite ∑≡ = sums
+
+emptyOrigins : ∀ {L n} → n ≡ 0 → Origins L n
 emptyOrigins refl = record {origins = []; sums = z≤n}
 
-singleOrigins : ∀ {l} tx → IsValidTx tx l → Origins⁺ (forge tx ◆)
-origins⁺ (singleOrigins tx vtx) = [ _ , mkForgingTx tx vtx ]⁺
-sums⁺    (singleOrigins tx _) rewrite +-identityʳ (forge tx ◆) = ≤-refl
+singleOrigins : ∀ {tx l} → (vl : ValidLedger (tx ∷ l)) → Origins⁺ (_ , vl) (forge tx ◆)
+origins⁺ (singleOrigins vl) = [ _ , mkForgingTx vl ]⁺
+sums⁺    (singleOrigins {tx = tx} _) rewrite +-identityʳ (forge tx ◆) = ≤-refl
 
-origins⇒origins⁺ : (os : Origins n) → ¬Null (origins os) → Origins⁺ n
+origins⇒origins⁺ : ∀ {L} → (os : Origins L n) → ¬Null (origins os) → Origins⁺ L n
 origins⇒origins⁺ {n = n} record {origins = os; sums = ∑≥} os≢[] = record
   { origins⁺ = toList⁺ os os≢[]
-  ; sums⁺    = subst ((_≥ n) ∘ ∑₁) (sym $ toList∘toList⁺ os os≢[]) ∑≥
-  }
+  ; sums⁺    = subst ((_≥ n) ∘ ∑₁) (sym $ toList∘toList⁺ os os≢[]) ∑≥ }
 
-origins⁺⇒origins : Origins⁺ n → Origins n
+origins⁺⇒origins : ∀ {L} → Origins⁺ L n → Origins L n
 origins⁺⇒origins record {origins⁺ = os;         sums⁺ = ∑≥}
                = record {origins  = toList os ; sums  = ∑≥}
 
-merge : (oss : List (∃ Origins⁺))
-      → ∑₁ oss ≥ n
-      → Origins n
+merge : ∀ {L}
+  → (oss : List (∃ $ Origins⁺ L))
+  → ∑₁ oss ≥ n
+  → Origins L n
 
-merge⁺ : (oss : List⁺ (∃ Origins⁺))
-       → ∑₁⁺ oss ≥ n
-       → Origins⁺ n
+merge⁺ : ∀ {L}
+  → (oss : List⁺ (∃ $ Origins⁺ L))
+  → ∑₁⁺ oss ≥ n
+  → Origins⁺ L n
 
-merge {.0} [] z≤n                = emptyOrigins {0} refl
-merge  {n} ((osᵥ , os) ∷ oss) ∑≥ = origins⁺⇒origins $ merge⁺ {n} ((osᵥ , os) ∷ oss) ∑≥
-merge⁺ {n} ((osᵥ , os) ∷ oss) ∑≥ = qed
+merge  {n = .0} {L = L} [] z≤n                = emptyOrigins {n = 0} refl
+merge  {n = n}  {L = L} ((osᵥ , os) ∷ oss) ∑≥ = origins⁺⇒origins $ merge⁺ {n} ((osᵥ , os) ∷ oss) ∑≥
+merge⁺ {n = n}  {L = L} ((osᵥ , os) ∷ oss) ∑≥ = qed
   where
     ossᵥ = ∑₁ oss
 
-    os′ : Origins ossᵥ
+    os′ : Origins L ossᵥ
     os′ = merge {n = ossᵥ} oss ≤-refl
 
     p : ∑₁⁺ (origins⁺ os) ≥ osᵥ
@@ -129,60 +164,63 @@ merge⁺ {n} ((osᵥ , os) ∷ oss) ∑≥ = qed
                  (≥-+-swapʳ {x = ∑₁⁺ (origins⁺ os)} {y = ∑₁ (origins os′)} {y′ = ossᵥ} (sums os′))
                  p₀
 
-    qed : Origins⁺ n
+    qed : Origins⁺ L n
     qed = record
       { origins⁺ = origins⁺ os ⁺++ origins os′
-      ; sums⁺    = subst (_≥ n) (sym $ ∑₁-⁺++ {xs = origins⁺ os} {ys = origins os′}) p₁
-      }
+      ; sums⁺    = subst (_≥ n) (sym $ ∑₁-⁺++ {xs = origins⁺ os} {ys = origins os′}) p₁ }
 
 -- ** Provenance
 
-provenance : ∀ l
-  → ∀ {o} → o ∈ outputsₘ l
+provenance : ∀ L
+  → ∀ {o} → o ∈ outputsₘ L
   → ◆∈ value o
-  → Origins⁺ (value o ◆)
-provenance l = go l (≺′-wf l)
+  → Origins⁺ L (value o ◆)
+provenance L = go L (≺′-wf L)
   module Provenance₀ where
-    go : ∀ l → Acc _≺′_ l → (∀ {o} → o ∈ outputsₘ l → ◆∈ value o → Origins⁺ (value o ◆))
-    go (.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v
+    go : ∀ L → Acc _≺′_ L → (∀ {o} → o ∈ outputsₘ L → ◆∈ value o → Origins⁺ L (value o ◆))
+    go L@(.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v
       = qed
       module Provenance₁ where
         v  = value o ◆
         rs = prevs vl vtx
 
-        ∃Origins>0 : Set
-        ∃Origins>0 = ∃ λ n → Origins⁺ n × (n > 0)
-
-        fromForge : List (∃ Origins⁺)
+        fromForge : List (∃ $ Origins⁺ L)
         fromForge
           with forge tx ◆ >? 0
-        ... | yes p = [ _ , singleOrigins tx vtx ]
+        ... | yes p = [ _ , singleOrigins vl₀ ]
         ... | no ¬p = []
 
-        res→origins : Res vl vtx → Maybe (∃ Origins⁺)
+        res→origins : Res vl vtx → Maybe (∃ $ Origins⁺ L)
         res→origins r@(record {vl′ = vl′; prevOut∈ = prevOut∈; vl′≺vl = vl′≺vl})
           with resValue r ◆ >? 0
-        ... | yes p = just $ _ , go (_ , vl′) (a _ vl′≺vl) prevOut∈ p
+        ... | yes p = just os′
+          where
+            L′ : ∃ ValidLedger
+            L′ = _ , vl′
+
+            os : ∃ $ Origins⁺ L′
+            os = _ , go L′ (a _ vl′≺vl) prevOut∈ p
+
+            os′ : ∃ $ Origins⁺ L
+            os′ = map₂ (weakenOrigins⁺ (≺′⇒≼′ {l = L}{L′} vl′≺vl)) os
+
         ... | no  _ = nothing
 
-        fromPrevs : List (∃ Origins⁺)
+        fromPrevs : List (∃ $ Origins⁺ L)
         fromPrevs = mapMaybe res→origins rs
 
-        allPrevs : List (∃ Origins⁺)
+        allPrevs : List (∃ $ Origins⁺ L)
         allPrevs = fromForge ++ fromPrevs
 
 --
         ∑prev = ∑ rs resValue
         ∑all  = forge tx +ᶜ ∑prev
 
-        pv₀ : ∑all ≡ fee tx +ᶜ ∑ᵥ (outputs tx)
+        pv₀ : ∑all ≡ ∑ᵥ (outputs tx)
         pv₀ = ∑M≡just (∑prevs≡ vl vtx) (preservesValues vtx)
 
-        pv₁ : T $ ∑all ≥ᶜ ∑ᵥ (outputs tx)
-        pv₁ = +ᶜ-≡⇒≥ᶜ {x = ∑all} {z = fee tx} {w = ∑ᵥ (outputs tx)} (≥ᶜ-refl′ pv₀)
-
-        pv₂ : T $ ∑all ≥ᶜ value o
-        pv₂ = ≥ᶜ-trans {x = ∑all} {y = ∑ᵥ (outputs tx)} {z = value o} pv₁ (∑-≥ᶜ {fv = value} o∈)
+        pv₁ : T $ ∑all ≥ᶜ value o
+        pv₁ = ≥ᶜ-trans {x = ∑all} {y = ∑ᵥ (outputs tx)} {z = value o} (≥ᶜ-refl′ pv₀) (∑-≥ᶜ {fv = value} o∈)
 
         ∑forge≡ : ∑₁ fromForge ≡ forge tx ◆
         ∑forge≡ with forge tx ◆ >? 0
@@ -249,21 +287,21 @@ provenance l = go l (≺′-wf l)
             ∑≡0′ : ∑all ◆ ≡ 0
             ∑≡0′ = trans (+ᶜ-◆ {x = forge tx} {y = ∑prev}) ∑≡0
 
-            pv₂′ : ∑all ◆ ≥ v
-            pv₂′ = ≥ᶜ-◆ {x = ∑all} {y = value o} pv₂
+            pv₂ : ∑all ◆ ≥ v
+            pv₂ = ≥ᶜ-◆ {x = ∑all} {y = value o} pv₁
 
             v≡0 : v ≡ 0
-            v≡0 = x≤0⇒x≡0 (subst (_≥ v) ∑≡0′ pv₂′)
+            v≡0 = x≤0⇒x≡0 (subst (_≥ v) ∑≡0′ pv₂)
 --
 
         ∑≥ : ∑₁ allPrevs ≥ v
-        ∑≥ = subst (_≥ v) (sym ∑allPrevs≡) (≥ᶜ-◆ {x = ∑all} {y = value o} pv₂)
+        ∑≥ = subst (_≥ v) (sym ∑allPrevs≡) (≥ᶜ-◆ {x = ∑all} {y = value o} pv₁)
 
-        allPrevs⁺ : List⁺ (∃ Origins⁺)
+        allPrevs⁺ : List⁺ (∃ $ Origins⁺ L)
         allPrevs⁺ = toList⁺ allPrevs allPrevs≢[]
 
         ∑≥′ : ∑₁⁺ allPrevs⁺ ≥ v
         ∑≥′ = subst ((_≥ v) ∘ ∑₁) (sym $ toList∘toList⁺ allPrevs allPrevs≢[]) ∑≥
 
-        qed : Origins⁺ v
+        qed : Origins⁺ L v
         qed = merge⁺ allPrevs⁺ ∑≥′

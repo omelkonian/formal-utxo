@@ -127,7 +127,6 @@ mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ (r≡ , s≥ , _)
       tx = record { inputs   = [ i₀ ]
                   ; outputs  = [ s′ —→ (frg +ᶜ v) ]
                   ; policies = plc
-                  ; fee      = $0
                   ; forge    = frg
                   ; range    = rng
                   ; datumWitnesses = [ toData s′ ♯ᵈ , toData s′ ] }

@@ -87,18 +87,16 @@ t₂₁ = (t₂ ♯ₜₓ) indexed-at 1
 t₃ : Tx
 t₃ = record def
   { inputs   = [ withScripts t₂₁ ]
-  ; outputs  = [ $ 199 at 3ᵃ ]
-  ; fee      = $ 1
+  ; outputs  = [ $ 200 at 3ᵃ ]
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₃₀ = (t₃ ♯ₜₓ) indexed-at 0
 
 t₄ : Tx
 t₄ = record
   { inputs   = [ withScripts t₃₀ ]
-  ; outputs  = [ $ 207 at 2ᵃ ]
+  ; outputs  = [ $ 210 at 2ᵃ ]
   ; forge    = $ 10
   ; policies = [ adaPolicy ]
-  ; fee      = $ 2
   ; range    = t= 3 ⋯ t= 3
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
@@ -106,8 +104,7 @@ t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
 t₅ : Tx
 t₅ = record def
   { inputs   = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
-  ; outputs  = $ 500 at 2ᵃ ∷ $ 500 at 3ᵃ ∷ []
-  ; fee      = $ 7
+  ; outputs  = $ 505 at 2ᵃ ∷ $ 505 at 3ᵃ ∷ []
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₅₀ = (t₅ ♯ₜₓ) indexed-at 0
 t₅₁ = (t₅ ♯ₜₓ) indexed-at 1
@@ -115,8 +112,7 @@ t₅₁ = (t₅ ♯ₜₓ) indexed-at 1
 t₆ : Tx
 t₆ = record def
   { inputs   = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
-  ; outputs  = [ $ 999 at 3ᵃ ]
-  ; fee      = $ 1
+  ; outputs  = [ $ 1010 at 3ᵃ ]
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₆₀ = (t₆ ♯ₜₓ) indexed-at 0
 

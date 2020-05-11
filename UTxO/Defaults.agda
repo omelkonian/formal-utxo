@@ -40,7 +40,6 @@ instance
   Default-TxInfo = ⌞ record
     { inputInfo      = def
     ; outputInfo     = def
-    ; fee            = def
     ; forge          = def
     ; policies       = def
     ; range          = def
@@ -63,7 +62,6 @@ instance
   Default-Tx = ⌞ record
     { inputs         = def
     ; outputs        = def
-    ; fee            = def
     ; forge          = def
     ; policies       = def
     ; range          = def

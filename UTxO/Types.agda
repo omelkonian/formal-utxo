@@ -173,7 +173,6 @@ record TxInfo : Set where
   field
     inputInfo      : List InputInfo
     outputInfo     : List OutputInfo
-    fee            : Value
     forge          : Value
     policies       : List CurrencySymbol
     range          : SlotRange
@@ -264,7 +263,6 @@ record Tx : Set where
   field
     inputs         : List TxInput -- Set⟨TxInput⟩, but this is ensured by condition `noDoubleSpending`
     outputs        : List TxOutput
-    fee            : Value
     forge          : Value
     policies       : List MonetaryPolicy
     range          : SlotRange
