@@ -106,7 +106,6 @@ AddSignature-injective : ∀{sig sig'}
   → AddSignature sig ≡ AddSignature sig' → sig ≡ sig'
 AddSignature-injective refl = refl
 
-
 cong₃ : {A B C D : Set}(f : A → B → C → D){a a' : A}{b b' : B}{c c' : C}
   → a ≡ a' → b ≡ b' → c ≡ c' → f a b c ≡ f a' b' c'
 cong₃ f refl refl refl = refl

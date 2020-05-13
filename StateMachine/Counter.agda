@@ -12,7 +12,7 @@ open import Data.Integer.Properties using ()
 open import Data.Nat.Properties
 open import Data.Nat using (z≤n;s≤s;suc)
 open import Data.Maybe
-open import Relation.Binary.PropositionalEquality
+open import Relation.Binary.PropositionalEquality hiding ([_])
 open import Data.List
 open import Data.Product
 open import Function
@@ -75,11 +75,6 @@ lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
 
--- A liveness property: all states can advance/the machine cannot get stuck
-
-liveness : ∀ s → Σ CounterInput λ i → Σ CounterState λ s' → s —→[ i ] s'
-liveness (counter x) = inc , _ , _ , refl
-
 -- Validity holds on chain
 
 open CEM {sm = CounterSM}
@@ -113,6 +108,13 @@ lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
   inj₁ (s′ , X (tx≡ , r) v , r′)
 lemmaP P X p s q v | inj₂ r = inj₂ r
 
+-- Liveness
+-- ========
+
+-- A liveness property: all states can advance/the machine cannot get stuck
+
+liveness : ∀ s → Σ CounterInput λ i → Σ CounterState λ s' → s —→[ i ] s'
+liveness (counter x) = inc , _ , _ , refl
 
 open import Bisimulation.Soundness {sm = CounterSM}
 
@@ -139,3 +141,29 @@ liveness-lem {l}{vl} s@(counter x) b =
   in
     tx , vtx , vl' , p
 
+-- trying to tie the knot with invariants for this state machine
+-- (hopefully can be generalised to all machines)
+
+-- a rooted run of the machine
+
+data RootedRun : CounterState → CounterState → Set where
+  root : ∀{s} → T (isInitial CounterSM s) → RootedRun s s
+  cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ] s'' → RootedRun s s''
+
+data AllR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
+  root : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AllR P (root p)
+  cons : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
+    → P s'' → AllR P p → AllR P (cons p q)
+
+end : ∀ P {s s'}{p : RootedRun s s'} → AllR P p → P s'
+end P (root p q) = q
+end P (cons p q r s) = r
+
+all-lem : (P : CounterState → Set)
+        → (∀{s} → T (isInitial CounterSM s) → P s)
+        → (∀{s i s'} → s —→[ i ] s' → P s → P s')
+        → ∀ {s s'}(p : RootedRun s s') → AllR P p
+all-lem P base step (root p) = root p (base p)
+all-lem P base step (cons p q) =
+  cons p q (step q (end P h)) h
+  where h = all-lem P base step p
