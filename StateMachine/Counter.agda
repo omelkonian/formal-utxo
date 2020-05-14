@@ -211,13 +211,20 @@ forget : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl
 forget (root _ _ p q) = root p
 forget {l = l}{l'}{vl}{vl'}(cons xs p s'' q) = Data.Sum.[ (λ {(_ , s''' , tx≡ , q' , q'' , _) → subst (RootedRun _) (~uniq l' vl' _ _ q'' q) (cons rs (tx≡ , q'))}) , (λ q' → subst (RootedRun _) (~uniq l' vl' _ _ q' q) rs) ] (completeness p (end~' xs)) where rs = forget xs
 
-{-
+-- the cons inside the subst was causing trouble below
+forget' : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → RootedRun s s'
+forget' (root _ _ p q) = root p
+forget' {l = l}{l'}{vl}{vl'}(cons {s' = s'} xs p s'' q) = Data.Sum.[ (λ {(i , s''' , tx≡ , q' , q'' , _) → cons rs (tx≡ , trans q' (cong (λ x → just (x , tx≡)) (~uniq l' vl' _ _ q'' q)))}) , (λ q' → subst (RootedRun _) (~uniq l' vl' _ _ q' q) rs) ] (completeness {s'} p (end~' xs)) where rs = forget' xs
+
+
 all-lem-chain' : (P : CounterState → Set)
-               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllR P (forget xs) → AllX P xs
+               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllR P (forget' xs) → AllX P xs
 all-lem-chain' P (root _ _ p q) (root .p r) = root _ _ p q r
-all-lem-chain' P (cons xs p s'' q) p' with completeness p (end~' xs)
-... | r = {!!}
--}
+all-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p s'' q) p' with completeness {s'} p (end~' xs)
+all-lem-chain' P (cons {s' = s'} xs p _ q) (cons .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₂ → just (x₂ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) x₁ p') | inj₁ x = cons xs p _ q x₁ (all-lem-chain' P xs p')
+... | inj₂ y with ~uniq (_ ∷ _) vl'' s' s'' y q
+... | refl = cons xs p _ q (end _ p') (all-lem-chain' P xs p')
+
 
 -- some more properties of a trace:
 
