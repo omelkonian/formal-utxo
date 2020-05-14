@@ -170,27 +170,30 @@ all-lem P base step (cons p q) =
   cons p q (step q (end P h)) h
   where h = all-lem P base step p
 
--- a sequence of transactions from one bisimilar ledger and state pair to another
--- it starts from an initial state at the root and then proceeds via transactions we care about and skips those we don't
+-- a sequence of transactions from one bisimilar ledger and state pair to another, starting in initial state
 data X : ∀ {l l'} → ValidLedger l → CounterState → ValidLedger l' → CounterState → Set where
   root : ∀{l}(vl : ValidLedger l) → ∀ s → T (isInitial CounterSM s) → vl ~ s → X vl s vl s
-  keep : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'} → X vl s vl' s' → ∀{tx}{vtx : IsValidTx tx l'}{vl''} → vl' —→[ tx ∶- vtx ] vl'' → ∀ s'' → vl'' ~ s'' →
+  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'} → X vl s vl' s' → ∀{tx}{vtx : IsValidTx tx l'}{vl''} → vl' —→[ tx ∶- vtx ] vl'' → ∀ s'' → vl'' ~ s'' →
     X vl s vl'' s''
---  skip : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'} → X vl s vl' s' → ∀{tx}{vtx : IsValidTx tx l'}{vl''} → vl' —→[ tx ∶- vtx ] vl'' → vl'' ~ s' → X vl s vl'' s'
 
--- the predicate P holds for all states in the sequence
+-- the predicate P holds for all states in the (rooted) sequence
 data AllX (P : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
   root : ∀{l}(vl : ValidLedger l) → ∀ s → (i : T (isInitial CounterSM s))(p : vl ~ s) → P s → AllX P (root vl s i p)
-  keep : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s''
-    → AllX P xs → AllX P {s = s}{s' = s''} (keep xs p s'' q)
+  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s''
+    → AllX P xs → AllX P {s = s}{s' = s''} (cons xs p s'' q)
 
 endX : (P : CounterState → Set) → ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'}{xs : X vl s vl' s'} → AllX P xs → P s'
 endX P (root vl s i p q) = q
-endX P (keep xs p s'' q r ps) = r
+endX P (cons xs p s'' q r ps) = r
 
 end~ : (P : CounterState → Set) → ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'}{xs : X vl s vl' s'} → AllX P xs → vl' ~ s'
 end~ P (root vl s i p q) = p
-end~ P (keep xs p s'' q r ps) = q
+end~ P (cons xs p s'' q r ps) = q
+
+end~' : ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'} → X vl s vl' s' → vl' ~ s'
+end~' (root vl s p q) = q
+end~' (cons xs p s'' q) = q
+
 
 postulate ~uniq : ∀ l (vl : ValidLedger l) s s' → vl ~ s → vl ~ s' → s ≡ s'
 
@@ -199,5 +202,37 @@ all-lem-chain : (P : CounterState → Set)
         → (∀{s i s'} → s —→[ i ] s' → P s → P s')
         → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllX P xs
 all-lem-chain P p q (root vl s p' q') = root vl s p' q' (p p')
-all-lem-chain P p q (keep {s' = s'} xs {vl'' = vl''} p' s'' q') = keep xs p' s'' q' (Data.Sum.[ (λ {(_ , s''' , tx≡ , x , y , z) → subst P (~uniq _ vl'' s''' s'' y q') (q (tx≡ , x) (endX P blah))}) , (λ q'' → subst P (~uniq _ vl'' s' s'' q'' q') (endX P blah)) ] (completeness {s = s'} p'  (end~ P blah))) blah
+all-lem-chain P p q (cons {s' = s'} xs {vl'' = vl''} p' s'' q') = cons xs p' s'' q' (Data.Sum.[ (λ {(_ , s''' , tx≡ , x , y , z) → subst P (~uniq _ vl'' s''' s'' y q') (q (tx≡ , x) (endX P blah))}) , (λ q'' → subst P (~uniq _ vl'' s' s'' q'' q') (endX P blah)) ] (completeness {s = s'} p'  (end~ P blah))) blah
   where blah = all-lem-chain P p q xs 
+
+-- an alternative approach
+
+forget : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → RootedRun s s'
+forget (root _ _ p q) = root p
+forget {l = l}{l'}{vl}{vl'}(cons xs p s'' q) = Data.Sum.[ (λ {(_ , s''' , tx≡ , q' , q'' , _) → subst (RootedRun _) (~uniq l' vl' _ _ q'' q) (cons rs (tx≡ , q'))}) , (λ q' → subst (RootedRun _) (~uniq l' vl' _ _ q' q) rs) ] (completeness p (end~' xs)) where rs = forget xs
+
+{-
+all-lem-chain' : (P : CounterState → Set)
+               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllR P (forget xs) → AllX P xs
+all-lem-chain' P (root _ _ p q) (root .p r) = root _ _ p q r
+all-lem-chain' P (cons xs p s'' q) p' with completeness p (end~' xs)
+... | r = {!!}
+-}
+
+-- some more properties of a trace:
+
+-- the predicate holds somewhere in the trace
+
+data AnyR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
+  rootdoes   : ∀ {s} → (p : T (isInitial CounterSM s)) → AnyR P (root p)
+  rootdoesnt : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AnyR P (root p)
+  does : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
+    → P s'' → AnyR P p → AnyR P (cons p q)
+  doesnt : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
+    → AnyR P p → AnyR P (cons p q)
+
+data AnyX (P : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
+  root : ∀{l}(vl : ValidLedger l) → ∀ s → (i : T (isInitial CounterSM s))(p : vl ~ s) → P s → AnyX P (root vl s i p)
+  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s''
+    → AnyX P xs → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
+
