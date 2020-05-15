@@ -12,7 +12,7 @@ open import Data.Integer.Properties using ()
 open import Data.Nat.Properties
 open import Data.Nat using (z≤n;s≤s;suc)
 open import Data.Maybe
-open import Relation.Binary.PropositionalEquality hiding ([_])
+open import Relation.Binary.PropositionalEquality renaming ([_] to remember)
 open import Data.List
 open import Data.Product
 open import Function
@@ -150,6 +150,9 @@ data RootedRun : CounterState → CounterState → Set where
   root : ∀{s} → T (isInitial CounterSM s) → RootedRun s s
   cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ] s'' → RootedRun s s''
 
+cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ] s''} → cons xs x ≡ cons xs' x' → xs ≡ xs' × x ≡ x'
+cons-lem refl = refl , refl
+
 -- the predicate P holds for all states in the run
 data AllR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
   root : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AllR P (root p)
@@ -263,6 +266,25 @@ data UntilR (P Q : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set 
   suffix : ∀{s s' i s''}(xs : RootedRun s s') → UntilR P Q xs → (x : s' —→[ i ] s'') → Q s'' → UntilR P Q (cons xs x)
 
 data UntilX (P Q : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
-  prefix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → AnyX P xs → UntilX P Q xs
+  prefix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → AllX P xs → UntilX P Q xs
   suffix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → UntilX P Q xs
     → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → Q s'' → UntilX P Q (cons xs p s'' q)
+
+{-
+identity : (P Q : CounterState → Set) → ∀{s s'}(xs : RootedRun s s') → UntilR P Q xs → UntilR P Q xs
+identity P Q xs (prefix .xs x) = {!!}
+identity P Q .(cons xs x) (suffix xs p x x₁) = {!!}
+-}
+
+subst-UntilR : (P Q : CounterState → Set) → ∀{s s' s''}(xs : RootedRun s s')(xs' : RootedRun s s'')(p : s'' ≡ s') → subst (RootedRun s) p xs' ≡ xs → UntilR P Q xs → UntilR P Q xs'
+subst-UntilR P Q xs xs' refl refl p = p
+
+until-lem-chain : (P Q : CounterState → Set)
+               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → UntilR P Q (forget' xs) → UntilX P Q xs
+until-lem-chain P Q xs p with forget' xs | inspect forget' xs
+until-lem-chain P Q xs (prefix .(root x) x₁) | root x | remember eq = prefix _ (all-lem-chain' P xs (subst (AllR P) (sym eq) x₁))
+until-lem-chain P Q xs (prefix .(cons q x) x₁) | cons q x | remember eq = prefix _ (all-lem-chain' P xs (subst (AllR P) (sym eq) x₁))
+until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember eq with  completeness {s'} x₂ (end~' xs)
+until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember refl | inj₁ x₄ = suffix xs (until-lem-chain P Q xs p) x₂ _ x₃ x₁
+until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember eq | inj₂ y = suffix xs (until-lem-chain P Q xs (subst-UntilR P Q (cons q x) (forget' xs) _ eq (UntilR.suffix _ p x x₁))) x₂ _ x₃ x₁
+
