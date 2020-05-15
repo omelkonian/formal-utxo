@@ -251,3 +251,9 @@ any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p s'' q) p' with completeness 
 any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (here .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₂ → just (x₂ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) x₁) | inj₁ x = here _ p _ q x₁
 any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (there .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₁ → just (x₁ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) p') | inj₁ x = there xs p _ q (any-lem-chain' P xs p')
 ... | inj₂ y rewrite ~uniq (_ ∷ _) vl'' s' s'' y q = there xs p _ q (any-lem-chain' P xs p')
+
+-- until property
+
+data UntilR (P Q : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
+  prefix : ∀{s s'}(xs : RootedRun s s') → AllR P xs → UntilR P Q xs
+  suffix : ∀{s s' i s''}(xs : RootedRun s s') → UntilR P Q xs → (x : s' —→[ i ] s'') → Q s'' → UntilR P Q (cons xs x) 
