@@ -230,16 +230,24 @@ all-lem-chain' P (cons {s' = s'} xs p _ q) (cons .(forget' xs) (.(proj₁ (proj�
 
 -- the predicate holds somewhere in the trace
 
+
+
 data AnyR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
-  rootdoes   : ∀ {s} → (p : T (isInitial CounterSM s)) → AnyR P (root p)
-  rootdoesnt : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AnyR P (root p)
-  does : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
-    → P s'' → AnyR P p → AnyR P (cons p q)
-  doesnt : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
+  root   : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AnyR P (root p)
+  here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
+    → P s'' → AnyR P (cons p q)
+  there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
     → AnyR P p → AnyR P (cons p q)
 
 data AnyX (P : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
   root : ∀{l}(vl : ValidLedger l) → ∀ s → (i : T (isInitial CounterSM s))(p : vl ~ s) → P s → AnyX P (root vl s i p)
-  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s''
-    → AnyX P xs → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
+  here : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s'' → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
+  there : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → AnyX P xs → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
 
+any-lem-chain' : (P : CounterState → Set)
+               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AnyR P (forget' xs) → AnyX P xs
+any-lem-chain' P (root _ _ p q) (root .p q') = root _ _ p q q'
+any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p s'' q) p' with completeness {s'} p (end~' xs)
+any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (here .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₂ → just (x₂ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) x₁) | inj₁ x = here _ p _ q x₁
+any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (there .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₁ → just (x₁ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) p') | inj₁ x = there xs p _ q (any-lem-chain' P xs p')
+... | inj₂ y rewrite ~uniq (_ ∷ _) vl'' s' s'' y q = there xs p _ q (any-lem-chain' P xs p')
