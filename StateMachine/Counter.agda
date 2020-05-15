@@ -253,7 +253,16 @@ any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (there .(forget' xs) (.
 ... | inj₂ y rewrite ~uniq (_ ∷ _) vl'' s' s'' y q = there xs p _ q (any-lem-chain' P xs p')
 
 -- until property
+-- P..P..Q..Q..
+-- P holds and then Q holds
+-- * P has to hold at least at the initial state, it can hold forever and then Q doesn't need to hold
+-- * if Q takes over then P does not need to hold anymore. There is no enforced overlap
 
 data UntilR (P Q : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
   prefix : ∀{s s'}(xs : RootedRun s s') → AllR P xs → UntilR P Q xs
-  suffix : ∀{s s' i s''}(xs : RootedRun s s') → UntilR P Q xs → (x : s' —→[ i ] s'') → Q s'' → UntilR P Q (cons xs x) 
+  suffix : ∀{s s' i s''}(xs : RootedRun s s') → UntilR P Q xs → (x : s' —→[ i ] s'') → Q s'' → UntilR P Q (cons xs x)
+
+data UntilX (P Q : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
+  prefix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → AnyX P xs → UntilX P Q xs
+  suffix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → UntilX P Q xs
+    → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → Q s'' → UntilX P Q (cons xs p s'' q)
