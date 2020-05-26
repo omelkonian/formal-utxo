@@ -155,3 +155,30 @@ all-lem P base step (cons p q) =
   cons p q (step q (end P h)) h
   where h = all-lem P base step p
 
+-- any
+
+data AnyR (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
+
+  root   : ∀ {s} → (p : T (initₛₘ s)) → P s → AnyR P (root p)
+
+  here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
+    → P s'' → AnyR P (cons p q)
+  there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
+    → AnyR P p → AnyR P (cons p q)
+-- TODO: this isn't right, it needs two constructors for root
+
+-- until
+
+-- P+Q*
+-- P holds and then Q holds
+
+-- * P has to hold at least at the initial state, it can hold forever
+-- and then Q doesn't need to hold at all
+
+-- * if Q takes over then P does not need to hold anymore. There is no
+-- enforced overlap
+
+data UntilR (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
+  prefix : ∀{s s'}(xs : RootedRun s s') → AllR P xs → UntilR P Q xs
+  suffix : ∀{s s' i s''}(xs : RootedRun s s')
+    → UntilR P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilR P Q (cons xs x)
