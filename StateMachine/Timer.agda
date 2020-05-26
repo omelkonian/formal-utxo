@@ -50,15 +50,15 @@ step TimerSM (timer (+ n)) i with n <? 10
 step TimerSM (timer (ℤ.negsuc n)) i = nothing
 origin TimerSM = nothing
 
+-- invariant/safety stuff
+
 Valid : TimerState → Set
 Valid s@(timer x) = T (isInitial TimerSM s) ⊎ (x > + 0 × x ≤ + 10)
 
-_—→[_]_ : TimerState → TimerInput → TimerState → Set
-s —→[ i ] s′ =
-  Σ TxConstraints λ tx≡ → step TimerSM s i ≡ just (s′ , tx≡)
+open import StateMachine.Properties {sm = TimerSM}
 
 lemma-step : ∀{s s' : TimerState}{i : TimerInput}
-  → s —→[ i ] s' → Valid s → Valid s'
+  → s —→[ i ]' s' → Valid s → Valid s'
 lemma-step {timer (+ 0)}  {timer (+ 1)} (tx≡ , p) v =
   inj₂ (+<+ (s≤s z≤n) , +≤+ (s≤s z≤n))
 lemma-step {timer (+ 1)}  {timer (+ 2)} (tx≡ , p) v =
@@ -80,11 +80,40 @@ lemma-step {timer (+ 8)}  {timer (+ 9)} (tx≡ , p) v =
 lemma-step {timer (+ 9)}  {timer (+ 10)} (tx≡ , p) v = inj₂ ((+<+ (s≤s z≤n)) , (+≤+ (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s z≤n))))))))))))
 lemma-step {timer (ℤ.negsuc n)} (tx≡ , ()) v
 
+open CEM {sm = TimerSM}
+
+open import Bisimulation.Base {sm = TimerSM} hiding (_—→[_]_)
+open import Bisimulation.Completeness {sm = TimerSM}
+
+
+open import StateMachine.Properties.Ledger {sm = TimerSM}
+
+lemma : ∀{tx l}
+  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
+  → vl —→[ tx ∶- vtx ] vl′
+  → ∀ s → vl ~ s
+  → Valid s
+  → (Σ TimerState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
+lemma = lemmaP Valid lemma-step 
+
+-- Liveness stuff
+
+open import Bisimulation.Soundness {sm = TimerSM}
+
+open import Data.List.Relation.Unary.All
+open import Relation.Binary.PropositionalEquality
+
+step-sat-lem : ∀ s i s' tx≡ → step TimerSM s i ≡ just (s' , tx≡) → tx≡ ≡ def Default-TxConstraints
+step-sat-lem s@(timer (+ x)) i s' tx≡ p with x <? 10
+step-sat-lem (timer (+_ x)) i s' tx≡ () | no ¬q
+step-sat-lem (timer (+_ x)) i .(timer (+ suc x)) ._ refl | yes q = refl
+step-sat-lem s@(timer (ℤ.negsuc x)) i s' tx≡ ()
+
 Final : TimerState → Set
 Final (timer x) = x ≡ + 10
 
 progress : ∀ s → Valid s → 
-  (Σ TimerState λ s' → Σ TimerInput λ i → s —→[ i ] s') ⊎ Final s
+  (Σ TimerState λ s' → Σ TimerInput λ i → s —→[ i ]' s') ⊎ Final s
 progress (timer (+ 0))  p = inj₁ (timer (+ 1) , inc , _ , refl)
 progress (timer (+ 1))  p = inj₁ (timer (+ 2) , inc , _ , refl)
 progress (timer (+ 2))  p = inj₁ (timer (+ 3) , inc , _ , refl)
@@ -98,39 +127,6 @@ progress (timer (+ 9))  p = inj₁ (timer (+ 10) , inc , _ , refl)
 progress (timer (+ 10)) p = inj₂ refl
 progress (timer (+_ (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc (suc n))))))))))))) (inj₂ (_ , +≤+ (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s (s≤s ()))))))))))))
 progress (timer (ℤ.negsuc n)) (inj₂ ())
---
-
-open CEM {sm = TimerSM}
-
-open import Bisimulation.Base {sm = TimerSM} hiding (_—→[_]_)
-open import Bisimulation.Completeness {sm = TimerSM}
-
-lemma : ∀{tx l}
-  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
-  → vl —→[ tx ∶- vtx ] vl′
-  → ∀ s → vl ~ s
-  → Valid s
-  → (Σ TimerState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
-lemma p s q v with completeness {s = s} p q
-lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , lemma-step (tx≡ , r) v , r′)
-lemma p s q v | inj₂ r = inj₂ r
-
-open import Bisimulation.Soundness {sm = TimerSM}
-
-open import Data.List.Relation.Unary.All
-open import Relation.Binary.PropositionalEquality
-
-lemmaSat : ∀ {s l} {vl : ValidLedger l}
-  → (p : vl ~ s)
-  → Satisfiable {s}{l}{vl} (def Default-TxConstraints) p
-lemmaSat p = refl , (refl , (λ tx → []))
-
-step-sat-lem : ∀ s i s' tx≡ → step TimerSM s i ≡ just (s' , tx≡) → tx≡ ≡ def Default-TxConstraints
-step-sat-lem s@(timer (+ x)) i s' tx≡ p with x <? 10
-step-sat-lem (timer (+_ x)) i s' tx≡ () | no ¬q
-step-sat-lem (timer (+_ x)) i .(timer (+ suc x)) ._ refl | yes q = refl
-step-sat-lem s@(timer (ℤ.negsuc x)) i s' tx≡ ()
 
 lemmaProgress : ∀{l}
   → (vl : ValidLedger l)
