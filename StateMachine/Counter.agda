@@ -19,32 +19,29 @@ open import Function
 open import Data.Bool using (true;false;T)
 open import Data.Bool.Properties using () renaming (_≟_ to _≟B_)
 open import Data.Sum
---open import Data.Unit
---open import Data.Empty
 
-data CounterState : Set where
-  counter : ℤ → CounterState
+data State : Set where
+  counter : ℤ → State
 
-data CounterInput : Set where
-  inc : CounterInput
-
+data Input : Set where
+  inc : Input
 
 instance
-  IsData-CS : IsData CounterState
+  IsData-CS : IsData State
   toData   ⦃ IsData-CS ⦄ (counter i) = I i
   fromData ⦃ IsData-CS ⦄ (I i) = just (counter i)
   fromData ⦃ IsData-CS ⦄ _     = nothing
   from∘to  ⦃ IsData-CS ⦄ (counter i) = refl
   from-inj ⦃ IsData-CS ⦄ (I i) (counter .i) refl = refl
 
-  IsData-CI : IsData CounterInput
+  IsData-CI : IsData Input
   toData   ⦃ IsData-CI ⦄ inc = LIST []
   fromData ⦃ IsData-CI ⦄ (LIST []) = just inc
   fromData ⦃ IsData-CI ⦄ _         = nothing
   from∘to  ⦃ IsData-CI ⦄ inc = refl
   from-inj ⦃ IsData-CI ⦄ (LIST []) inc refl = refl
   
-CounterSM : StateMachine CounterState CounterInput
+CounterSM : StateMachine State Input
 isInitial CounterSM (counter (+ 0) ) = true
 isInitial CounterSM (counter _     ) = false
 -- isFinal   CounterSM (counter (+ 10)) = false
@@ -53,20 +50,17 @@ step      CounterSM (counter i) inc =
   just (counter (Data.Integer.suc i) , def Default-TxConstraints)
 origin    CounterSM = nothing
 
--- some notation
-
-_—→[_]_ : CounterState → CounterInput → CounterState → Set
-s —→[ i ] s′ =
-  Σ TxConstraints λ tx≡ → step CounterSM s i ≡ just (s′ , tx≡)
-
 -- An invariant/safety property: all reachable states are non-negative
+-- ============================
 
-Valid : CounterState → Set
+Valid : State → Set
 Valid s@(counter i)     =
   T (isInitial CounterSM s) ⊎ i ≥ (+ 0) -- ⊎ T (isFinal CounterSM s)
 
+open import StateMachine.Properties {sm = CounterSM}
+
 -- step preserves validity
-lemma-step : ∀{s s' : CounterState}{i : CounterInput} → s —→[ i ] s' → Valid s → Valid s'
+lemma-step : ∀{s s' : State}{i : Input} → s —→[ i ]' s' → Valid s → Valid s'
 lemma-step {counter (+ 0)}       {i = inc} (_ , refl) (inj₁ p) = inj₂ (+≤+ z≤n)
 lemma-step {counter (+ (suc n))} {i = inc} (_ , refl) (inj₁ ())
 lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤n)
@@ -75,62 +69,42 @@ lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
 
--- Validity holds on chain
+-- Validity for all states in any rooted run
+all-valid : ∀{s s'}(xs : RootedRun s s') → AllR Valid xs
+all-valid xs = all-lem Valid lemma-initial lemma-step xs
 
 open CEM {sm = CounterSM}
-
 open import Bisimulation.Base {sm = CounterSM} hiding (_—→[_]_)
-open import Bisimulation.Completeness {sm = CounterSM}
+open import StateMachine.Properties.Ledger {sm = CounterSM}
 
+-- Validity holds for all on chain traces
+all-valid-ledger : ∀{l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}{s s'}
+  → (xs : X vl s vl' s') → AllR Valid (forget xs)
+all-valid-ledger xs = all-valid (forget xs)
+
+-- Validity holds on chain in a different sense
 lemma : ∀{tx l}
   → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
   → vl —→[ tx ∶- vtx ] vl′
   → ∀ s → vl ~ s
   → Valid s
-  → (Σ CounterState λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
-lemma p s q v with completeness {s = s} p q
-lemma p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , lemma-step (tx≡ , r) v ,  r′)
-lemma p s q v | inj₂ r = inj₂ r
-
--- Any such invariant holds on chain
-
-lemmaP : ∀{tx l}
-  → (P : CounterState → Set)
-  → (X : ∀{s s' : CounterState}{i : CounterInput} → s —→[ i ] s' → P s → P s')
-  → ∀{vtx : IsValidTx tx l}{vl : ValidLedger l}{vl′}
-  → vl —→[ tx ∶- vtx ] vl′
-  → ∀ s → vl ~ s
-  → P s
-  → (Σ CounterState λ s′ → P s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
-lemmaP P X p s q v with completeness {s = s} p q
-lemmaP P X p s q v | inj₁ (i , s′ , tx≡ , r , r′ , r″) =
-  inj₁ (s′ , X (tx≡ , r) v , r′)
-lemmaP P X p s q v | inj₂ r = inj₂ r
+  → (Σ State λ s′ → Valid s′ × (vl′ ~ s′)) ⊎ vl′ ~ s
+lemma = lemmaP Valid lemma-step
 
 -- Liveness
 -- ========
 
 -- A liveness property: all states can advance/the machine cannot get stuck
 
-liveness : ∀ s → Σ CounterInput λ i → Σ CounterState λ s' → s —→[ i ] s'
+liveness : ∀ s → Σ Input λ i → Σ State λ s' → s —→[ i ]' s'
 liveness (counter x) = inc , _ , _ , refl
 
 open import Bisimulation.Soundness {sm = CounterSM}
 
-open import Data.List.Relation.Unary.All
-
--- trivial constraints are satisfiable, could be proved elsewhere
-
-lemmaSat : ∀ {s l} {vl : ValidLedger l}
-  → (p : vl ~ s)
-  → Satisfiable {s}{l}{vl} (def Default-TxConstraints) p
-lemmaSat p = refl , (refl , (λ tx → []))
-
 livesat-lem : ∀ s → (proj₁ (proj₂ (proj₂ (liveness s)))) ≡ def Default-TxConstraints
 livesat-lem (counter x) = refl
 
--- liveness holds on chain
+-- liveness holds on chain (in a particular sense)
 
 liveness-lem : ∀ {l vl} s → vl ~ s →
   Σ Tx λ tx → Σ (IsValidTx tx l) λ vtx → Σ (ValidLedger (tx ∷ l)) λ vl' → vl —→[ tx ∶- vtx ] vl'
@@ -141,150 +115,4 @@ liveness-lem {l}{vl} s@(counter x) b =
   in
     tx , vtx , vl' , p
 
--- trying to tie the knot with invariants for this state machine
--- (hopefully can be generalised to all machines)
-
--- a rooted run of the machine
-
-data RootedRun : CounterState → CounterState → Set where
-  root : ∀{s} → T (isInitial CounterSM s) → RootedRun s s
-  cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ] s'' → RootedRun s s''
-
-cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ] s''} → cons xs x ≡ cons xs' x' → xs ≡ xs' × x ≡ x'
-cons-lem refl = refl , refl
-
--- the predicate P holds for all states in the run
-data AllR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
-  root : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AllR P (root p)
-  cons : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
-    → P s'' → AllR P p → AllR P (cons p q)
-
--- the property holds in the end
-end : ∀ P {s s'}{p : RootedRun s s'} → AllR P p → P s'
-end P (root p q) = q
-end P (cons p q r s) = r
-
-all-lem : (P : CounterState → Set)
-        → (∀{s} → T (isInitial CounterSM s) → P s)
-        → (∀{s i s'} → s —→[ i ] s' → P s → P s')
-        → ∀ {s s'}(p : RootedRun s s') → AllR P p
-all-lem P base step (root p) = root p (base p)
-all-lem P base step (cons p q) =
-  cons p q (step q (end P h)) h
-  where h = all-lem P base step p
-
--- a sequence of transactions from one bisimilar ledger and state pair to another, starting in initial state
-data X : ∀ {l l'} → ValidLedger l → CounterState → ValidLedger l' → CounterState → Set where
-  root : ∀{l}(vl : ValidLedger l) → ∀ s → T (isInitial CounterSM s) → vl ~ s → X vl s vl s
-  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'} → X vl s vl' s' → ∀{tx}{vtx : IsValidTx tx l'}{vl''} → vl' —→[ tx ∶- vtx ] vl'' → ∀ s'' → vl'' ~ s'' →
-    X vl s vl'' s''
-
--- the predicate P holds for all states in the (rooted) sequence
-data AllX (P : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
-  root : ∀{l}(vl : ValidLedger l) → ∀ s → (i : T (isInitial CounterSM s))(p : vl ~ s) → P s → AllX P (root vl s i p)
-  cons : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s''
-    → AllX P xs → AllX P {s = s}{s' = s''} (cons xs p s'' q)
-
-endX : (P : CounterState → Set) → ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'}{xs : X vl s vl' s'} → AllX P xs → P s'
-endX P (root vl s i p q) = q
-endX P (cons xs p s'' q r ps) = r
-
-end~ : (P : CounterState → Set) → ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'}{xs : X vl s vl' s'} → AllX P xs → vl' ~ s'
-end~ P (root vl s i p q) = p
-end~ P (cons xs p s'' q r ps) = q
-
-end~' : ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'} → X vl s vl' s' → vl' ~ s'
-end~' (root vl s p q) = q
-end~' (cons xs p s'' q) = q
-
-
-postulate ~uniq : ∀ l (vl : ValidLedger l) s s' → vl ~ s → vl ~ s' → s ≡ s'
-
-all-lem-chain : (P : CounterState → Set)
-        → (∀{s} → T (isInitial CounterSM s) → P s)
-        → (∀{s i s'} → s —→[ i ] s' → P s → P s')
-        → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllX P xs
-all-lem-chain P p q (root vl s p' q') = root vl s p' q' (p p')
-all-lem-chain P p q (cons {s' = s'} xs {vl'' = vl''} p' s'' q') = cons xs p' s'' q' (Data.Sum.[ (λ {(_ , s''' , tx≡ , x , y , z) → subst P (~uniq _ vl'' s''' s'' y q') (q (tx≡ , x) (endX P blah))}) , (λ q'' → subst P (~uniq _ vl'' s' s'' q'' q') (endX P blah)) ] (completeness {s = s'} p'  (end~ P blah))) blah
-  where blah = all-lem-chain P p q xs 
-
--- an alternative approach
-
-forget : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → RootedRun s s'
-forget (root _ _ p q) = root p
-forget {l = l}{l'}{vl}{vl'}(cons xs p s'' q) = Data.Sum.[ (λ {(_ , s''' , tx≡ , q' , q'' , _) → subst (RootedRun _) (~uniq l' vl' _ _ q'' q) (cons rs (tx≡ , q'))}) , (λ q' → subst (RootedRun _) (~uniq l' vl' _ _ q' q) rs) ] (completeness p (end~' xs)) where rs = forget xs
-
--- the cons inside the subst was causing trouble below
-forget' : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → RootedRun s s'
-forget' (root _ _ p q) = root p
-forget' {l = l}{l'}{vl}{vl'}(cons {s' = s'} xs p s'' q) = Data.Sum.[ (λ {(i , s''' , tx≡ , q' , q'' , _) → cons rs (tx≡ , trans q' (cong (λ x → just (x , tx≡)) (~uniq l' vl' _ _ q'' q)))}) , (λ q' → subst (RootedRun _) (~uniq l' vl' _ _ q' q) rs) ] (completeness {s'} p (end~' xs)) where rs = forget' xs
-
-
-all-lem-chain' : (P : CounterState → Set)
-               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AllR P (forget' xs) → AllX P xs
-all-lem-chain' P (root _ _ p q) (root .p r) = root _ _ p q r
-all-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p s'' q) p' with completeness {s'} p (end~' xs)
-all-lem-chain' P (cons {s' = s'} xs p _ q) (cons .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₂ → just (x₂ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) x₁ p') | inj₁ x = cons xs p _ q x₁ (all-lem-chain' P xs p')
-... | inj₂ y with ~uniq (_ ∷ _) vl'' s' s'' y q
-... | refl = cons xs p _ q (end _ p') (all-lem-chain' P xs p')
-
-
--- some more properties of a trace:
-
--- the predicate holds somewhere in the trace
-
-
-
-data AnyR (P : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
-  root   : ∀ {s} → (p : T (isInitial CounterSM s)) → P s → AnyR P (root p)
-  here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
-    → P s'' → AnyR P (cons p q)
-  there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ] s'')
-    → AnyR P p → AnyR P (cons p q)
-
-data AnyX (P : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
-  root : ∀{l}(vl : ValidLedger l) → ∀ s → (i : T (isInitial CounterSM s))(p : vl ~ s) → P s → AnyX P (root vl s i p)
-  here : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → P s'' → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
-  there : ∀{l l' s s'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → AnyX P xs → AnyX P {s = s}{s' = s''} (cons xs p s'' q)
-
-any-lem-chain' : (P : CounterState → Set)
-               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → AnyR P (forget' xs) → AnyX P xs
-any-lem-chain' P (root _ _ p q) (root .p q') = root _ _ p q q'
-any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p s'' q) p' with completeness {s'} p (end~' xs)
-any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (here .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₂ → just (x₂ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) x₁) | inj₁ x = here _ p _ q x₁
-any-lem-chain' P (cons {s' = s'} xs {vl'' = vl''} p _ q) (there .(forget' xs) (.(proj₁ (proj₂ (proj₂ x))) , .(trans (proj₁ (proj₂ (proj₂ (proj₂ x)))) (cong (λ x₁ → just (x₁ , proj₁ (proj₂ (proj₂ x)))) (~uniq (_ ∷ _) _ (proj₁ (proj₂ x)) _ (proj₁ (proj₂ (proj₂ (proj₂ (proj₂ x))))) q)))) p') | inj₁ x = there xs p _ q (any-lem-chain' P xs p')
-... | inj₂ y rewrite ~uniq (_ ∷ _) vl'' s' s'' y q = there xs p _ q (any-lem-chain' P xs p')
-
--- until property
--- P..P..Q..Q..
--- P holds and then Q holds
--- * P has to hold at least at the initial state, it can hold forever and then Q doesn't need to hold
--- * if Q takes over then P does not need to hold anymore. There is no enforced overlap
-
-data UntilR (P Q : CounterState → Set) : ∀{s s'} → RootedRun s s' → Set where
-  prefix : ∀{s s'}(xs : RootedRun s s') → AllR P xs → UntilR P Q xs
-  suffix : ∀{s s' i s''}(xs : RootedRun s s') → UntilR P Q xs → (x : s' —→[ i ] s'') → Q s'' → UntilR P Q (cons xs x)
-
-data UntilX (P Q : CounterState → Set) : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'} → X vl s vl' s' → Set where
-  prefix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → AllX P xs → UntilX P Q xs
-  suffix : ∀ {l l'}{vl : ValidLedger l}{s}{vl' : ValidLedger l'}{s'}(xs : X vl s vl' s') → UntilX P Q xs
-    → ∀{tx}{vtx : IsValidTx tx l'}{vl''}(p : vl' —→[ tx ∶- vtx ] vl'') → ∀ s'' (q : vl'' ~ s'') → Q s'' → UntilX P Q (cons xs p s'' q)
-
-{-
-identity : (P Q : CounterState → Set) → ∀{s s'}(xs : RootedRun s s') → UntilR P Q xs → UntilR P Q xs
-identity P Q xs (prefix .xs x) = {!!}
-identity P Q .(cons xs x) (suffix xs p x x₁) = {!!}
--}
-
-subst-UntilR : (P Q : CounterState → Set) → ∀{s s' s''}(xs : RootedRun s s')(xs' : RootedRun s s'')(p : s'' ≡ s') → subst (RootedRun s) p xs' ≡ xs → UntilR P Q xs → UntilR P Q xs'
-subst-UntilR P Q xs xs' refl refl p = p
-
-until-lem-chain : (P Q : CounterState → Set)
-               → ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → UntilR P Q (forget' xs) → UntilX P Q xs
-until-lem-chain P Q xs p with forget' xs | inspect forget' xs
-until-lem-chain P Q xs (prefix .(root x) x₁) | root x | remember eq = prefix _ (all-lem-chain' P xs (subst (AllR P) (sym eq) x₁))
-until-lem-chain P Q xs (prefix .(cons q x) x₁) | cons q x | remember eq = prefix _ (all-lem-chain' P xs (subst (AllR P) (sym eq) x₁))
-until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember eq with  completeness {s'} x₂ (end~' xs)
-until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember refl | inj₁ x₄ = suffix xs (until-lem-chain P Q xs p) x₂ _ x₃ x₁
-until-lem-chain P Q (cons {s' = s'} xs x₂ _ x₃) (suffix .q p .x x₁) | cons q x | remember eq | inj₂ y = suffix xs (until-lem-chain P Q xs (subst-UntilR P Q (cons q x) (forget' xs) _ eq (UntilR.suffix _ p x x₁))) x₂ _ x₃ x₁
 
