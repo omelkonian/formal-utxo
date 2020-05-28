@@ -58,12 +58,20 @@ Valid s@(counter i)     =
   T (isInitial CounterSM s) ⊎ i ≥ (+ 0) -- ⊎ T (isFinal CounterSM s)
 
 open import StateMachine.Properties {sm = CounterSM}
+open import Bisimulation.Base {sm = CounterSM}
 
 -- step preserves validity
 lemma-step : ∀{s s' : State}{i : Input} → s —→[ i ]' s' → Valid s → Valid s'
 lemma-step {counter (+ 0)}       {i = inc} (_ , refl) (inj₁ p) = inj₂ (+≤+ z≤n)
 lemma-step {counter (+ (suc n))} {i = inc} (_ , refl) (inj₁ ())
 lemma-step {counter (+_ n)} {i = inc} (_ , refl) (inj₂ p) = inj₂ (+≤+ z≤n)
+
+-- for a slightly different representation of step
+lemma-step' : ∀{s i s' txc} → s —→[ i ] (s' , txc) → Valid s → Valid s'
+lemma-step' {counter (+ 0)}       {i = inc} refl (inj₁ p) = inj₂ (+≤+ z≤n)
+lemma-step' {counter (+ (suc n))} {i = inc} refl (inj₁ ())
+lemma-step' {counter (+_ n)} {i = inc} refl (inj₂ p) = inj₂ (+≤+ z≤n)
+
 
 -- initial state is valid
 lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
@@ -73,8 +81,12 @@ lemma-initial {counter (+ 0)} _ = inj₁ _
 all-valid : ∀{s s'}(xs : RootedRun s s') → AllS Valid xs
 all-valid xs = all-lem Valid lemma-initial lemma-step xs
 
+-- Validity for all states in any non-empty run
+all'-valid : ∀{s s'}(xs : RootedRun' s s') → AllS' Valid xs
+all'-valid xs = all'-lem Valid lemma-initial lemma-step' xs
+
+
 open CEM {sm = CounterSM}
-open import Bisimulation.Base {sm = CounterSM} hiding (_—→[_]_)
 open import StateMachine.Properties.Ledger {sm = CounterSM}
 
 -- Validity holds for all on chain traces

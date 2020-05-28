@@ -186,13 +186,34 @@ data UntilS (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
 open import Bisimulation.Base {sm = sm}
 -- non-empty rooted runs
 data RootedRun' : S → S → Set where
-  one : ∀{s s' i txc} → T (initₛₘ s) → s —→[ i ] (s' , txc) → RootedRun' s s
-  cons : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
+  root : ∀{s s' i txc} → T (initₛₘ s) → s —→[ i ] (s' , txc) → RootedRun' s s'
+  snoc : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
+
+-- a version of AllS for non-empty runs:
+-- the predicate P holds for all states in the run
+data AllS' (P : S → Set) : ∀{s s'} → RootedRun' s s' → Set where
+  root : ∀ {s i s' txc} → (p : T (initₛₘ s))(x : s —→[ i ] (s' , txc))
+    → P s → P s'
+    → AllS' P (root p x)
+  snoc : ∀ {s s' i s'' txc} (xs : RootedRun' s s')(x : s' —→[ i ] (s'' , txc))
+    → P s'' → AllS' P xs → AllS' P (snoc xs x)
+
+end' : ∀ P {s s'}{p : RootedRun' s s'} → AllS' P p → P s'
+end' P (root p x q r) = r
+end' P (snoc xs x p q) = p
+
+all'-lem : (P : S → Set)
+        → (∀{s} → T (initₛₘ s) → P s)
+        → (∀{s i s' tx≡} → s —→[ i ] (s' , tx≡) → P s → P s')
+        → ∀ {s s'}(p : RootedRun' s s') → AllS' P p
+all'-lem P base step (root p x)  = root p x (base p) (step x (base p))
+all'-lem P base step (snoc xs x) = snoc xs x (step x (end' P h)) h
+  where h = all'-lem P base step xs
 
 -- properties of inputs (which may refer to the other stuff)
 data AllI (P : S → I → TxConstraints → S → Set) : ∀ {s s'} → RootedRun' s s' → Set where
   root : ∀ {s s' i txc} → (p : T (initₛₘ s)) → (q : s —→[ i ] (s' , txc)) → P s i txc s'
-    → AllI P {s = s} (one p q)
-  cons : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
-    → P s' i txc s'' → AllI P p → AllI P (cons p q)
+    → AllI P {s = s} (root p q)
+  snoc : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
+    → P s' i txc s'' → AllI P p → AllI P (snoc p q)
 
