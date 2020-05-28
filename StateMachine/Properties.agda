@@ -182,3 +182,17 @@ data UntilS (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
   prefix : ∀{s s'}(xs : RootedRun s s') → AllS P xs → UntilS P Q xs
   suffix : ∀{s s' i s''}(xs : RootedRun s s')
     → UntilS P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilS P Q (cons xs x)
+
+open import Bisimulation.Base {sm = sm}
+-- non-empty rooted runs
+data RootedRun' : S → S → Set where
+  one : ∀{s s' i txc} → T (initₛₘ s) → s —→[ i ] (s' , txc) → RootedRun' s s
+  cons : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
+
+-- properties of inputs (which may refer to the other stuff)
+data AllI (P : S → I → TxConstraints → S → Set) : ∀ {s s'} → RootedRun' s s' → Set where
+  root : ∀ {s s' i txc} → (p : T (initₛₘ s)) → (q : s —→[ i ] (s' , txc)) → P s i txc s'
+    → AllI P {s = s} (one p q)
+  cons : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
+    → P s' i txc s'' → AllI P p → AllI P (cons p q)
+

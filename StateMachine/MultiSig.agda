@@ -1,7 +1,10 @@
-module StateMachine.MultiSig where
-
 open import Data.List hiding (map)
 open import Data.Nat
+open import UTxO.Hashing.Base
+
+module StateMachine.MultiSig (Signatories : List HashId)(Threshold : ℕ)
+  where
+
 open import Data.Integer using (+_)
 open import Data.List.Membership.DecPropositional _≟_
 open import Data.Maybe
@@ -12,19 +15,12 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality hiding ([_])
 
 open import Prelude.Default
-
 open import UTxO.Value
 open import UTxO.Types
-open import UTxO.Hashing.Base
 open import StateMachine.Base
 
 -- not sure if this is a suitable hash definition
 PubKeyHash = HashId
-
-postulate Signatories : List PubKeyHash
-
-Threshold : ℕ
-Threshold = 3
 
 record Payment : Set where
   constructor payment
@@ -317,38 +313,18 @@ step MultiSigSM _ _ = nothing
 
 origin MultiSigSM = nothing
 
--- prove something
-{-
-need a general predicate over s i txconstr state
-
-when I == cancel then the constraint must say (just ^)
-
-P s i tx s' = i == cancel => tx == just ...
-
-then do AllR...
--}
-
--- could make more precise by getting k and p from state
 open import Bisimulation.Base {sm = MultiSigSM}
 open import StateMachine.Properties {sm = MultiSigSM}
+open import Data.Unit
 
+-- cancel is easy as there is no with
 P : State → Input → TxConstraints → State → Set
-P _ i txc _ =
-  i ≡ Cancel → Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
-
-data RootedRun' : State → State → Set where
-  one : ∀{s s' i txc} → T (isInitial MultiSigSM s) → s —→[ i ] (s' , txc) → RootedRun' s s
-  cons : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
-
-data AllI (P : State → Input → TxConstraints → State → Set) : ∀ {s s'} → RootedRun' s s' → Set where
-  root : ∀ {s s' i txc} → (p : T (isInitial MultiSigSM s)) → (q : s —→[ i ] (s' , txc)) → P s i txc s'
-    → AllI P {s = s} (one p q)
-  cons : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
-    → P s' i txc s'' → AllI P p → AllI P (cons p q)
+P _ Cancel txc _ = Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
+P _ _ _ _ = ⊤
 
 lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
-lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x λ()
-lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x (λ()) (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x (λ()) (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (λ _ → pay , refl) (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x (λ()) (lemma xs)
+lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x _
+lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x _ (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x _ (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (pay , refl) (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x _ (lemma xs)
