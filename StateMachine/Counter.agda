@@ -70,7 +70,7 @@ lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
 
 -- Validity for all states in any rooted run
-all-valid : ∀{s s'}(xs : RootedRun s s') → AllR Valid xs
+all-valid : ∀{s s'}(xs : RootedRun s s') → AllS Valid xs
 all-valid xs = all-lem Valid lemma-initial lemma-step xs
 
 open CEM {sm = CounterSM}
@@ -79,7 +79,7 @@ open import StateMachine.Properties.Ledger {sm = CounterSM}
 
 -- Validity holds for all on chain traces
 all-valid-ledger : ∀{l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}{s s'}
-  → (xs : X vl s vl' s') → AllR Valid (forget xs)
+  → (xs : X vl s vl' s') → AllS Valid (forget xs)
 all-valid-ledger xs = all-valid (forget xs)
 
 -- Validity holds on chain in a different sense

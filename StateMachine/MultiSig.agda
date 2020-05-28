@@ -21,8 +21,7 @@ open import StateMachine.Base
 -- not sure if this is a suitable hash definition
 PubKeyHash = HashId
 
-Signatories : List PubKeyHash
-Signatories = []
+postulate Signatories : List PubKeyHash
 
 Threshold : ℕ
 Threshold = 3
@@ -292,14 +291,12 @@ MultiSigSM : StateMachine State Input
 isInitial MultiSigSM Holding =  true
 isInitial MultiSigSM _ = false
 step MultiSigSM Holding (ProposePayment p) = just ((CollectingSignatures p []) , def)
-step MultiSigSM (CollectingSignatures p sigs) (AddSignature sig)
-  with sig ∈? Signatories | sig ∈? sigs
+step MultiSigSM (CollectingSignatures p sigs) (AddSignature sig) with sig ∈? Signatories | sig ∈? sigs
 ... | no ¬q  | _     = nothing -- not a signatory
 ... | yes q  | no ¬r =
   just (CollectingSignatures p (sig ∷ sigs) , def)
   -- TODO: need to add a new type of constraint to check signature
 ... | yes q  | yes r = nothing -- already signed
-
 step MultiSigSM (CollectingSignatures p sigs) Cancel =
   just (Holding
        , record { forge≡ = nothing
@@ -320,3 +317,38 @@ step MultiSigSM _ _ = nothing
 
 origin MultiSigSM = nothing
 
+-- prove something
+{-
+need a general predicate over s i txconstr state
+
+when I == cancel then the constraint must say (just ^)
+
+P s i tx s' = i == cancel => tx == just ...
+
+then do AllR...
+-}
+
+-- could make more precise by getting k and p from state
+open import Bisimulation.Base {sm = MultiSigSM}
+open import StateMachine.Properties {sm = MultiSigSM}
+
+P : State → Input → TxConstraints → State → Set
+P _ i txc _ =
+  i ≡ Cancel → Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
+
+data RootedRun' : State → State → Set where
+  one : ∀{s s' i txc} → T (isInitial MultiSigSM s) → s —→[ i ] (s' , txc) → RootedRun' s s
+  cons : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
+
+data AllI (P : State → Input → TxConstraints → State → Set) : ∀ {s s'} → RootedRun' s s' → Set where
+  root : ∀ {s s' i txc} → (p : T (isInitial MultiSigSM s)) → (q : s —→[ i ] (s' , txc)) → P s i txc s'
+    → AllI P {s = s} (one p q)
+  cons : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
+    → P s' i txc s'' → AllI P p → AllI P (cons p q)
+
+lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
+lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x λ()
+lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x (λ()) (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x (λ()) (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (λ _ → pay , refl) (lemma xs)
+lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x (λ()) (lemma xs)

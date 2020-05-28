@@ -30,6 +30,10 @@ open import StateMachine.GuessingGame
 open import StateMachine.Properties
 open import StateMachine.Initiality
 
+-- ** StateMachine examples
+open import StateMachine.Counter
+open import StateMachine.MultiSig
+
 -- ** Bisimulation between CEMs and UTxO ledgers
 open import Bisimulation.Base
 open import Bisimulation.Soundness

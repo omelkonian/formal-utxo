@@ -136,20 +136,20 @@ cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''
 cons-lem refl = refl , refl
 
 -- the predicate P holds for all states in the run
-data AllR (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
-  root : ∀ {s} → (p : T (initₛₘ s)) → P s → AllR P (root p)
+data AllS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
+  root : ∀ {s} → (p : T (initₛₘ s)) → P s → AllS P (root p)
   cons : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AllR P p → AllR P (cons p q)
+    → P s'' → AllS P p → AllS P (cons p q)
 
 -- the property holds in the end
-end : ∀ P {s s'}{p : RootedRun s s'} → AllR P p → P s'
+end : ∀ P {s s'}{p : RootedRun s s'} → AllS P p → P s'
 end P (root p q) = q
 end P (cons p q r s) = r
 
 all-lem : (P : S → Set)
         → (∀{s} → T (initₛₘ s) → P s)
         → (∀{s i s'} → s —→[ i ]' s' → P s → P s')
-        → ∀ {s s'}(p : RootedRun s s') → AllR P p
+        → ∀ {s s'}(p : RootedRun s s') → AllS P p
 all-lem P base step (root p) = root p (base p)
 all-lem P base step (cons p q) =
   cons p q (step q (end P h)) h
@@ -157,14 +157,14 @@ all-lem P base step (cons p q) =
 
 -- any
 
-data AnyR (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
+data AnyS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
 
-  root   : ∀ {s} → (p : T (initₛₘ s)) → P s → AnyR P (root p)
+  root   : ∀ {s} → (p : T (initₛₘ s)) → P s → AnyS P (root p)
 
   here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AnyR P (cons p q)
+    → P s'' → AnyS P (cons p q)
   there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → AnyR P p → AnyR P (cons p q)
+    → AnyS P p → AnyS P (cons p q)
 -- TODO: this isn't right, it needs two constructors for root
 
 -- until
@@ -178,7 +178,7 @@ data AnyR (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
 -- * if Q takes over then P does not need to hold anymore. There is no
 -- enforced overlap
 
-data UntilR (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
-  prefix : ∀{s s'}(xs : RootedRun s s') → AllR P xs → UntilR P Q xs
+data UntilS (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
+  prefix : ∀{s s'}(xs : RootedRun s s') → AllS P xs → UntilS P Q xs
   suffix : ∀{s s' i s''}(xs : RootedRun s s')
-    → UntilR P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilR P Q (cons xs x)
+    → UntilS P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilS P Q (cons xs x)
