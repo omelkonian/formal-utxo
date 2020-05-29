@@ -54,31 +54,25 @@ T-propagates {ptx} eq = map₁₂ T⇒true T⇒true (T-∧ $ true⇒T eq)
 T-outputsOK : ∀ {l tx di ds s′} {txIn : TxInput} {txIn∈ : txIn ∈ inputs tx}
   → let ptx = toPendingTx l tx (Any.index txIn∈) in
     outputsOK ptx di ds s′ ≡ true
---  → finalₛₘ s′ ≡ false
     --------------------------------
   → ∃[ o ] ( (o ∈ outputs tx)
-           × (getContinuingOutputs ptx ≡ [ mkOutputInfo o ])
+           × (getContinuingOutputs ptx ≡ [ o ])
            × (datumHash o ≡ toData s′ ♯ᵈ)
            × (value o ≡ valueAtᵒ (thisValidator ptx) (txInfo ptx))
            × (address o ≡ validator txIn ♯)
            )
-T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} eq -- ¬fin
---   with finalₛₘ s′ | ¬fin
--- ... | true  | ()
--- ... | false | _
+T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} eq
   with getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
      | inspect getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
 ... | (o ∷ []) | ≡[ out≡ ]
   rewrite ptx-‼ {l = l} {tx = tx} {i∈ = txIn∈}
-  with ∈-filter⁻ (((validator txIn) ♯ ≟ℕ_) ∘ OutputInfo.validatorHash)
-                  {v = o} {xs = map mkOutputInfo (outputs tx)} (singleton→∈ (_ , out≡))
+  with ∈-filter⁻ (((validator txIn) ♯ ≟ℕ_) ∘ address)
+                  {v = o} {xs = outputs tx} (singleton→∈ (_ , out≡))
 ... | o∈ , refl
-  with ∈-map⁻ mkOutputInfo o∈
-... | o′ , o′∈ , refl
-  with datumHash o′ ≟ℕ toData s′ ♯ᵈ | eq
+  with datumHash o ≟ℕ toData s′ ♯ᵈ | eq
 ... | no ¬p    | ()
 ... | yes refl | _
-    = o′ , o′∈ , refl , refl , sym (sum-single {v = value o′}) , refl
+    = o , o∈ , refl , refl , sym (sum-single {v = value o}) , refl
 
 T-validator : ∀ {di s ptx} →
   let
@@ -121,7 +115,6 @@ T-validator {di} {s} {ptx} eq
 ... | true  | _
     = i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , refl
 
-
 -- james
 
 _—→[_]'_ : S → I → S → Set
@@ -132,8 +125,9 @@ data RootedRun : S → S → Set where
   root : ∀{s} → T (initₛₘ s) → RootedRun s s
   cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
 
-cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → cons xs x ≡ cons xs' x' → xs ≡ xs' × x ≡ x'
-cons-lem refl = refl , refl
+-- ** T0D0: does not typecheck
+-- cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → cons xs x ≡ cons xs' x' → xs ≡ xs' × x ≡ x'
+-- cons-lem refl = refl , refl
 
 -- the predicate P holds for all states in the run
 data AllS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
@@ -216,4 +210,3 @@ data AllI (P : S → I → TxConstraints → S → Set) : ∀ {s s'} → RootedR
     → AllI P {s = s} (root p q)
   snoc : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
     → P s' i txc s'' → AllI P p → AllI P (snoc p q)
-

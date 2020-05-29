@@ -48,7 +48,6 @@ open import UTxO.TxUtilities
 open import StateMachine.Base
 
 open InputInfo
-open OutputInfo
 open TxInfo
 
 module Bisimulation.Completeness
@@ -65,7 +64,7 @@ completeness : ∀ {s tx l} {vtx : IsValidTx tx l} {vl : ValidLedger l} {vl′ :
     --------------------------------------
   → (∃[ i ] ∃[ s′ ] ∃[ tx≡ ]
       ( s —→[ i ] (s′ , tx≡)
-      × ({- finalₛₘ s′ ≡ false → -} vl′ ~ s′)
+      × (vl′ ~ s′)
       × (verifyTx l tx tx≡ ≡ true)))
   ⊎ (vl′ ~ s)
 completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
@@ -108,18 +107,18 @@ completeness {s} {tx} {l} {vtx} {vl} {vl′} vl→vl′ vl~s
          ------------------------------------
       → ∃[ i ] ∃[ s′ ] ∃[ tx≡ ]
           ( (stepₛₘ s i ≡ pure (s′ , tx≡))
-          × ({- finalₛₘ s′ ≡ false → -} vl′ ~ s′)
+          × (vl′ ~ s′)
           × (verifyTx l tx tx≡ ≡ true) )
     STEP eq
       with T-validator {di} {s} {ptx} eq
     ... | i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , prop≡
         = i , s′ , tx≡ , step≡ , vl′~s′ , verify≡
       where
-        vl′~s′ : {- finalₛₘ s′ ≡ false → -} vl′ ~ s′
-        vl′~s′ -- ¬fin
+        vl′~s′ : vl′ ~ s′
+        vl′~s′
           with T-propagates {ptx} prop≡
         ... | vin≥ , vout≥
-          with T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} outsOK≡ -- ¬fin
+          with T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} outsOK≡
         ... | o , o∈ , out≡ , refl , refl , refl
           with mapWith∈⁺ {x = o} {xs = outputs tx}
                          {f = λ {out} out∈ → record { outRef   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)

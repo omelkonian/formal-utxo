@@ -30,11 +30,11 @@ instance
     ; redeemerHash  = def
     ; value         = def } ⌟
 
-  Default-OutputInfo : Default OutputInfo
-  Default-OutputInfo = ⌞ record
-    { value         = def
-    ; validatorHash = def
-    ; datumHash     = def } ⌟
+  Default-TxOutput : Default TxOutput
+  Default-TxOutput = ⌞ record
+    { address   = def
+    ; value     = def
+    ; datumHash = def } ⌟
 
   Default-TxInfo : Default TxInfo
   Default-TxInfo = ⌞ record
@@ -51,12 +51,6 @@ instance
     ; validator = def
     ; redeemer  = def
     ; datum     = def } ⌟
-
-  Default-TxOutput : Default TxOutput
-  Default-TxOutput = ⌞ record
-    { address   = def
-    ; value     = def
-    ; datumHash = def } ⌟
 
   Default-Tx : Default Tx
   Default-Tx = ⌞ record

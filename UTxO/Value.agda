@@ -251,14 +251,20 @@ module FocusTokenClass (tk : TokenClass) where
     ◆-currencies∈ : ∀ {v} → ◆∈ v → proj₁ tk ∈ currencies v
     ◆>0⇒◆∈ : ∀ {v n} → v ◆ ≥ n → n > 0 → ◆∈ v
     ◆-≥ : ∀ {v v′} → v ◆ ≥ v′ ◆ → ◆∈ v′ → ◆∈ v
+    ≡0⇒◆∉ : ∀ {v} → v ◆ ≡ 0 → ¬ ◆∈ v
+    ◆-single : ∀ {n} → [ proj₁ tk , [ proj₂ tk , n ] ] ◆ ≡ n
 
     ∑-◆ : ∀ {xs : List A} {f : A → Value}
       → ∑ xs f ◆ ≡ ∑ℕ (map (_◆ ∘ f) xs)
 
-    ∑-mapMaybe : ∀ {X : Quantity → Set} {xs : List A} {fm : A → Maybe (∃ X)} {g : A → Value}
+    ∑-mapMaybe : ∀ {X : Set} {xs : List A} {fm : A → Maybe X} {g : A → Value} {fv : X → Quantity}
       → (∀ x → Is-nothing (fm x) → g x ◆ ≡ 0)
-      → (∀ x v → fm x ≡ just v → g x ◆ ≡ proj₁ v)
-      → ∑ℕ (map (_◆ ∘ g) xs) ≡ ∑₁ (mapMaybe fm xs)
+      → (∀ x v → fm x ≡ just v → g x ◆ ≡ fv v)
+      → ∑ℕ (map (_◆ ∘ g) xs) ≡ ∑ℕ (map fv $ mapMaybe fm xs)
+
+    ∑-filter-◆ : ∀ {xs : List A} {fv : A → Value}
+      → ∑ (filter (◆∈?_ ∘ fv) xs) fv ◆
+      ≡ ∑ xs fv ◆
 
 ≥ᶜ-refl′ : ∀ {v v′}
   → v ≡ v′

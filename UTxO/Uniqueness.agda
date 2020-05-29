@@ -63,7 +63,7 @@ Unique-ledger {.tx ∷ l} vl₀@(vl ⊕ tx ∶- vtx)
       tx∉ : tx ∉ l
       tx∉ tx∈ with x , x∈        ← ¬Null⇒∃x (map≢[] {f = outputRef} ¬px)
               with l′ , suf      ← ∈⇒Suffix tx∈
-              with _ ⊕ _ ∶- vtx′ ← valid-suffix vl suf
+              with _ ⊕ _ ∶- vtx′ ← ≼⇒valid vl suf
                  = suf-utxo vl suf (validOutputRefs vtx′ x∈) x∈ (validOutputRefs vtx x∈)
 
 u∈mkUtxo : ∀ {u tx}

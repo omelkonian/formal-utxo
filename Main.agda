@@ -18,7 +18,6 @@ open import UTxO.Uniqueness
 open import UTxO.GlobalPreservation
 
 -- ** Provenance
-open import UTxO.ValueProvenance
 open import UTxO.TokenProvenance
 open import UTxO.TokenProvenanceNF
 
@@ -29,6 +28,7 @@ open import StateMachine.GuessingGame
 -- open import StateMachine.ExamplePlay
 open import StateMachine.Properties
 open import StateMachine.Initiality
+open import StateMachine.Extract
 
 -- ** StateMachine examples
 open import StateMachine.Counter

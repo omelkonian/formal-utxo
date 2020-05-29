@@ -1,5 +1,5 @@
 open import Level          using (0ℓ)
-open import Function       using (_∘_; case_of_)
+open import Function       using (_∘_; case_of_; _$_)
 open import Category.Monad using (RawMonad)
 
 open import Data.Empty   using (⊥; ⊥-elim)
@@ -42,7 +42,6 @@ open import UTxO.Validity
 open import StateMachine.Base
 
 open InputInfo
-open OutputInfo
 
 module Bisimulation.Base
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
@@ -63,6 +62,14 @@ _~_ {l} _ s = (toData s) ♯ᵈ ∈ ( map (datumHash ∘ out)
                               ∘ filter ((𝕍 ≟ℕ_) ∘ address ∘ out)
                               -- ∘ map out
                               ) (utxo l)
+
+-- alternative definition (T0D0: replace everywhere)
+_~′_ : ∀ {l} → ValidLedger l → S → Set
+_~′_ {l} _ s = Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ toData s ♯ᵈ) × (nftₛₘ ∈ᶜ value o)) (map out $ utxo l)
+
+postulate
+  ~-isoˡ : ∀ {l s} {vl : ValidLedger l} → vl ~′ s → vl ~ s
+  ~-isoʳ : ∀ {l s} {vl : ValidLedger l} → vl ~ s → vl ~′ s
 
 view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
   → vl ~ s

@@ -44,7 +44,6 @@ open import UTxO.Validity
 open import StateMachine.Base
 
 open InputInfo
-open OutputInfo
 
 module Bisimulation.Soundness
   {S I : Set} {{_ : IsData S}} {{_ : IsData I}} {sm : StateMachine S I}
@@ -105,10 +104,9 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
       ; address   = 𝕍
       ; datumHash = ds′ ♯ᵈ }
 
-    ptx    = toPendingTx l tx fzero
-    txi    = txInfo ptx
-    ptxIn  = mkInputInfo l txIn
-    ptxOut = mkOutputInfo txOut
+    ptx   = toPendingTx l tx fzero
+    txi   = txInfo ptx
+    ptxIn = mkInputInfo l txIn
 
     -- *** Valididty
 
@@ -138,10 +136,10 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
         inputs≡ : inputsAt 𝕍 txi ≡ [ ptxIn ]
         inputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ InputInfo.validatorHash} (≟-refl _≟ℕ_ 𝕍)
 
-        outputs≡ : outputsAt 𝕍 txi ≡ [ ptxOut ]
-        outputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ OutputInfo.validatorHash} (≟-refl _≟ℕ_ 𝕍)
+        outputs≡ : outputsAt 𝕍 txi ≡ [ txOut ]
+        outputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ address} (≟-refl _≟ℕ_ 𝕍)
 
-        getCont≡ : getContinuingOutputs ptx ≡ [ ptxOut ]
+        getCont≡ : getContinuingOutputs ptx ≡ [ txOut ]
         getCont≡ =
           -- rewrite thisVal≡ | inputs≡
           begin
@@ -151,7 +149,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
           ≡⟨ cong (λ x → outputsAt x txi) thisVal≡ ⟩
             outputsAt 𝕍 txi
           ≡⟨ outputs≡ ⟩
-            [ ptxOut ]
+            [ txOut ]
           ∎
 
         outputsOK≡ : outputsOK ptx di ds s′ ≡ true
@@ -176,9 +174,9 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
         valueAtᵒ≡ =
           -- rewrite ≟-refl _≟ℕ_ 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
           begin
-            (sumᶜ ∘ map OutputInfo.value ∘ outputsAt 𝕍) txi
-          ≡⟨ cong (sumᶜ ∘ map OutputInfo.value) outputs≡ ⟩
-             sumᶜ [ OutputInfo.value ptxOut ]
+            (sumᶜ ∘ map value ∘ outputsAt 𝕍) txi
+          ≡⟨ cong (sumᶜ ∘ map value) outputs≡ ⟩
+             sumᶜ [ value txOut ]
           ≡⟨ sum-single ⟩
              forge′ +ᶜ v
           ∎

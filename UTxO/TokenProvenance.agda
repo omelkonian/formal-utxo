@@ -1,5 +1,5 @@
 open import Level          using (0ℓ)
-open import Function       using (_$_; _∘_; flip)
+open import Function       using (_$_; _∘_; flip; case_of_)
 open import Category.Monad using (RawMonad)
 
 open import Induction.WellFounded using (Acc; acc)
@@ -8,10 +8,11 @@ open import Data.Empty               using (⊥; ⊥-elim)
 open import Data.Unit                using (⊤; tt)
 open import Data.Product             using (_×_; _,_; Σ-syntax; ∃; ∃-syntax; proj₁; proj₂; map₁; map₂)
 open import Data.Sum                 using (_⊎_; inj₁; inj₂)
-open import Data.Bool                using (T; if_then_else_)
+open import Data.Bool                using (T; if_then_else_; true; false)
 open import Data.Fin                 using (toℕ)
 
 open import Data.Nat
+  renaming (_≟_ to _≟ℕ_)
 open import Data.Nat.Properties
 
 open import Data.Maybe using (Maybe; just; nothing; Is-nothing)
@@ -20,9 +21,10 @@ import Data.Maybe.Categorical as MaybeCat
 open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
 
 open import Data.List
+  hiding (_∷ʳ_)
   renaming (sum to ∑ℕ)
-open import Data.List.NonEmpty using (List⁺; _∷_; head; toList; _⁺++_; _++⁺_; _∷⁺_)
-  renaming ([_] to [_]⁺; map to map⁺)
+open import Data.List.NonEmpty using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
+  renaming ([_] to [_]⁺; map to map⁺; head to head⁺; tail to tail⁺)
 open import Data.List.Properties
 open import Data.List.Membership.Propositional             using (_∈_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻; ∈-map⁺)
@@ -32,12 +34,10 @@ open import Data.List.Relation.Unary.Any as Any            using (Any; here; the
 open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
 open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
 
-open import Relation.Nullary                            using (¬_; yes; no)
-open import Relation.Unary                              using (Pred)
-open import Relation.Binary                             using (Transitive)
-open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; _≢_; sym; subst; cong; trans; inspect)
-  renaming ([_] to ≡[_])
-open Eq.≡-Reasoning
+open import Relation.Nullary                      using (¬_; yes; no; does)
+open import Relation.Unary                        using (Pred)
+open import Relation.Binary                       using (Transitive; Decidable; Rel)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; subst; cong; trans; module ≡-Reasoning)
 
 open import Prelude.General
 open import Prelude.Lists
@@ -56,163 +56,170 @@ open FocusTokenClass nft
 
 private
   variable
-    n : Quantity
+    L  : ∃ ValidLedger
+    tx : Tx
+    n  : Quantity
 
--- ** Definitions
+-- Definitions.
 
-ForgingTx : ∃ ValidLedger → Quantity → Set
-ForgingTx L n = ∃ λ tx → (forge tx ◆ ≥ n) × (tx ∈′ L)
+_↝⟦_⟧_ : Tx → Quantity → Tx → Set
+tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ ≡_) ∘ id) (outputRefs tx′) ]
+                  ∃[ o ] ( ((outputs tx ⁉ index (Any.lookup or∈)) ≡ just o)
+                         × (value o ◆ ≥ n) )
 
-mkForgingTx : ∀ {tx l} → (vl : ValidLedger (tx ∷ l)) → ForgingTx (_ , vl) (forge tx ◆)
-mkForgingTx (vl ⊕ tx ∶- _) = tx , ≤-refl , here refl
+data X (n : Quantity) : List⁺ Tx → Set where
+  root :
 
-mkPendingMPS : ∀ {L} → ForgingTx L n → HashId → PendingMPS
-mkPendingMPS (tx , _ , tx∈) = toPendingMPS (proj₁ $ ∈⇒Suffix tx∈) tx
+      (tx : Tx)
+    → forge tx ◆ ≥ n
+      ---------------
+    → X n (tx ∷ [])
 
-record Origins (L : ∃ ValidLedger) (n : Quantity) : Set where
+  cons : ∀ {txs tx}
+
+    → X n txs
+    → head⁺ txs ↝⟦ n ⟧ tx
+      -------------------
+    → X n (tx ∷⁺ txs)
+
+weakenX : ∀ {n n′ txs} → n′ ≤ n → X n txs → X n′ txs
+weakenX n′< (root tx n<)                = root tx (≤-trans n′< n<)
+weakenX n′< (cons x (or∈ , o , p , n<)) = cons (weakenX n′< x) (or∈ , o , p , ≤-trans n′< n<)
+
+record Trace L (tx : Tx) (n : Quantity) : Set where
   field
-    origins : List (∃ $ ForgingTx L)
-    sums    : ∑₁ origins ≥ n
-open Origins public
+    txs    : List⁺ Tx
+    trace∈ : All⁺ (_∈′ L) txs
+    linked : X n txs
+    head≡  : head⁺ txs ≡ tx
+open Trace public
 
-record Origins⁺ (L : ∃ ValidLedger) (n : Quantity) : Set where
+record Provenance L tx (n : Quantity) : Set where
   field
-    origins⁺ : List⁺ (∃ $ ForgingTx L)
-    sums⁺    : ∑₁⁺ origins⁺ ≥ n
-open Origins⁺ public
+    traces : List (∃ $ Trace L tx)
+    sums   : ∑₁ traces ≥ n
+open Provenance public
 
----------------
--- Utilities
+-- Utilities.
 
-weakenForgingTx : ∀ {L L′} → L′ ≼′ L → ForgingTx L′ n → ForgingTx L n
-weakenForgingTx L′≼ (tx , frg≥ , tx∈) = tx , frg≥ , Suffix⇒⊆ L′≼ tx∈
+origin : Trace L tx n → Tx
+origin = last ∘ txs
 
-weakenOrigins : ∀ {L L′} → L′ ≼′ L → Origins L′ n → Origins L n
-weakenOrigins {n} {L} {L′} L′≼ record {origins = os; sums = sums} = record { origins = os′; sums = sums′ }
+∣_∣ : Provenance L tx n → ℕ
+∣_∣ = length ∘ traces
+
+weaken-↝ : ∀ {tx tx′ n n′} → tx ↝⟦ n ⟧ tx′ → n′ ≤ n → tx ↝⟦ n′ ⟧ tx′
+weaken-↝ {n = n}{n′} (or∈ , o , p , ≤v) n≤ = or∈ , o , p , ≤-trans {i = n′} {j = n} {k = value o ◆} n≤ ≤v
+
+weakenTrace : ∀ {L L′} → L′ ≼′ L → Trace L′ tx n → Trace L tx n
+weakenTrace L′≼ record {txs = txs; trace∈ = tr∈;                        linked = p; head≡ = h≡}
+              = record {txs = txs; trace∈ = All.map (Suffix⇒⊆ L′≼) tr∈; linked = p; head≡ = h≡}
+
+weakenTraceⁿ : ∀ {n n′} → n′ ≤ n → Trace L tx n → Trace L tx n′
+weakenTraceⁿ n< record {txs = txs; trace∈ = tr∈; linked = p;            head≡ = h≡}
+              = record {txs = txs; trace∈ = tr∈; linked = weakenX n< p; head≡ = h≡}
+
+weakenProvenance : ∀ {L L′} → L′ ≼′ L → Provenance L′ tx n → Provenance L tx n
+weakenProvenance {tx = tx} {n = n} {L = L}{L′} L≼
+    record { traces = trs;              sums = p }
+  = record { traces = map (map₂ f) trs; sums = subst (_≥ n) (sym $ ∑₁-map₂ {xs = trs} {f = f}) p }
   where
-    os′ : List (∃ $ ForgingTx L)
-    os′ = map (map₂ $ weakenForgingTx {L = L}{L′} L′≼) os
+    f : ∀ {n} → Trace L′ tx n → Trace L tx n
+    f = weakenTrace L≼
 
-    ∑≡ : ∑₁ os′ ≡ ∑₁ os
-    ∑≡ = ∑₁-map₂ {X = ForgingTx L′} {Y = ForgingTx L} {xs = os}
-                 {f = λ {n} frgTx → weakenForgingTx {L = L}{L′} L′≼ frgTx}
+_∷ᵗ_∶-_ :
+    (tx′ : Tx)
+  → (tr : Trace L tx n)
+  → (tx′ ∈′ L) × (tx ↝⟦ n ⟧ tx′)
+  → Trace L tx′ n
+tx ∷ᵗ record {txs = txs;       trace∈ = tr∈;       linked = p;          head≡ = refl} ∶- (tx∈ , tx↝)
+    = record {txs = tx ∷⁺ txs; trace∈ = tx∈ ∷ tr∈; linked = cons p tx↝; head≡ = refl}
 
-    sums′ : ∑₁ os′ ≥ n
-    sums′ rewrite ∑≡ = sums
+forge◆≥ : ∀ {txs : List⁺ Tx} (x : X n txs) → forge (last txs) ◆ ≥ n
+forge◆≥ (root _ frg≥)              = frg≥
+forge◆≥ (cons {txs = txs}{tx} x _) rewrite last-∷ {x = tx}{txs} = forge◆≥ x
 
-weakenOrigins⁺ : ∀ {L L′} → L′ ≼′ L → Origins⁺ L′ n → Origins⁺ L n
-weakenOrigins⁺ {n} {L} {L′} L′≼ record {origins⁺ = os; sums⁺ = sums} = record {origins⁺ = os′; sums⁺ = sums′}
+singleton-Provenance : ∀ {tx l} {vl : ValidLedger (tx ∷ l)} → Provenance (_ , vl) tx (forge tx ◆)
+singleton-Provenance {tx = tx}{l}{vl} = record {traces = [ tr ]; sums = ∑≥}
   where
-    os′ : List⁺ (∃ $ ForgingTx L)
-    os′ = map⁺ (map₂ $ weakenForgingTx {L = L}{L′} L′≼) os
+    tr : ∃ $ Trace (_ , vl) tx
+    tr = _ , record {txs = tx ∷ []; trace∈ = here refl ∷ []; linked = root tx ≤-refl; head≡ = refl}
 
+    ∑≥ : ∑₁ [ tr ] ≥ forge tx ◆
+    ∑≥ = subst (_≥ forge tx ◆) (sym $ ∑₁-single {n = forge tx ◆} {x = tr}) ≤-refl
 
-    ∑≡ : ∑₁⁺ os′ ≡ ∑₁⁺ os
-    ∑≡ rewrite ∑₁-map₂ {X = ForgingTx L′} {Y = ForgingTx L} {xs = toList os}
-                       {f = λ {n} frgTx → weakenForgingTx {L = L}{L′} L′≼ frgTx}
-             = refl
-
-    sums′ : ∑₁⁺ os′ ≥ n
-    sums′ rewrite ∑≡ = sums
-
-emptyOrigins : ∀ {L n} → n ≡ 0 → Origins L n
-emptyOrigins refl = record {origins = []; sums = z≤n}
-
-singleOrigins : ∀ {tx l} → (vl : ValidLedger (tx ∷ l)) → Origins⁺ (_ , vl) (forge tx ◆)
-origins⁺ (singleOrigins vl) = [ _ , mkForgingTx vl ]⁺
-sums⁺    (singleOrigins {tx = tx} _) rewrite +-identityʳ (forge tx ◆) = ≤-refl
-
-origins⇒origins⁺ : ∀ {L} → (os : Origins L n) → ¬Null (origins os) → Origins⁺ L n
-origins⇒origins⁺ {n = n} record {origins = os; sums = ∑≥} os≢[] = record
-  { origins⁺ = toList⁺ os os≢[]
-  ; sums⁺    = subst ((_≥ n) ∘ ∑₁) (sym $ toList∘toList⁺ os os≢[]) ∑≥ }
-
-origins⁺⇒origins : ∀ {L} → Origins⁺ L n → Origins L n
-origins⁺⇒origins record {origins⁺ = os;         sums⁺ = ∑≥}
-               = record {origins  = toList os ; sums  = ∑≥}
-
-merge : ∀ {L}
-  → (oss : List (∃ $ Origins⁺ L))
-  → ∑₁ oss ≥ n
-  → Origins L n
-
-merge⁺ : ∀ {L}
-  → (oss : List⁺ (∃ $ Origins⁺ L))
-  → ∑₁⁺ oss ≥ n
-  → Origins⁺ L n
-
-merge  {n = .0} {L = L} [] z≤n                = emptyOrigins {n = 0} refl
-merge  {n = n}  {L = L} ((osᵥ , os) ∷ oss) ∑≥ = origins⁺⇒origins $ merge⁺ {n} ((osᵥ , os) ∷ oss) ∑≥
-merge⁺ {n = n}  {L = L} ((osᵥ , os) ∷ oss) ∑≥ = qed
+combine : (prs : List (∃ $ Provenance L tx)) → ∑₁ prs ≥ n → Provenance L tx n
+combine [] z≤n = record {traces = []; sums = z≤n}
+combine {L = L} {tx = tx} {n = n} ((n′ , pr) ∷ prs) ∑≥ = record
+  { traces = traces pr ++ traces pr′
+  ; sums   = ∑≥′
+  }
   where
-    ossᵥ = ∑₁ oss
+    pr′ : Provenance L tx (∑₁ prs)
+    pr′ = combine {n = ∑₁ prs} prs ≤-refl
 
-    os′ : Origins L ossᵥ
-    os′ = merge {n = ossᵥ} oss ≤-refl
+    ∑≥′ : ∑₁ (traces pr ++ traces pr′) ≥ n
+    ∑≥′ = begin n                                ≤⟨ ∑≥ ⟩
+                n′ + ∑₁ prs                      ≤⟨ ≥-+-swapˡʳ (sums pr) (sums pr′) ⟩
+                ∑₁ (traces pr) + ∑₁ (traces pr′) ≡⟨ sym $ ∑₁-++ {xs = traces pr}{traces pr′} ⟩
+                ∑₁ (traces pr ++ traces pr′)     ∎
+          where open ≤-Reasoning
 
-    p : ∑₁⁺ (origins⁺ os) ≥ osᵥ
-    p = sums⁺ os
+-- Token provenance.
 
-    p₀′ : ∑₁⁺ (origins⁺ os) + ossᵥ ≥ ∑₁⁺ ((osᵥ , os) ∷ oss)
-    p₀′ = ≥-+-swapˡ {x = ∑₁⁺ (origins⁺ os)} {x′ = osᵥ} {y = ossᵥ} (sums⁺ os)
-
-    p₀ : ∑₁⁺ (origins⁺ os) + ossᵥ ≥ n
-    p₀ = ≥-trans {i = ∑₁⁺ (origins⁺ os) + ossᵥ} {j = ∑₁⁺ ((osᵥ , os) ∷ oss)} {k = n} p₀′ ∑≥
-
-    p₁ : ∑₁⁺ (origins⁺ os) + ∑₁ (origins os′) ≥ n
-    p₁ = ≥-trans {i = ∑₁⁺ (origins⁺ os) + ∑₁ (origins os′)} {j = ∑₁⁺ (origins⁺ os) + ossᵥ} {k = n}
-                 (≥-+-swapʳ {x = ∑₁⁺ (origins⁺ os)} {y = ∑₁ (origins os′)} {y′ = ossᵥ} (sums os′))
-                 p₀
-
-    qed : Origins⁺ L n
-    qed = record
-      { origins⁺ = origins⁺ os ⁺++ origins os′
-      ; sums⁺    = subst (_≥ n) (sym $ ∑₁-⁺++ {xs = origins⁺ os} {ys = origins os′}) p₁ }
-
--- ** Provenance
-
-provenance : ∀ L
-  → ∀ {o} → o ∈ outputsₘ L
-  → ◆∈ value o
-  → Origins⁺ L (value o ◆)
-provenance L = go L (≺′-wf L)
+provenance : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) → ∀ {o} → o ∈ outputs tx → Provenance (_ , vl) tx (value o ◆)
+provenance {tx}{l} vl = go vl (≺′-wf (_ , vl))
   module Provenance₀ where
-    go : ∀ L → Acc _≺′_ L → (∀ {o} → o ∈ outputsₘ L → ◆∈ value o → Origins⁺ L (value o ◆))
-    go L@(.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v
-      = qed
+    go : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) → Acc _≺′_ (_ , vl)
+       → (∀ {o} → o ∈ outputs tx → Provenance (_ , vl) tx (value o ◆))
+    go {tx}{l} vl₀@(vl ⊕ tx ∶- vtx) (acc a) {o} o∈
+      = combine allPrevs ∑≥
       module Provenance₁ where
+        L₀ = _ , vl₀
         v  = value o ◆
         rs = prevs vl vtx
 
-        fromForge : List (∃ $ Origins⁺ L)
+        fromForge : List (∃ $ Provenance L₀ tx)
         fromForge
-          with forge tx ◆ >? 0
-        ... | yes p = [ _ , singleOrigins vl₀ ]
-        ... | no ¬p = []
-
-        res→origins : Res vl vtx → Maybe (∃ $ Origins⁺ L)
-        res→origins r@(record {vl′ = vl′; prevOut∈ = prevOut∈; vl′≺vl = vl′≺vl})
-          with resValue r ◆ >? 0
-        ... | yes p = just os′
+          with ◆∈? forge tx
+        ... | yes _ = [ _ , singleton-Provenance {tx = tx}{l}{vl₀} ]
           where
-            L′ : ∃ ValidLedger
-            L′ = _ , vl′
+        ... | no  _ = []
 
-            os : ∃ $ Origins⁺ L′
-            os = _ , go L′ (a _ vl′≺vl) prevOut∈ p
-
-            os′ : ∃ $ Origins⁺ L
-            os′ = map₂ (weakenOrigins⁺ (≺′⇒≼′ {l = L}{L′} vl′≺vl)) os
-
+        res→traces : Res vl vtx → Maybe (∃ $ Provenance L₀ tx)
+        res→traces r@(record { prevTx = tx′; vl′ = vl′; prevOut = o′; prevOut∈ = o∈′; vl′≺vl = vl′≺vl
+                             ; or∈ = or∈; ⁉≡just = ⁉≡just })
+          with ◆∈? resValue r
         ... | no  _ = nothing
+        ... | yes _ = just $ _ , pr
+          where
+            r◆ = resValue r ◆
 
-        fromPrevs : List (∃ $ Origins⁺ L)
-        fromPrevs = mapMaybe res→origins rs
+            ↝tx : tx′ ↝⟦ r◆ ⟧ tx
+            ↝tx = or∈ , o′ , ⁉≡just , ≤-refl
 
-        allPrevs : List (∃ $ Origins⁺ L)
+            pr′ : Provenance L₀ tx′ r◆
+            pr′ = weakenProvenance (≺′⇒≼′ {l = L₀}{_ , vl′} vl′≺vl) (go vl′ (a _ vl′≺vl) o∈′)
+
+            pr : Provenance L₀ tx r◆
+            pr = record { traces = limit r◆ k₁ k₂ (traces pr′)
+                        ; sums = ∑₁-limit {xs = traces pr′} {k₁ = k₁} {k₂ = k₂} (sums pr′) }
+              where
+                k₁ : ∀ {n} → r◆ ≤ n → Trace L₀ tx′ n → Trace L₀ tx r◆
+                k₁ {n} r≤ tr = tx ∷ᵗ weakenTraceⁿ r≤ tr ∶- (here refl , ↝tx)
+
+                k₂ : ∀ {n} → n ≤ r◆ → Trace L₀ tx′ n → Trace L₀ tx n
+                k₂ {n} n≤ tr = tx ∷ᵗ tr ∶- (here refl , weaken-↝ {tx = tx′}{tx} ↝tx n≤)
+
+
+        fromPrevs : List (∃ $ Provenance L₀ tx)
+        fromPrevs = mapMaybe res→traces rs
+
+        allPrevs : List (∃ $ Provenance L₀ tx)
         allPrevs = fromForge ++ fromPrevs
 
 --
+
         ∑prev = ∑ rs resValue
         ∑all  = forge tx +ᶜ ∑prev
 
@@ -222,86 +229,60 @@ provenance L = go L (≺′-wf L)
         pv₁ : T $ ∑all ≥ᶜ value o
         pv₁ = ≥ᶜ-trans {x = ∑all} {y = ∑ᵥ (outputs tx)} {z = value o} (≥ᶜ-refl′ pv₀) (∑-≥ᶜ {fv = value} o∈)
 
+        pv₂ : ∑all ◆ ≥ v
+        pv₂ = ≥ᶜ-◆ {x = ∑all} {y = value o} pv₁
+
         ∑forge≡ : ∑₁ fromForge ≡ forge tx ◆
-        ∑forge≡ with forge tx ◆ >? 0
+        ∑forge≡ with ◆∈? forge tx
         ... | yes _ = +-identityʳ (forge tx ◆)
         ... | no ¬p = sym $ ¬x>0⇒x≡0 ¬p
 
-        ∑-helper : ∑ℕ (map (_◆ ∘ resValue) rs) ≡ ∑₁ (mapMaybe res→origins rs)
-        ∑-helper = ∑-mapMaybe {xs = rs} {fm = res→origins} {g = resValue} p₁ p₂
+        ∑-helper : ∑ℕ (map (_◆ ∘ resValue) rs) ≡ ∑₁ (mapMaybe res→traces rs)
+        ∑-helper = ∑-mapMaybe {xs = rs} {fm = res→traces} {g = resValue} {fv = proj₁} p₁ p₂
           where
-            p₁ : ∀ r → Is-nothing (res→origins r) → resValue r ◆ ≡ 0
-            p₁ r rn with resValue r ◆ >? 0 | rn
+            p₁ : ∀ r → Is-nothing (res→traces r) → resValue r ◆ ≡ 0
+            p₁ r rn with ◆∈? resValue r | rn
             ... | yes _ | MAll.just ()
             ... | no ¬p | _           = ¬x>0⇒x≡0 ¬p
 
-            p₂ : ∀ r v → res→origins r ≡ just v → resValue r ◆ ≡ proj₁ v
-            p₂ r v rj with resValue r ◆ >? 0 | rj
+            p₂ : ∀ r v → res→traces r ≡ just v → resValue r ◆ ≡ proj₁ v
+            p₂ r v rj with ◆∈? resValue r | rj
             ... | yes _ | refl = refl
             ... | no  _ | ()
 
-        ∑fromPrevs≡ : ∑₁ fromPrevs ≡ ∑prev ◆
-        ∑fromPrevs≡ = sym
-                    $ begin ∑prev ◆                                  ≡⟨ ∑-◆ {xs = rs} {f = resValue} ⟩
-                            ∑ℕ (map (_◆ ∘ resValue) rs)              ≡⟨ ∑-helper ⟩
-                            ∑ℕ (map proj₁ (mapMaybe res→origins rs)) ≡⟨⟩
-                            ∑₁ (mapMaybe res→origins rs)             ≡⟨⟩
-                            ∑₁ fromPrevs                             ∎
-
-        ∑allPrevs≡ : ∑₁ allPrevs ≡ ∑all ◆
-        ∑allPrevs≡ = begin ∑₁ allPrevs                 ≡⟨ ∑₁-++ {xs = fromForge} {ys = fromPrevs} ⟩
-                           ∑₁ fromForge + ∑₁ fromPrevs ≡⟨ cong (_+ ∑₁ fromPrevs) ∑forge≡ ⟩
-                           forge tx ◆   + ∑₁ fromPrevs ≡⟨ cong (forge tx ◆ +_)   ∑fromPrevs≡ ⟩
-                           forge tx ◆   + ∑prev ◆      ≡⟨ sym $ +ᶜ-◆ {x = forge tx} {y = ∑prev} ⟩
-                           (forge tx +ᶜ ∑prev) ◆       ≡⟨⟩
-                           ∑all ◆                      ∎
-
-        allPrevs≢[] : ¬Null allPrevs
-        allPrevs≢[] ap≡[] = x≡0⇒¬x>0 {value o ◆} v≡0 ◆∈v
-          where
-            null× : Null fromForge × Null fromPrevs
-            null× = Null-++⁻ {xs = fromForge} {ys = fromPrevs} ap≡[]
-
-            l≡0 : forge tx ◆ ≡ 0
-            l≡0 with forge tx ◆ >? 0 | proj₁ null×
-            ... | yes p | ()
-            ... | no ¬p | _  = ¬x>0⇒x≡0 ¬p
-
-            p₀ : All (Is-nothing ∘ res→origins) rs
-            p₀ = mapMaybe≡[]⇒All-nothing $ proj₂ null×
-
-            p₁ : All (_≡ 0) (map (_◆ ∘ resValue) rs)
-            p₁ = All.map⁺ $ All.map {P = Is-nothing ∘ res→origins} {Q = (_≡ 0) ∘ _◆ ∘ resValue} P⇒Q p₀
-              where
-                P⇒Q : ∀ {r} → Is-nothing (res→origins r) → resValue r ◆ ≡ 0
-                P⇒Q {r} ≡nothing with resValue r ◆ >? 0 | ≡nothing
-                ... | yes _ | MAll.just ()
-                ... | no ¬p | _ = ¬x>0⇒x≡0 ¬p
-
-            r≡0 : ∑prev ◆ ≡ 0
-            r≡0 rewrite ∑-◆ {xs = rs} {f = resValue} = ∑ℕ-∀≡0 p₁
-
-            ∑≡0 : forge tx ◆ + ∑prev ◆ ≡ 0
-            ∑≡0 rewrite l≡0 | r≡0 = refl
-
-            ∑≡0′ : ∑all ◆ ≡ 0
-            ∑≡0′ = trans (+ᶜ-◆ {x = forge tx} {y = ∑prev}) ∑≡0
-
-            pv₂ : ∑all ◆ ≥ v
-            pv₂ = ≥ᶜ-◆ {x = ∑all} {y = value o} pv₁
-
-            v≡0 : v ≡ 0
-            v≡0 = x≤0⇒x≡0 (subst (_≥ v) ∑≡0′ pv₂)
---
+        ∑fromPrevs≡ : ∑prev ◆ ≡ ∑₁ fromPrevs
+        ∑fromPrevs≡ = begin ∑prev ◆                     ≡⟨ ∑-◆ {xs = rs} {f = resValue} ⟩
+                            ∑ℕ (map (_◆ ∘ resValue) rs) ≡⟨ ∑-helper ⟩
+                            ∑₁ (mapMaybe res→traces rs) ≡⟨⟩
+                            ∑₁ fromPrevs                ∎
+                      where open ≡-Reasoning
 
         ∑≥ : ∑₁ allPrevs ≥ v
-        ∑≥ = subst (_≥ v) (sym ∑allPrevs≡) (≥ᶜ-◆ {x = ∑all} {y = value o} pv₁)
+        ∑≥ = begin v                             ≤⟨ pv₂ ⟩
+                   ∑all ◆                        ≡⟨⟩
+                   (forge tx +ᶜ ∑prev) ◆         ≡⟨ +ᶜ-◆ {x = forge tx} {y = ∑prev} ⟩
+                   forge tx ◆     + ∑prev ◆      ≡⟨ cong (forge tx ◆ +_) ∑fromPrevs≡ ⟩
+                   forge tx ◆     + ∑₁ fromPrevs ≡⟨ cong (_+ ∑₁ fromPrevs) (sym ∑forge≡) ⟩
+                   ∑₁ fromForge + ∑₁ fromPrevs   ≡⟨ sym $ ∑₁-++ {xs = fromForge}{fromPrevs} ⟩
+                   ∑₁ (fromForge ++ fromPrevs)   ≡⟨⟩
+                   ∑₁ allPrevs ∎
+              where open ≤-Reasoning
 
-        allPrevs⁺ : List⁺ (∃ $ Origins⁺ L)
-        allPrevs⁺ = toList⁺ allPrevs allPrevs≢[]
+provenance⁺ : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) {o} (o∈ : o ∈ outputs tx)
+  → ◆∈ value o
+  → ∣ provenance vl o∈ ∣ > 0
+provenance⁺ vl o∈ ◆∈v
+  with provenance vl o∈
+... | record {traces = []; sums = p} = ⊥-elim $ x≡0⇒¬x>0 (x≤0⇒x≡0 p) ◆∈v
+... | record {traces = _ ∷ _}        = s≤s z≤n
 
-        ∑≥′ : ∑₁⁺ allPrevs⁺ ≥ v
-        ∑≥′ = subst ((_≥ v) ∘ ∑₁) (sym $ toList∘toList⁺ allPrevs allPrevs≢[]) ∑≥
+origin∈ : (tr : Trace L tx n) → origin tr ∈′ L
+origin∈ = All⁺-last ∘ trace∈
 
-        qed : Origins⁺ L v
-        qed = merge⁺ allPrevs⁺ ∑≥′
+mkPendingMPS : Trace L tx n → HashId → PendingMPS
+mkPendingMPS tr = toPendingMPS (proj₁ $ ∈⇒Suffix $ origin∈ tr) (origin tr)
+
+mps≡ : ∀ {L L′} (l≺ : L′ ≼′ L) (tr : Trace L′ tx n)
+  → (proj₁ $ ∈⇒Suffix $ origin∈ {L = L} $ weakenTrace l≺ tr)
+  ≡ (proj₁ $ ∈⇒Suffix $ origin∈ tr)
+mps≡ {L = L}{L′} l≺ tr = proj₁∘∈⇒Suffix≡ {xs = txs tr}{proj₁ L′}{proj₁ L} (trace∈ tr) l≺

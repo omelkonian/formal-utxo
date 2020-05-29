@@ -163,16 +163,17 @@ record InputInfo : Set where
     redeemerHash  : HashId
     value         : Value
 
-record OutputInfo : Set where
+record TxOutput : Set where
   field
-    value         : Value
-    validatorHash : HashId
-    datumHash     : HashId
+    address   : Address -- ≡ hash of the input's validator
+    value     : Value
+    datumHash : HashId  -- ≡ hash of the input's datum
+open TxOutput public
 
 record TxInfo : Set where
   field
     inputInfo      : List InputInfo
-    outputInfo     : List OutputInfo
+    outputInfo     : List TxOutput
     forge          : Value
     policies       : List CurrencySymbol
     range          : SlotRange
@@ -203,17 +204,17 @@ valueSpent = sumᶜ ∘ map InputInfo.value ∘ TxInfo.inputInfo
 inputsAt : HashId → TxInfo → List InputInfo
 inputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ InputInfo.validatorHash) ∘ TxInfo.inputInfo
 
-outputsAt : HashId → TxInfo → List OutputInfo
-outputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ OutputInfo.validatorHash) ∘ TxInfo.outputInfo
+outputsAt : HashId → TxInfo → List TxOutput
+outputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ address) ∘ TxInfo.outputInfo
 
-getContinuingOutputs : PendingTx → List OutputInfo
+getContinuingOutputs : PendingTx → List TxOutput
 getContinuingOutputs ptx = outputsAt (thisValidator ptx) (txInfo ptx)
 
 valueAtⁱ : HashId → TxInfo → Value
 valueAtⁱ ℍ = sumᶜ ∘ map InputInfo.value ∘ inputsAt ℍ
 
 valueAtᵒ : HashId → TxInfo → Value
-valueAtᵒ ℍ = sumᶜ ∘ map OutputInfo.value ∘ outputsAt ℍ
+valueAtᵒ ℍ = sumᶜ ∘ map value ∘ outputsAt ℍ
 
 propagates : Value → PendingTx → Bool
 propagates v ptx@(record {txInfo = txi})
@@ -221,8 +222,9 @@ propagates v ptx@(record {txInfo = txi})
   ∧ (valueAtᵒ ℍ txi ≥ᶜ v)
   where ℍ = thisValidator ptx
 
-outputsOf : ∀ {I} → (CurrencySymbol × TokenName) → Pending I → List OutputInfo
-outputsOf (c , t) = filter (T? ∘ ([ c , [ t , 1 ] ] ≤ᶜ_) ∘ OutputInfo.value) ∘ TxInfo.outputInfo ∘ txInfo
+outputsOf : ∀ {I} → (CurrencySymbol × TokenName) → Pending I → List TxOutput
+outputsOf (c , t) = filter (◆∈?_ ∘ value) ∘ TxInfo.outputInfo ∘ txInfo
+  where open FocusTokenClass (c , t)
 
 --------------------------------------------------------------------------
 -- Inputs, outputs and ledgers.
@@ -250,14 +252,6 @@ record TxInput : Set where
     datum     : DATA
 
 open TxInput public
-
-record TxOutput : Set where
-  field
-    address   : Address -- ≡ hash of the input's validator
-    value     : Value
-    datumHash : HashId  -- ≡ hash of the input's datum
-
-open TxOutput public
 
 record Tx : Set where
   field

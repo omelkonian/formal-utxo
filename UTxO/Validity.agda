@@ -10,13 +10,13 @@ open import Data.Maybe           using (Maybe; Is-just; just)
   renaming (map to _<$>_)
 open import Data.Bool            using (T; true)
 open import Data.Bool.Properties using (T?)
-open import Data.Nat             using (ℕ; zero; suc; _<_)
+open import Data.Nat             using (ℕ; zero; suc; _<_; _≤_)
   renaming (_≟_ to _≟ℕ_)
-open import Data.Nat.Properties  using (suc-injective)
+open import Data.Nat.Properties  using (suc-injective; ≤-trans)
 open import Data.Fin             using (Fin; toℕ; fromℕ<)
 open import Data.List            using (List; []; _∷_; map; length)
 
-open import Data.List.Relation.Unary.Any                   using (Any; any; here; there)
+open import Data.List.Relation.Unary.Any as Any            using (Any; any; here; there)
 open import Data.List.Relation.Unary.All                   using (All; all)
 open import Data.List.Membership.Propositional             using (_∈_; _∉_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-map⁺)
@@ -185,14 +185,22 @@ postulate
 ≺′-rec = All.wfRec ≺′-wf 0ℓ
 
 ----------------------
--- Decision Procedure.
+-- Properties.
 
-valid-suffix : ∀ {l l′}
+≼⇒valid : ∀ {l l′}
   → ValidLedger l
   → l′ ≼ l
   → ValidLedger l′
-valid-suffix vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
-valid-suffix (vl ⊕ t ∶- x) (there suf) = valid-suffix vl suf
+≼⇒valid vl            (here eq)   rewrite Pointwise-≡⇒≡ eq = vl
+≼⇒valid (vl ⊕ t ∶- x) (there suf) = ≼⇒valid vl suf
+
+tx∈⇒valid : ∀ {L tx}
+  → (tx∈ : tx ∈′ L)
+  → IsValidTx tx (proj₁ $ ∈⇒Suffix tx∈)
+tx∈⇒valid {L = _ , vl} {tx = tx} tx∈
+  with l , l≺         ← ∈⇒Suffix tx∈
+  with _ ⊕ .tx ∶- vtx ← ≼⇒valid vl l≺
+     = vtx
 
 -- An output spent in a previous transaction cannot be spent again.
 suf-utxo : ∀ {tx l l′ x}
@@ -228,6 +236,19 @@ record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : 
     vl′≺vl   : (prevTx ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
     spent≡   : ∃ λ i → getSpentOutput l i ≡ just prevOut
 
+    -- i        : TxInput
+    -- i∈       : i ∈ inputs tx
+    -- spent≡   : getSpentOutput l i ≡ just prevOut
+--
+    -- ≈ prevTx ↝⟦ value prevOut ◆ ⟧ tx
+    or∈      : Any ((prevTx ♯ ≡_) ∘ id) (outputRefs tx)
+    ⁉≡just   : (outputs prevTx ⁉ index (Any.lookup or∈)) ≡ just prevOut
+--
+    -- i   : TxInput
+    -- i∈  : i ∈ inputs tx
+    -- id≡ : id i ≡ prevTx ♯
+    -- spent≡ : getSpentOutput l i ≡ just prevOut
+
 resValue : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} → Res vl vtx → Value
 resValue = value ∘ Res.prevOut
 
@@ -246,14 +267,23 @@ prevs {tx} {l} vl vtx
                  ; vl′      = vl′
                  ; prevOut∈ = prevOut∈
                  ; vl′≺vl   = vl′≺vl
-                 ; spent≡   = i , utxo-getSpent {l = l} u∈ }
+                 ; spent≡   = i , utxo-getSpent {l = l} u∈
+                 ; or∈      = or∈
+                 ; ⁉≡just   = ⁉≡just
+                 }
         where
-         v   = value $ out u
-         vl′ = valid-suffix vl suf
+          or∈ : Any ((prevTx u ♯ ≡_) ∘ id) (outputRefs tx)
+          or∈ = {!!}
 
-         vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
-         vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
-         -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
+          ⁉≡just : (outputs (prevTx u) ⁉ index (Any.lookup or∈)) ≡ just (out u)
+          ⁉≡just = {!!}
+
+          v   = value $ out u
+          vl′ = ≼⇒valid vl suf
+
+          vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
+          vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
+          -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
 
 ∑prevs≡ : ∀ {tx l} (vl : ValidLedger l) (vtx : IsValidTx tx l)
         → ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just (∑ (prevs vl vtx) resValue)
@@ -282,3 +312,11 @@ postulate
   prevs⊆utxo : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
     → map resValue (prevs vl vtx)
     ⊆ map (value ∘ out) (utxo l)
+
+-- Non-fungibility
+NonFungible : ∃ ValidLedger → TokenClass → Set
+NonFungible (l , _) nft = ∑ l forge ◇ nft ≤ 1
+
+NF-weaken : ∀ {nft l l′} → l′ ≺′ l → NonFungible l nft → NonFungible l′ nft
+NF-weaken {nft}{l , _}{l′ , _} vl′≺ = ≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
+  where open FocusTokenClass nft

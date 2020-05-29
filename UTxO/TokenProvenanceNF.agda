@@ -57,57 +57,6 @@ module UTxO.TokenProvenanceNF (nft : TokenClass) where
 open FocusTokenClass nft
 open import UTxO.TokenProvenance nft
 
--- ** Definitions
-
-NonFungible : ∃ ValidLedger → TokenClass → Set
-NonFungible (l , _) nft = ∑ l forge ◇ nft ≤ 1
-
-NF-weaken : ∀ {l l′} → l′ ≺′ l → NonFungible l nft → NonFungible l′ nft
-NF-weaken {l , _} {l′ , _} vl′≺ = ≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
-
---
-
-private
-  variable
-    L : ∃ ValidLedger
-    n : Quantity
-
-SingleOrigin : Origins L n → Set
-SingleOrigin = Singleton ∘ origins
-
-SingleOrigin⁺ : Origins⁺ L n → Set
-SingleOrigin⁺ = Singleton⁺ ∘ origins⁺
-
-SingleOrigin² : List (∃ $ Origins⁺ L) → Set
-SingleOrigin² os = Singleton os × All (SingleOrigin⁺ ∘ proj₂) os
-
-SingleOrigin²⁺ : List⁺ (∃ $ Origins⁺ L) → Set
-SingleOrigin²⁺ os = Singleton⁺ os × All⁺ (SingleOrigin⁺ ∘ proj₂) os
-
-destruct-SingleOrigin⁺ : ∀ {os : Origins⁺ L n}
-  → SingleOrigin⁺ os
-  → Σ[ tx ∈ ∃ (ForgingTx L) ] (origins⁺ os ≡ [ tx ]⁺)
-destruct-SingleOrigin⁺ {n} {os} s-os
-  with tx , refl ← destruct-Singleton⁺ s-os
-     = tx , refl
-
--- ** Lemmas
-
-singleOrigin²⇒singleOrigin²⁺ : ∀ {oss : List (∃ $ Origins⁺ L)} {p : ¬Null oss}
-  → SingleOrigin² oss
-  → SingleOrigin²⁺ (toList⁺ oss p)
-singleOrigin²⇒singleOrigin²⁺ {oss = oss} {p} (s-oss , ∀p) = singleton⇒singleton⁺ {xs≢[] = p} s-oss , All⇒All⁺ ∀p
-
-singleOrigin-merge : ∀ {oss : List⁺ (∃ $ Origins⁺ L)} {p : ∑₁⁺ oss ≥ n}
-  → SingleOrigin²⁺ oss
-  → SingleOrigin⁺ (merge⁺ oss p)
-singleOrigin-merge {n = n} {oss} {p} (s-oss , ∀-oss)
-  with destruct-Singleton⁺ s-oss | ∀-oss
-... | (_ , os) , refl | s-os ∷ []
-  rewrite ++-identityʳ (tail $ origins⁺ os)
-        | proj₂ $ destruct-Singleton⁺ s-os
-        = tt
-
 nf-prevs : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
   → NonFungible (_ , vl ⊕ tx ∶- vtx) nft
   → count (◆∈?_ ∘ resValue) (prevs vl vtx) + forge tx ◆ ≤ 1
@@ -172,63 +121,83 @@ nf-prevs {tx} {l} {vl} {vtx} nf
         qed′ : count (◆∈?_ ∘ resValue) rs + forge tx ◆ ≤ 1
         qed′ rewrite count≡0 | +-identityˡ (forge tx ◆) = frg≤1
 
--- ** Provenance for non-fungible tokens
+private
+  variable
+    L  : ∃ ValidLedger
+    tx : Tx
+    n  : Quantity
 
-provenanceNF : ∀ l → ∀ {o} → (o∈ : o ∈ outputsₘ l)
+Singletonᵖ : Provenance L tx n → Set
+Singletonᵖ = Singleton ∘ traces
+
+Singletonᵖ² : List (∃ $ Provenance L tx) → Set
+Singletonᵖ² xs = Singleton xs × All (Singletonᵖ ∘ proj₂) xs
+
+postulate
+  Singletonᵖ⇒len : ∀ {pr : Provenance L tx n} → Singletonᵖ pr → ∣ pr ∣ ≡ 1
+  len⇒Singletonᵖ : ∀ {pr : Provenance L tx n} → ∣ pr ∣ ≡ 1 → Singletonᵖ pr
+
+
+  singleton-combine : ∀ {xs : List (∃ $ Provenance L tx)} {∑≥ : ∑₁ xs ≥ n}
+    → Singletonᵖ² xs
+    → Singletonᵖ (combine xs ∑≥)
+
+provenanceNF : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) {o} (o∈ : o ∈ outputs tx)
   → (◆∈v : ◆∈ value o)
-  → NonFungible l nft
-  → SingleOrigin⁺ (provenance l o∈ ◆∈v)
-provenanceNF l = go′ l (≺′-wf l)
+  → NonFungible (_ , vl) nft
+  → ∣ provenance vl o∈ ∣ ≡ 1
+provenanceNF vl = go′ vl (≺′-wf (_ , vl))
   where
-    open Provenance₀ l
+    open Provenance₀ vl
 
-    go′ : ∀ l → (ac : Acc _≺′_ l)
-        → ∀ {o} (o∈ : o ∈ outputsₘ l)
+    go′ : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) (ac : Acc _≺′_ (_ , vl)) {o} (o∈ : o ∈ outputs tx)
         → (◆∈v : ◆∈ value o)
-        → NonFungible l nft
-        → SingleOrigin⁺ (go {o} l ac {o} o∈ ◆∈v)
-    go′ L@(.tx ∷ l , vl₀@(vl ⊕ tx ∶- vtx)) (acc a) {o} o∈ ◆∈v nf
-      = qed′
+        → NonFungible (_ , vl) nft
+        → ∣ go {o} vl ac {o} o∈ ∣ ≡ 1
+    go′ {l = l} vl₀@(vl ⊕ tx ∶- vtx) (acc a) {o} o∈ ◆∈v nf
+      = comb≡
       where
-        open Provenance₁ {o} tx l vl vtx a {o} o∈ ◆∈v
+        open Provenance₁ {o} vl vtx a {o} o∈
 
-        s-allPrevs₂ : ∀ {y} → y ∈ allPrevs → SingleOrigin⁺ (proj₂ y)
-        s-allPrevs₂ {y} y∈ with ∈-++⁻ fromForge y∈
+        s-allPrevs₂ : ∀ {pr} → pr ∈ allPrevs → Singletonᵖ (proj₂ pr)
+        s-allPrevs₂ {pr} pr∈ with ∈-++⁻ fromForge pr∈
 
-        s-allPrevs₂ {y} y∈ | inj₁ y∈ˡ
-          with ◆∈? forge tx | y∈ˡ
+        s-allPrevs₂ {pr} pr∈ | inj₁ pr∈ˡ
+          with ◆∈? forge tx | pr∈ˡ
+        ... | no  _ | ()
         ... | yes _ | here refl = tt
-        ... | no  _ | ()
 
-        s-allPrevs₂ {y} y∈ | inj₂ y∈ʳ
-          with r@(record {vl′ = vl′; prevOut = o′; prevOut∈ = o∈′; vl′≺vl = vl′≺vl})
-             , r∈ , rj ← ∈-mapMaybe⁻ {xs = rs} {f = res→origins} y∈ʳ
+        s-allPrevs₂ {pr} pr∈ | inj₂ pr∈ʳ
+          with r@(record {prevTx = tx′; vl′ = vl′; prevOut = o′; prevOut∈ = o∈′; vl′≺vl = vl′≺vl})
+             , r∈ , rj ← ∈-mapMaybe⁻ {xs = rs} {f = res→traces} pr∈ʳ
           with ◆∈? resValue r | rj
-        ... | yes p | refl = singleton⁺-map⁺ so
-          where
-            L′ : ∃ ValidLedger
-            L′ = _ , vl′
-
-            nf′ : NonFungible L′ nft
-            nf′ = NF-weaken {l = L} {l′ = L′} vl′≺vl nf
-
-            os : Origins⁺ L′ (resValue r ◆)
-            os = go {o′} (_ , vl′) (a _ vl′≺vl) o∈′ p
-
-            so : SingleOrigin⁺ os
-            so = go′ (_ , vl′) (a _ vl′≺vl) o∈′ p nf′
-
         ... | no  _ | ()
+        ... | yes p | refl = singleton-map $ singleton-map len≡1
+          where
+            nf′ : NonFungible (_ , vl′) nft
+            nf′ = NF-weaken {l = _ , vl₀}{_ , vl′} vl′≺vl nf
+
+            pr′ : Provenance (_ , vl′) tx′ (resValue r ◆)
+            pr′ = go {o′} vl′ (a _ vl′≺vl) o∈′
+
+            len≡1 : Singletonᵖ pr′
+            len≡1 = len⇒Singletonᵖ {pr = pr′} $ go′ vl′ (a _ vl′≺vl) o∈′ p nf′
 
         nf′ : count (◆∈?_ ∘ resValue) (prevs vl vtx) + forge tx ◆ ≤ 1
         nf′ = nf-prevs {tx}{l}{vl}{vtx} nf
+
+        allPrevs≢[] : ¬Null allPrevs
+        allPrevs≢[] ap≡ = ≡0⇒◆∉ {v = value o} (x≤0⇒x≡0 v≤0) ◆∈v
+          where
+            v≤0 : 0 ≥ v
+            v≤0 = subst (λ x → ∑₁ x ≥ v) ap≡ ∑≥
 
         s-allPrevs₁ : Singleton allPrevs
         s-allPrevs₁
           with ◆∈? forge tx | allPrevs≢[]
         ... | yes p | _ = fin
           where
-            fromForge′ = [ forge tx ◆ , singleOrigins vl₀ ]
+            fromForge′ = [ _ , singleton-Provenance {tx = tx}{l}{vl₀} ]
 
             frg≤1 : forge tx ◆ ≤ 1
             frg≤1 = ≤-+ˡ {x = forge tx ◆} {y = ∑ l forge ◆} {z = 1}
@@ -244,10 +213,10 @@ provenanceNF l = go′ l (≺′-wf l)
             p₁ : All (¬_ ∘ ◆∈_ ∘ resValue) rs
             p₁ = count≡0⇒All¬ {xs = rs} (◆∈?_ ∘ resValue) count≡0
 
-            p₂ : All Is-nothing (map res→origins rs)
-            p₂ = All.map⁺ $ All-map {P = ¬_ ∘ ◆∈_ ∘ resValue} {Q = Is-nothing ∘ res→origins} P⇒Q p₁
+            p₂ : All Is-nothing (map res→traces rs)
+            p₂ = All.map⁺ $ All-map {P = ¬_ ∘ ◆∈_ ∘ resValue} {Q = Is-nothing ∘ res→traces} P⇒Q p₁
               where
-                P⇒Q : ∀ r → ¬ ◆∈ (resValue r) → Is-nothing (res→origins r)
+                P⇒Q : ∀ r → ¬ ◆∈ (resValue r) → Is-nothing (res→traces r)
                 P⇒Q r ◆∉r with ◆∈? resValue r
                 ... | yes ◆∈r = ⊥-elim $ ◆∉r ◆∈r
                 ... | no  _   = MAll.nothing
@@ -263,23 +232,23 @@ provenanceNF l = go′ l (≺′-wf l)
             count≤ : count (◆∈?_ ∘ resValue) rs ≤ 1
             count≤ = ≤-+ˡ {y = forge tx ◆} {z = 1} nf′
 
-            r>0⇒just : ∀ r → ◆∈ resValue r → Is-just (res→origins r)
+            r>0⇒just : ∀ r → ◆∈ resValue r → Is-just (res→traces r)
             r>0⇒just r r>0 with ◆∈? resValue r
             ... | yes _   = MAny.just tt
             ... | no ¬r>0 = ⊥-elim $ ¬r>0 r>0
 
             ams-fromPrevs : AtMostSingleton fromPrevs
-            ams-fromPrevs = ams-count {P? = ◆∈?_ ∘ resValue} {xs = rs} {f = res→origins}
+            ams-fromPrevs = ams-count {P? = ◆∈?_ ∘ resValue} {xs = rs} {f = res→traces}
                                       r>0⇒just count≤
 
             s-fromPrevs : Singleton fromPrevs
             s-fromPrevs = am-¬null⇒singleton ams-fromPrevs ¬n
 
-        s-allPrevs : SingleOrigin² allPrevs
+        s-allPrevs : Singletonᵖ² allPrevs
         s-allPrevs = s-allPrevs₁ , All.tabulate s-allPrevs₂
 
-        s-allPrevs⁺ : SingleOrigin²⁺ allPrevs⁺
-        s-allPrevs⁺ = singleOrigin²⇒singleOrigin²⁺ s-allPrevs
+        s-comb : Singletonᵖ (combine allPrevs ∑≥)
+        s-comb = singleton-combine s-allPrevs
 
-        qed′ : SingleOrigin⁺ qed
-        qed′ = singleOrigin-merge {n = v} {p = ∑≥′} s-allPrevs⁺
+        comb≡ : ∣ combine allPrevs ∑≥ ∣ ≡ 1
+        comb≡ = Singletonᵖ⇒len {pr = combine allPrevs ∑≥} s-comb

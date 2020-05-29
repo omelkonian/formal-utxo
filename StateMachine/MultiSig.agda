@@ -44,7 +44,7 @@ map-just' : {A B : Set}(ma : Maybe A)(a : A)
   → (∀{a a'} → f a ≡ f a' → a ≡ a')
   → map f ma ≡ just (f a)
   → ma ≡ just a
-map-just' (just _) a f p q = cong just (p (just-injective q)) 
+map-just' (just _) a f p q = cong just (p (just-injective q))
 
 map-nothing' : {A B : Set}(ma : Maybe A)
   → (f : A → B)
@@ -122,7 +122,7 @@ instance
   fromData ⦃ isData-Bound ⦄ (CONSTR 0 [])        = just -∞
   fromData ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ [])) =
     map t=_ (fromData dt)
-  fromData ⦃ isData-Bound ⦄ (CONSTR 2 [])        = just +∞  
+  fromData ⦃ isData-Bound ⦄ (CONSTR 2 [])        = just +∞
   fromData ⦃ isData-Bound ⦄ _                    = nothing
   from∘to ⦃ isData-Bound ⦄ -∞     = refl
   from∘to ⦃ isData-Bound ⦄ (t= t) = refl
@@ -153,27 +153,27 @@ instance
   from-inj ⦃ IsData-Pair ⦄ (LIST (da ∷ db ∷ [])) (a , b) p =
     let
       q , q' = ap-map-just (fromData da) a (fromData db) b _,_ ,-injective p
-    in 
-      cong₂ (λ a b → LIST (a ∷ b ∷ [])) (from-inj da a q) (from-inj db b q') 
+    in
+      cong₂ (λ a b → LIST (a ∷ b ∷ [])) (from-inj da a q) (from-inj db b q')
 
 instance
   IsData-Payment : IsData Payment
   toData   ⦃ IsData-Payment ⦄ (payment v r d) =
-    LIST (toData v ∷ toData r ∷ toData d ∷ []) 
+    LIST (toData v ∷ toData r ∷ toData d ∷ [])
   fromData ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) =
     ap (ap (map payment (fromData dv)) (fromData dr)) (fromData dd)
   fromData ⦃ IsData-Payment ⦄ _ = nothing
   from∘to ⦃ IsData-Payment ⦄ (payment v r d) rewrite from∘to v | from∘to r | from∘to d = refl
   from-inj ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) (payment v r d) p =
     let
-      q , q' , q'' = ap-ap-map-just (fromData dv) v (fromData dr) r (fromData dd) d payment payment-injective p 
+      q , q' , q'' = ap-ap-map-just (fromData dv) v (fromData dr) r (fromData dd) d payment payment-injective p
     in
       cong₃ (λ v r d → LIST (v ∷ r ∷ d ∷ [])) (from-inj dv v q) (from-inj dr r q') (from-inj dd d q'')
 instance
   IsData-MS : IsData State
-  
+
   toData ⦃ IsData-MS ⦄ Holding = CONSTR 0 []
-  toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1 
+  toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1
     (toData p ∷ toData sigs ∷ [])
   fromData ⦃ IsData-MS ⦄ (CONSTR 0 []) = just Holding
   fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) =
@@ -189,7 +189,7 @@ instance
       x , x' = ap-map-just (fromData dp) p (fromData dsigs) sigs CollectingSignatures CollectingSignatures-injective q
     in
       cong₂ (λ p sigs → CONSTR 1 (p ∷ sigs ∷ [])) (from-inj dp p x) (from-inj dsigs sigs x')
-      
+
   from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) (_ ∷ _)) Holding ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (dp ∷ dsigs ∷ [])) Holding q with (fromData {Payment} dp)
   from-inj IsData-MS _ _ () | nothing
@@ -201,7 +201,7 @@ instance
   from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) Holding ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) Holding ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) []) Holding ()
-  
+
   from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) (CollectingSignatures _ _) ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR 0 (_ ∷ _)) (CollectingSignatures _ _) ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) (CollectingSignatures _ _) ()
@@ -212,12 +212,12 @@ instance
   toData ⦃ IsData-MI ⦄ (ProposePayment p) = CONSTR 0 [ toData p ]
   toData ⦃ IsData-MI ⦄ (AddSignature sig) = CONSTR 1 [ toData sig ]
   toData ⦃ IsData-MI ⦄ Pay = CONSTR 2 []
-  toData ⦃ IsData-MI ⦄ Cancel = CONSTR 3 []    
+  toData ⦃ IsData-MI ⦄ Cancel = CONSTR 3 []
   fromData ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) = map ProposePayment (fromData dp)
   fromData ⦃ IsData-MI ⦄ (CONSTR 1 (dsig ∷ [])) = map AddSignature (fromData dsig)
   fromData ⦃ IsData-MI ⦄ (CONSTR 2 []) = just Pay
   fromData ⦃ IsData-MI ⦄ (CONSTR 3 []) = just Cancel
-  fromData ⦃ IsData-MI ⦄ _ = nothing    
+  fromData ⦃ IsData-MI ⦄ _ = nothing
   from∘to ⦃ IsData-MI ⦄ (ProposePayment p) rewrite from∘to p = refl
   from∘to ⦃ IsData-MI ⦄ (AddSignature sig) rewrite from∘to sig = refl
   from∘to ⦃ IsData-MI ⦄ Pay = refl
@@ -226,7 +226,7 @@ instance
     let
       r = (map-just' (fromData dp) p ProposePayment ProposePayment-injective q)
     in
-      cong (λ p → CONSTR 0 [ p ]) (from-inj dp p r) 
+      cong (λ p → CONSTR 0 [ p ]) (from-inj dp p r)
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 []) (ProposePayment p) ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (dp ∷ [])) (ProposePayment p) q with fromData {ℕ} dp
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
@@ -241,7 +241,7 @@ instance
     let
       r = (map-just' (fromData dsig) sig AddSignature AddSignature-injective q)
     in
-      cong (λ sig → CONSTR 1 [ sig ]) (from-inj dsig sig r) 
+      cong (λ sig → CONSTR 1 [ sig ]) (from-inj dsig sig r)
   from-inj ⦃ IsData-MI ⦄ (CONSTR 0 []) (AddSignature sig) ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) (AddSignature sig) q with fromData {Payment} dp
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
@@ -258,14 +258,14 @@ instance
   from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) Pay q with fromData {Payment} dp
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
   from-inj ⦃ IsData-MI ⦄ _ _ () | nothing
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (_ ∷ _ ∷ _)) Pay ()    
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (_ ∷ _ ∷ _)) Pay ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 []) Pay ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (dsig ∷ [])) Pay q with fromData {ℕ} dsig
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
   from-inj ⦃ IsData-MI ⦄ _ _ () | nothing
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (_ ∷ _ ∷ _)) Pay ()  
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (_ ∷ _ ∷ _)) Pay ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 3 []) Pay ()
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 3 (_ ∷ _)) Pay ()  
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 3 (_ ∷ _)) Pay ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR (suc (suc (suc (suc _)))) _) Pay ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 3 []) Cancel q = refl
   from-inj ⦃ IsData-MI ⦄ (CONSTR 3 (_ ∷ _)) Cancel ()
@@ -273,14 +273,14 @@ instance
   from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) Cancel q with fromData {Payment} dp
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
   from-inj ⦃ IsData-MI ⦄ _ _ () | nothing
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (_ ∷ _ ∷ _)) Cancel ()    
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 0 (_ ∷ _ ∷ _)) Cancel ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 []) Cancel ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (dsig ∷ [])) Cancel q with fromData {ℕ} dsig
   from-inj ⦃ IsData-MI ⦄ _ _ () | just _
   from-inj ⦃ IsData-MI ⦄ _ _ () | nothing
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (_ ∷ _ ∷ _)) Cancel ()  
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 1 (_ ∷ _ ∷ _)) Cancel ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR 2 []) Cancel ()
-  from-inj ⦃ IsData-MI ⦄ (CONSTR 2 (_ ∷ _)) Cancel ()  
+  from-inj ⦃ IsData-MI ⦄ (CONSTR 2 (_ ∷ _)) Cancel ()
   from-inj ⦃ IsData-MI ⦄ (CONSTR (suc (suc (suc (suc _)))) _) Cancel ()
 
 MultiSigSM : StateMachine State Input
@@ -322,9 +322,10 @@ P : State → Input → TxConstraints → State → Set
 P _ Cancel txc _ = Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
 P _ _ _ _ = ⊤
 
-lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
-lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x _
-lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x _ (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x _ (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (pay , refl) (lemma xs)
-lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x _ (lemma xs)
+-- ** T0D0: does not typecheck
+-- lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
+-- lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x _
+-- lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x _ (lemma xs)
+-- lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x _ (lemma xs)
+-- lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (pay , refl) (lemma xs)
+-- lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x _ (lemma xs)
