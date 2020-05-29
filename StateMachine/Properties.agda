@@ -126,8 +126,8 @@ data RootedRun : S → S → Set where
   cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
 
 -- ** T0D0: does not typecheck
--- cons-lem : ∀{s s' i s''}{xs}{ xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → cons xs x ≡ cons xs' x' → xs ≡ xs' × x ≡ x'
--- cons-lem refl = refl , refl
+cons-lem : ∀{s s' i s''}{xs xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → cons xs x ≡ RootedRun.cons xs' x' → xs ≡ xs' × x ≡ x'
+cons-lem refl = refl , refl
 
 -- the predicate P holds for all states in the run
 data AllS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
