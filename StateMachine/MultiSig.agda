@@ -322,10 +322,10 @@ P : State → Input → TxConstraints → State → Set
 P _ Cancel txc _ = Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
 P _ _ _ _ = ⊤
 
--- ** T0D0: does not typecheck
--- lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
--- lemma (one {s = Holding}{i = ProposePayment pay} p x) = root p x _
--- lemma (cons {s' = Holding} {i = ProposePayment _} xs x) = cons xs x _ (lemma xs)
--- lemma (cons {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = cons xs x _ (lemma xs)
--- lemma (cons {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = cons xs refl (pay , refl) (lemma xs)
--- lemma (cons {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = cons xs x _ (lemma xs)
+ -- ** T0D0: does not typecheck
+lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
+lemma (root {s = Holding}{i = ProposePayment pay} p x) = root p x _
+lemma (snoc {s' = Holding} {i = ProposePayment _} xs x) = snoc xs x _ (lemma xs)
+lemma (snoc {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = snoc xs x _ (lemma xs)
+lemma (snoc {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = snoc xs refl (pay , refl) (lemma xs)
+lemma (snoc {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = snoc xs x _ (lemma xs)

@@ -123,30 +123,30 @@ s —→[ i ]' s′ =
 
 data RootedRun : S → S → Set where
   root : ∀{s} → T (initₛₘ s) → RootedRun s s
-  cons : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
+  snoc : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
 
 -- ** T0D0: does not typecheck
-cons-lem : ∀{s s' i s''}{xs xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → cons xs x ≡ RootedRun.cons xs' x' → xs ≡ xs' × x ≡ x'
-cons-lem refl = refl , refl
+snoc-lem : ∀{s s' i s''}{xs xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → snoc xs x ≡ RootedRun.snoc xs' x' → xs ≡ xs' × x ≡ x'
+snoc-lem refl = refl , refl
 
 -- the predicate P holds for all states in the run
 data AllS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
   root : ∀ {s} → (p : T (initₛₘ s)) → P s → AllS P (root p)
-  cons : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AllS P p → AllS P (cons p q)
+  snoc : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
+    → P s'' → AllS P p → AllS P (snoc p q)
 
 -- the property holds in the end
 end : ∀ P {s s'}{p : RootedRun s s'} → AllS P p → P s'
 end P (root p q) = q
-end P (cons p q r s) = r
+end P (snoc p q r s) = r
 
 all-lem : (P : S → Set)
         → (∀{s} → T (initₛₘ s) → P s)
         → (∀{s i s'} → s —→[ i ]' s' → P s → P s')
         → ∀ {s s'}(p : RootedRun s s') → AllS P p
 all-lem P base step (root p) = root p (base p)
-all-lem P base step (cons p q) =
-  cons p q (step q (end P h)) h
+all-lem P base step (snoc p q) =
+  snoc p q (step q (end P h)) h
   where h = all-lem P base step p
 
 -- any
@@ -156,10 +156,10 @@ data AnyS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
   root   : ∀ {s} → (p : T (initₛₘ s)) → P s → AnyS P (root p)
 
   here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AnyS P (cons p q)
+    → P s'' → AnyS P (snoc p q)
   there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → AnyS P p → AnyS P (cons p q)
--- TODO: this isn't right, it needs two constructors for root
+    → AnyS P p → AnyS P (snoc p q)
+-- TODO: this isn't right, it needs two snoctructors for root
 
 -- until
 
@@ -175,7 +175,7 @@ data AnyS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
 data UntilS (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
   prefix : ∀{s s'}(xs : RootedRun s s') → AllS P xs → UntilS P Q xs
   suffix : ∀{s s' i s''}(xs : RootedRun s s')
-    → UntilS P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilS P Q (cons xs x)
+    → UntilS P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilS P Q (snoc xs x)
 
 open import Bisimulation.Base {sm = sm}
 -- non-empty rooted runs
