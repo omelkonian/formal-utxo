@@ -22,35 +22,15 @@ instance
   Default-TxOutputRef : Default TxOutputRef
   Default-TxOutputRef =  ⌞ def indexed-at def ⌟
 
-  Default-InputInfo : Default InputInfo
-  Default-InputInfo = ⌞ record
-    { outputRef     = def
-    ; validatorHash = def
-    ; datumHash     = def
-    ; redeemerHash  = def
-    ; value         = def } ⌟
-
   Default-TxOutput : Default TxOutput
   Default-TxOutput = ⌞ record
     { address   = def
-    ; value     = def
-    ; datumHash = def } ⌟
-
-  Default-TxInfo : Default TxInfo
-  Default-TxInfo = ⌞ record
-    { inputInfo      = def
-    ; outputInfo     = def
-    ; forge          = def
-    ; policies       = def
-    ; range          = def
-    ; datumWitnesses = def } ⌟
+    ; value     = def } ⌟
 
   Default-TxInput : Default TxInput
   Default-TxInput = ⌞ record
     { outputRef = def
-    ; validator = def
-    ; redeemer  = def
-    ; datum     = def } ⌟
+    ; validator = def } ⌟
 
   Default-Tx : Default Tx
   Default-Tx = ⌞ record
@@ -58,5 +38,4 @@ instance
     ; outputs        = def
     ; forge          = def
     ; policies       = def
-    ; range          = def
-    ; datumWitnesses = def } ⌟
+    ; range          = def } ⌟

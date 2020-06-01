@@ -8,7 +8,7 @@ open import Function       using (_∘_; case_of_; const)
 open import Category.Monad using (RawMonad)
 
 open import Data.Empty   using (⊥-elim)
-open import Data.Bool    using (Bool; true; false; _∧_; T)
+open import Data.Bool    using (Bool; true; false; _∧_; T; not)
 open import Data.Product using (_×_; _,_; proj₁; proj₂; map₁)
 open import Data.List    using (List; map; length; []; _∷_; [_]; filter; foldr)
 open import Data.Char    using (Char; toℕ; fromℕ)
@@ -40,11 +40,10 @@ open import UTxO.Value
 ------------------------------------------------------------------------
 -- Basic types.
 
-Time : Set
-Time = ℕ
-
-Address : Set
-Address = HashId
+Time Address Signature : Set
+Time      = ℕ
+Address   = HashId
+Signature = HashId
 
 -----------------------------------------
 -- First-order data values.
@@ -128,8 +127,20 @@ data Bound : Set where
 data SlotRange : Set where
   _⋯_ : Bound → Bound → SlotRange
 
+minˢ maxˢ : SlotRange → Bound
+minˢ (b ⋯ _) = b
+maxˢ (_ ⋯ b) = b
+
+_≤ˢ_ : Bound → Bound → Bool
+-∞     ≤ˢ _       = true
++∞     ≤ˢ +∞      = true
++∞     ≤ˢ _       = false
+(t= _) ≤ˢ -∞      = false
+(t= _) ≤ˢ +∞      = true
+(t= n) ≤ˢ (t= n′) = ⌊ n ≤? n′ ⌋
+
 -- NB: Bounds are inclusive and refer to the length of the existing ledger, before submitting a new transaction.
-_∋_ : SlotRange → ℕ → Bool
+_∋_ _∌_ : SlotRange → ℕ → Bool
 +∞   ⋯ _    ∋ _ = false
 _    ⋯ -∞   ∋ _ = false
 -∞   ⋯ +∞   ∋ _ = true
@@ -137,12 +148,25 @@ _    ⋯ -∞   ∋ _ = false
 t= l ⋯ +∞   ∋ n = ⌊ l ≤? n ⌋
 t= l ⋯ t= r ∋ n = ⌊ l ≤? n ⌋ ∧ ⌊ n ≤? r ⌋
 
-infix 4 _∋_
+sl ∌ n = not (sl ∋ n)
+
+infix 4 _∋_ _∌_
 infix 5 _⋯_
 infix 6 t=_
 
---------------------------------------------------------------------------------------
--- Output references.
+--------------------------------------------------------------------------
+-- Crypto.
+
+postulate
+  -- verify signature
+  isSignedBy : ∀ {A : Set} → A → Signature → HashId → Bool
+
+  -- m-of-n signature
+  MultiSignature : Set
+  checkMultiSig : MultiSignature → List Signature → Bool
+
+--------------------------------------------------------------------------
+-- Transactions, scripts and ledgers.
 
 record TxOutputRef : Set where
   constructor _indexed-at_
@@ -152,144 +176,61 @@ record TxOutputRef : Set where
 
 open TxOutputRef public
 
---------------------------------------------------------------------------------------
--- Pending transactions (i.e. parts of the transaction being passed to a validator).
+data Clause : Set where
+  JustMSig⟨_⟩         : MultiSignature → Clause
+  SpendsOutput⟨_⟩     : TxOutputRef → Clause
+  TickAfter⟨_⟩        : Bound → Clause
+  SignedByPIDToken⟨_⟩ : HashId → Clause
+  AssetToAddress⟨_⟩   : Maybe Address → Clause
+  SpendsCur⟨_⟩        : Maybe HashId → Clause
+  Forges⟨_⟩ {-Burns⟨_⟩-}  : SubValue → Clause
+  FreshTokens DoForge : Clause
 
-record InputInfo : Set where
-  field
-    outputRef     : TxOutputRef
-    validatorHash : HashId
-    datumHash     : HashId
-    redeemerHash  : HashId
-    value         : Value
+data Script : Set where
+  _&&_ _||_ : Script → Script → Script
+  `_        : Clause → Script
 
 record TxOutput : Set where
   field
     address   : Address -- ≡ hash of the input's validator
     value     : Value
-    datumHash : HashId  -- ≡ hash of the input's datum
 open TxOutput public
-
-record TxInfo : Set where
-  field
-    inputInfo      : List InputInfo
-    outputInfo     : List TxOutput
-    forge          : Value
-    policies       : List CurrencySymbol
-    range          : SlotRange
-    datumWitnesses : List (HashId × DATA)
-
-record Pending (I : TxInfo → Set) : Set where
-  field
-    txInfo : TxInfo
-    this   : I txInfo
-
-open Pending public
-
-PendingTx  = Pending (Index ∘ TxInfo.inputInfo)
-PendingMPS = Pending (const HashId)
-
-lookupDatum : HashId → List (HashId × DATA) → Maybe DATA
-lookupDatum h = toMaybe ∘ map proj₂ ∘ filter ((h ≟ℕ_)∘ proj₁)
-
-lookupDatumPtx : ∀ {I} → HashId → Pending I → Maybe DATA
-lookupDatumPtx h = lookupDatum h ∘ TxInfo.datumWitnesses ∘ txInfo
-
-thisValidator : PendingTx → HashId
-thisValidator record {this = i; txInfo = record {inputInfo = is}} = InputInfo.validatorHash (is ‼ i)
-
-valueSpent : TxInfo → Value
-valueSpent = sumᶜ ∘ map InputInfo.value ∘ TxInfo.inputInfo
-
-inputsAt : HashId → TxInfo → List InputInfo
-inputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ InputInfo.validatorHash) ∘ TxInfo.inputInfo
-
-outputsAt : HashId → TxInfo → List TxOutput
-outputsAt ℍ = filter ((ℍ ≟ℕ_) ∘ address) ∘ TxInfo.outputInfo
-
-getContinuingOutputs : PendingTx → List TxOutput
-getContinuingOutputs ptx = outputsAt (thisValidator ptx) (txInfo ptx)
-
-valueAtⁱ : HashId → TxInfo → Value
-valueAtⁱ ℍ = sumᶜ ∘ map InputInfo.value ∘ inputsAt ℍ
-
-valueAtᵒ : HashId → TxInfo → Value
-valueAtᵒ ℍ = sumᶜ ∘ map value ∘ outputsAt ℍ
-
-propagates : Value → PendingTx → Bool
-propagates v ptx@(record {txInfo = txi})
-  = (valueAtⁱ ℍ txi ≥ᶜ v)
-  ∧ (valueAtᵒ ℍ txi ≥ᶜ v)
-  where ℍ = thisValidator ptx
-
-outputsOf : ∀ {I} → (CurrencySymbol × TokenName) → Pending I → List TxOutput
-outputsOf (c , t) = filter (◆∈?_ ∘ value) ∘ TxInfo.outputInfo ∘ txInfo
-  where open FocusTokenClass (c , t)
-
---------------------------------------------------------------------------
--- Inputs, outputs and ledgers.
-
-Validator : Set
-Validator = PendingTx -- ^ parts of the currently validated transaction
-          → DATA      -- ^ result value of the redeemer script
-          → DATA      -- ^ result value of the data script
-          → Bool
-
-MonetaryPolicy : Set
-MonetaryPolicy = PendingMPS → Bool
-
--- Values that hold the full monetary policies, rather than just their hashes.
-ValueS = List (MonetaryPolicy × SubValue)
-
-toValue : ValueS → Value
-toValue = map (map₁ _♯)
 
 record TxInput : Set where
   field
     outputRef : TxOutputRef
-    validator : Validator
-    redeemer  : DATA
-    datum     : DATA
+    validator : Script
 
 open TxInput public
 
 record Tx : Set where
   field
-    inputs         : List TxInput -- Set⟨TxInput⟩, but this is ensured by condition `noDoubleSpending`
+    inputs         : List TxInput -- Set⟨TxInput⟩, but this is ensured by condition `Validity.noDoubleSpending`
     outputs        : List TxOutput
     forge          : Value
-    policies       : List MonetaryPolicy
+    policies       : List Script
     range          : SlotRange
-    datumWitnesses : List (HashId × DATA)
+    sigs           : List Signature
 
 open Tx public
+
+checkMultiSigTx : MultiSignature → Tx → Bool
+checkMultiSigTx msig tx = checkMultiSig msig (sigs tx)
 
 Ledger : Set
 Ledger = List Tx
 
-runValidation : PendingTx → TxInput → Bool
-runValidation ptx i = validator i ptx (redeemer i) (datum i)
-
 outputRefs : Tx → List TxOutputRef
 outputRefs = map outputRef ∘ inputs
-
-lookupDatumTx : HashId → Tx → Maybe DATA
-lookupDatumTx h = lookupDatum h ∘ datumWitnesses
 
 ------------------------------------------------------------------------
 -- Set modules/types.
 
 import Prelude.Set' as SET
 
--- Sets of output references
-_≟ₒ_ : Decidable {A = TxOutputRef} _≡_
-x ≟ₒ y with id x ≟ℕ id y | index x ≟ℕ index y
-... | no ¬p    | _        = no λ{refl → ¬p refl}
-... | _        | no ¬p′   = no λ{refl → ¬p′ refl}
-... | yes refl | yes refl = yes refl
-
-module SETₒ = SET {A = TxOutputRef} _≟ₒ_
-Set⟨TxOutputRef⟩ = Set' where open SETₒ
+-- Sets of natural numbers.
+module SETℕ = SET {A = ℕ} _≟ℕ_
+Set⟨ℕ⟩ = Set' where open SETℕ
 
 -- Sets of DATA
 _≟ᵈ_ : Decidable {A = DATA} _≡_
@@ -391,27 +332,36 @@ _≟ˢ_ : Decidable {A = SlotRange} _≡_
 ... | _        | no ¬p    = no λ{ refl → ¬p refl }
 ... | yes refl | yes refl = yes refl
 
+-- Sets of output references
+_≟ₒ_ : Decidable {A = TxOutputRef} _≡_
+x ≟ₒ y with id x ≟ℕ id y | index x ≟ℕ index y
+... | no ¬p    | _        = no λ{refl → ¬p refl}
+... | _        | no ¬p′   = no λ{refl → ¬p′ refl}
+... | yes refl | yes refl = yes refl
+
+module SETₒ = SET {A = TxOutputRef} _≟ₒ_
+Set⟨TxOutputRef⟩ = Set' where open SETₒ
+
 -- Sets of inputs
-_≟ᵢ_ : Decidable {A = TxInput} _≡_
-i ≟ᵢ i′
+_≟ⁱ_ : Decidable {A = TxInput} _≡_
+i ≟ⁱ i′
   with outputRef i ≟ₒ outputRef i′ | ((validator i) ♯) ≟ℕ ((validator i′) ♯)
-     | redeemer i ≟ᵈ redeemer i′ | datum i ≟ᵈ datum i′
-... | no ¬p    | _     | _        | _ = no λ{ refl → ¬p refl }
-... | _        | no ¬p | _        | _ = no λ{ refl → ¬p refl }
-... | _        | _     | no ¬p    | _ = no λ{ refl → ¬p refl }
-... | _        | _     | _        | no ¬p = no λ{ refl → ¬p refl }
-... | yes refl | yes p | yes refl | yes refl
+... | no ¬p    | _     = no λ{ refl → ¬p refl }
+... | _        | no ¬p = no λ{ refl → ¬p refl }
+... | yes refl | yes p
   with ♯-injective p
 ... | refl = yes refl
+
+module SETⁱ = SET {A = TxInput} _≟ⁱ_
+Set⟨TxInput⟩ = Set' where open SETⁱ
 
 -- Sets of outputs
 _≟ᵒ_ : Decidable {A = TxOutput} _≡_
 o ≟ᵒ o′
-  with address o ≟ℕ address o′ | value o ≟ᶜ value o′ | datumHash o ≟ℕ datumHash o′
-... | no ¬p    | _        | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p    | _        = no λ{ refl → ¬p refl }
-... | _        | _        | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes refl | yes refl = yes refl
+  with address o ≟ℕ address o′ | value o ≟ᶜ value o′
+... | no ¬p    | _        = no λ{ refl → ¬p refl }
+... | _        | no ¬p    = no λ{ refl → ¬p refl }
+... | yes refl | yes refl = yes refl
 
 module SETᵒ = SET {A = TxOutput} _≟ᵒ_
 Set⟨TxOutput⟩ = Set' where open SETᵒ
