@@ -34,16 +34,15 @@ open import Prelude.General
 open import Prelude.Lists
 open import Prelude.Unsafe  using (fromℕ∘toℕ; toℕ∘fromℕ; fromList∘toList; toList∘fromList)
 
-open import UTxO.Hashing.Base
+open import UTxO.Crypto
 open import UTxO.Value
 
 ------------------------------------------------------------------------
 -- Basic types.
 
-Time Address Signature : Set
+Time Address : Set
 Time      = ℕ
 Address   = HashId
-Signature = HashId
 
 -----------------------------------------
 -- First-order data values.
@@ -54,68 +53,6 @@ data DATA : Set where
  LIST   : List DATA → DATA
  CONSTR : ℕ → List DATA → DATA
  MAP    : List (DATA × DATA) → DATA
-
-record IsData (A : Set) : Set where
-  field
-    toData   : A → DATA
-    fromData : DATA → Maybe A
-    from∘to  : ∀ x → fromData (toData x) ≡ just x
-    from-inj : ∀ dx x → fromData dx ≡ just x → dx ≡ toData x
-open IsData {{...}} public
-
-from-injs : ∀ {A : Set} {{_ : IsData A}} ds xs
-          → sequence (map (fromData {A}) ds) ≡ just xs → ds ≡ map (toData {A}) xs
-from-injs {_} []       .[] refl = refl
-from-injs {A} (d ∷ ds) xs₀ eq
-  with fromData {A} d | inspect (fromData {A}) d
-... | nothing | _ = case eq of λ()
-... | just y  | ≡[ from≡ ]
-  with sequence (map (fromData {A}) ds) | inspect sequence (map (fromData {A}) ds)
-... | nothing  | _         = case eq of λ()
-... | just xs′ | ≡[ seq≡ ]
-  rewrite sym (just-injective eq)
-        | from-injs ds xs′ seq≡
-        | from-inj d y from≡
-        = refl
-
-instance
-  IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
-  toData   {{IsDataˡ}} = LIST ∘ map toData
-
-  fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
-
-  from∘to  {{IsDataˡ}} []       = refl
-  from∘to  {{IsDataˡ}} (x ∷ xs) rewrite from∘to x | from∘to xs = refl
-
-  from-inj {{IsDataˡ {A}}} (LIST ds) ys p rewrite from-injs ds ys p = refl
-  IsDataᶜ : IsData Char
-  toData   {{IsDataᶜ}}           = I ∘ +_ ∘ toℕ
-
-  fromData {{IsDataᶜ}} (I (+ z)) = just (fromℕ z)
-  fromData {{IsDataᶜ}} _         = nothing
-
-  from∘to  {{IsDataᶜ}} c rewrite fromℕ∘toℕ c = refl
-
-  from-inj {{IsDataᶜ}} (I (+ z))      x from≡ = cong (I ∘ +_) (trans (sym (toℕ∘fromℕ z))
-                                                              (cong toℕ (just-injective from≡)))
-
-  IsDataˢ : IsData String
-  toData   {{IsDataˢ}} = toData ∘ toList
-
-  fromData {{IsDataˢ}} = (fromList <$>_) ∘ fromData
-
-  from∘to  {{IsDataˢ}} xs rewrite from∘to (toList xs) | fromList∘toList xs = refl
-
-  from-inj {{IsDataˢ}} (LIST ds) xs p
-    with sequence (map (fromData {Char}) ds) | inspect sequence (map (fromData {Char}) ds)
-  ... | nothing  | _         = case p of λ()
-  ... | just xs′ | ≡[ seq≡ ]
-    with cong toList (just-injective p)
-  ... | p′
-    rewrite from-injs ds xs′ seq≡
-          | toList∘fromList xs′
-          | p′
-          = refl
 
 --------------------------------------------------------------------------------------
 -- Valid intervals (slot ranges).
@@ -155,17 +92,6 @@ infix 5 _⋯_
 infix 6 t=_
 
 --------------------------------------------------------------------------
--- Crypto.
-
-postulate
-  -- verify signature
-  isSignedBy : ∀ {A : Set} → A → Signature → HashId → Bool
-
-  -- m-of-n signature
-  MultiSignature : Set
-  checkMultiSig : MultiSignature → List Signature → Bool
-
---------------------------------------------------------------------------
 -- Transactions, scripts and ledgers.
 
 record TxOutputRef : Set where
@@ -176,19 +102,24 @@ record TxOutputRef : Set where
 
 open TxOutputRef public
 
-data Clause : Set where
-  JustMSig⟨_⟩         : MultiSignature → Clause
-  SpendsOutput⟨_⟩     : TxOutputRef → Clause
-  TickAfter⟨_⟩        : Bound → Clause
-  SignedByPIDToken⟨_⟩ : HashId → Clause
-  AssetToAddress⟨_⟩   : Maybe Address → Clause
-  SpendsCur⟨_⟩        : Maybe HashId → Clause
-  Forges⟨_⟩ {-Burns⟨_⟩-}  : SubValue → Clause
-  FreshTokens DoForge : Clause
-
+infixr 6 _&&_
+infixr 5 _||_
 data Script : Set where
   _&&_ _||_ : Script → Script → Script
-  `_        : Clause → Script
+  Not       : Script → Script
+
+  JustMSig⟨_⟩         : MultiSignature → Script
+  SpendsOutput⟨_⟩     : TxOutputRef → Script
+  TickAfter⟨_⟩        : Bound → Script
+  SignedByPIDToken⟨_⟩ : Maybe HashId → Script
+  AssetToAddress⟨_⟩   : Maybe Address → Script
+  SpendsCur⟨_⟩        : Maybe HashId → Script
+  Forges⟨_⟩ Burns⟨_⟩  : SubValue → Script
+  FreshTokens DoForge : Script
+
+pattern SignedByPIDToken⟨⟩ = SignedByPIDToken⟨ nothing ⟩
+pattern AssetToAddress⟨⟩   = AssetToAddress⟨ nothing ⟩
+pattern SpendsCur⟨⟩        = SpendsCur⟨ nothing ⟩
 
 record TxOutput : Set where
   field
@@ -231,106 +162,6 @@ import Prelude.Set' as SET
 -- Sets of natural numbers.
 module SETℕ = SET {A = ℕ} _≟ℕ_
 Set⟨ℕ⟩ = Set' where open SETℕ
-
--- Sets of DATA
-_≟ᵈ_ : Decidable {A = DATA} _≡_
-_≟ᵈₗ_ : Decidable {A = List DATA} _≡_
-_≟ᵈ×ₗ_ : Decidable {A = List (DATA × DATA)} _≡_
-
-I x ≟ᵈ I x₁
-  with x ≟ℤ x₁
-... | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl = yes refl
-I x ≟ᵈ H x₁ = no (λ ())
-I x ≟ᵈ LIST x₁ = no (λ ())
-I x ≟ᵈ CONSTR x₁ x₂ = no (λ ())
-I x ≟ᵈ MAP x₁ = no (λ ())
-
-H x ≟ᵈ I x₁ = no (λ ())
-H x ≟ᵈ H x₁
-  with x ≟ℕ x₁
-... | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl = yes refl
-H x ≟ᵈ LIST x₁ = no (λ ())
-H x ≟ᵈ CONSTR x₁ x₂ = no (λ ())
-H x ≟ᵈ MAP x₁ = no (λ ())
-
-LIST x ≟ᵈ I x₁ = no (λ ())
-LIST x ≟ᵈ H x₁ = no (λ ())
-LIST x ≟ᵈ LIST x₁
-  with x ≟ᵈₗ x₁
-... | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl = yes refl
-LIST x ≟ᵈ CONSTR x₁ x₂ = no (λ ())
-LIST x ≟ᵈ MAP x₁ = no (λ ())
-
-CONSTR x x₁ ≟ᵈ I x₂ = no (λ ())
-CONSTR x x₁ ≟ᵈ H x₂ = no (λ ())
-CONSTR x x₁ ≟ᵈ LIST x₂ = no (λ ())
-CONSTR x x₁ ≟ᵈ CONSTR x₂ x₃
-  with x ≟ℕ x₂ | x₁ ≟ᵈₗ x₃
-... | no ¬p    | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes refl = yes refl
-CONSTR x x₁ ≟ᵈ MAP x₂ = no (λ ())
-
-MAP x ≟ᵈ I x₁ = no (λ ())
-MAP x ≟ᵈ H x₁ = no (λ ())
-MAP x ≟ᵈ LIST x₁ = no (λ ())
-MAP x ≟ᵈ CONSTR x₁ x₂ = no (λ ())
-MAP x ≟ᵈ MAP x₁
-  with x ≟ᵈ×ₗ x₁
-... | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl = yes refl
-
-[]       ≟ᵈₗ []      = yes refl
-[]       ≟ᵈₗ (_ ∷ _) = no λ()
-(_ ∷ _)  ≟ᵈₗ []      = no λ()
-(x ∷ xs) ≟ᵈₗ (y ∷ ys)
-  with x ≟ᵈ y | xs ≟ᵈₗ ys
-... | no ¬p    | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes refl = yes refl
-
-[]       ≟ᵈ×ₗ []      = yes refl
-[]       ≟ᵈ×ₗ (_ ∷ _) = no λ()
-(_ ∷ _)  ≟ᵈ×ₗ []      = no λ()
-((x , y) ∷ xs) ≟ᵈ×ₗ ((x′ , y′) ∷ ys)
-  with x ≟ᵈ x′ | y ≟ᵈ y′ | xs ≟ᵈ×ₗ ys
-... | no ¬p    | _        | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p    | _        = no λ{ refl → ¬p refl }
-... | _        | _        | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes refl | yes refl = yes refl
-
-module SETᵈ = SET {A = DATA} _≟ᵈ_
-Set⟨DATA⟩ = Set' where open SETᵈ
-
-_==_ : DATA → DATA → Bool
-x == y = ⌊ x ≟ᵈ y ⌋
-
--- Sets of slot ranges
-_≟ᵇ_ : Decidable {A = Bound} _≡_
--∞ ≟ᵇ -∞     = yes refl
--∞ ≟ᵇ +∞     = no λ()
--∞ ≟ᵇ (t= _) = no λ()
-
-+∞ ≟ᵇ -∞     = no λ()
-+∞ ≟ᵇ +∞     = yes refl
-+∞ ≟ᵇ (t= _) = no λ()
-
-(t= _) ≟ᵇ -∞ = no λ()
-(t= _) ≟ᵇ +∞ = no λ()
-(t= n) ≟ᵇ (t= n′)
-  with n ≟ℕ n′
-... | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl = yes refl
-
-_≟ˢ_ : Decidable {A = SlotRange} _≡_
-(l ⋯ r) ≟ˢ (l′ ⋯ r′)
-  with l ≟ᵇ l′ | r ≟ᵇ r′
-... | no ¬p    | _        = no λ{ refl → ¬p refl }
-... | _        | no ¬p    = no λ{ refl → ¬p refl }
-... | yes refl | yes refl = yes refl
 
 -- Sets of output references
 _≟ₒ_ : Decidable {A = TxOutputRef} _≡_

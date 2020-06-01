@@ -12,7 +12,10 @@ open import Data.Fin     using (Fin; toℕ; fromℕ<)
 open import Data.Nat     using (ℕ; zero; suc; _+_; _<_; _≡ᵇ_)
   renaming (_≟_ to _≟ℕ_)
 
-open import Data.Bool            using (Bool; T; _∧_; _∨_; not)
+open import Data.Integer using (+_)
+open import Data.Integer.Properties using () renaming (_≟_ to _≟ℤ_)
+
+open import Data.Bool using (Bool; T; _∧_; _∨_; not)
 open import Data.Bool.Properties using (T?)
 
 open import Data.Maybe using (Maybe; just; nothing; maybe; Is-just; fromMaybe)
@@ -35,10 +38,9 @@ open ≡-Reasoning
 
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
+open import UTxO.Crypto
 open import UTxO.Value
 open import UTxO.Types
-open import UTxO.Hashing.Types
 
 record UTXO : Set where
   field
@@ -49,7 +51,7 @@ record UTXO : Set where
 open UTXO public
 
 mkUtxo : ∀ {out} tx → out ∈ outputs tx → UTXO
-outRef (mkUtxo tx out∈)   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+outRef (mkUtxo tx out∈)   = (tx ♯) indexed-at toℕ (Any.index out∈)
 out    (mkUtxo {out} _ _) = out
 prevTx (mkUtxo tx _ )     = tx
 
@@ -65,23 +67,23 @@ balance = flip ∑ value
 -- Script evaluation.
 
 ⟦_⟧ : Script → (HashId × Tx × List TxOutput → Bool)
-⟦ s ⟧ ρ
+⟦ s ⟧ ρ@(h , tx , us)
   with s
 ... | l && r = (⟦ l ⟧ ρ) ∧ (⟦ r ⟧ ρ)
 ... | l || r = (⟦ l ⟧ ρ) ∨ (⟦ r ⟧ ρ)
-... | ` e
-  with h , tx , us ← ρ
-  with e
+... | Not s′ = not (⟦ s′ ⟧ ρ)
 ... | TickAfter⟨ t ⟩ = t ≤ˢ minˢ (range tx)
 ... | SpendsOutput⟨ or ⟩      = ⌊ or SETₒ.∈? outputRefs tx ⌋
 ... | JustMSig⟨ msig ⟩        = checkMultiSigTx msig tx
-... | Forges⟨ tks ⟩           = forge tx ≥ᶜ [ h , tks ]
-... | FreshTokens             = ⌊ all (λ{ (i , (t , q)) → (t ≟ℕ toℕ i) ×-dec (q ≟ℕ 1) })
+... | Forges⟨ tks ⟩           = (forge tx ≥ᶜ [ h , tks ]) ∧ ([ h , tks ] ≥ᶜ $0)
+... | Burns⟨ tks ⟩            = (forge tx ≥ᶜ [ h , tks ]) ∧ ([ h , tks ] ≤ᶜ $0)
+... | FreshTokens             = ⌊ all (λ{ (i , (t , q)) → (any (λ o → t ≟ℕ (toℕ i , o) ♯) us) ×-dec (q ≟ℤ (+ 1)) })
                                       (enumerate $ lookupᶜ h (forge tx)) ⌋
 ... | AssetToAddress⟨ addr ⟩  = ⌊ all ((fromMaybe h addr ≟ℕ_ ) ∘ address)
                                       (filter (T? ∘ (h ∈ᶜ_) ∘ value) us) ⌋
 ... | DoForge                 = h ∈ᶜ forge tx
-... | SignedByPIDToken⟨ pid ⟩ = ⌊ all (λ s → any (T? ∘ isSignedBy tx s) (supp $ lookupᶜ h (balance us)))
+... | SignedByPIDToken⟨ pid ⟩ = ⌊ all (λ s → any (T? ∘ isSignedBy tx s)
+                                                 (supp $ lookupᶜ (fromMaybe h pid) (balance us)))
                                       (sigs tx)⌋
 ... | SpendsCur⟨ pid ⟩        = fromMaybe h pid ∈ᶜ (balance us)
 
@@ -91,7 +93,7 @@ balance = flip ∑ value
 _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
 [] ⟨ txo ⟩ = nothing
 (tx ∷ l) ⟨ txo ⟩
-  with id txo ≟ℕ tx ♯ₜₓ
+  with id txo ≟ℕ tx ♯
 ... | yes _ = just tx
 ... | no  _ = l ⟨ txo ⟩
 

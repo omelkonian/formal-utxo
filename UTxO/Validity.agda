@@ -37,8 +37,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong;
 
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Crypto
 open import UTxO.Value
 open import UTxO.Types
 open import UTxO.TxUtilities
@@ -60,6 +59,9 @@ record IsValidTx (tx : Tx) (l : Ledger) {- (vl : ValidLedger l) -} : Set where
   field
     withinInterval :
       T (range tx ∋ length l)
+
+    outputsNonNegative :
+      All (T ∘ (_≥ᶜ $0) ∘ value) (outputs tx)
 
     validOutputRefs :
       outputRefs tx ⊆ map outRef (utxo l)
@@ -114,6 +116,7 @@ _⊕_ : ∀ {l}
   → ValidLedger l
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
+  → {onn : True (all (T? ∘ (_≥ᶜ $0) ∘ value) (outputs tx))}
   → {vor : True (outputRefs tx SETₒ.⊆? map outRef (utxo l))}
   → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ᶜ ∑ (outputs tx) value)
                        (∑M (map (getSpentOutput l) (inputs tx)) value))}
@@ -124,8 +127,9 @@ _⊕_ : ∀ {l}
   → {vvh : True (all (λ i → M.dec (λ o → address o ≟ℕ validator i ♯) (getSpentOutput l i)) (inputs tx))}
   → {frg : True (all (λ c → any (λ f → c ≟ℕ f ♯) (policies tx)) (supp (forge tx)))}
   → ValidLedger (tx ∷ l)
-(vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {apv} {vvh} {frg}
+(vl ⊕ tx) {wi}{onn}{vor}{pv}{ndp}{aiv}{apv}{vvh}{frg}
   = vl ⊕ tx ∶- record { withinInterval      = toWitness wi
+                      ; outputsNonNegative  = toWitness onn
                       ; validOutputRefs     = toWitness vor
                       ; preservesValues     = toWitness pv
                       ; noDoubleSpending    = toWitness ndp
