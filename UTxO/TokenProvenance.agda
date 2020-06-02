@@ -63,7 +63,7 @@ private
 -- Definitions.
 
 _↝⟦_⟧_ : Tx → Quantity → Tx → Set
-tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ ≡_) ∘ id) (outputRefs tx′) ]
+tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ₜₓ ≡_) ∘ id) (outputRefs tx′) ]
                   ∃[ o ] ( ((outputs tx ⁉ index (Any.lookup or∈)) ≡ just o)
                          × (value o ◆ ≥ n) )
 

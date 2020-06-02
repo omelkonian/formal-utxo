@@ -5,6 +5,7 @@ open import UTxO.Hashing.Base
 module StateMachine.MultiSig (Signatories : List HashId)(Threshold : ℕ)
   where
 
+open import Data.Empty
 open import Data.Integer using (+_)
 open import Data.List.Membership.DecPropositional _≟_
 open import Data.Maybe
@@ -31,7 +32,7 @@ record Payment : Set where
 
 data State : Set where
   Holding              :                             _
-  CollectingSignatures : Payment → List PubKeyHash → _
+  Collecting : Payment → List PubKeyHash → _
 
 data Input : Set where
   ProposePayment : Payment    → Input
@@ -88,10 +89,10 @@ payment-injective : ∀{v v' r r' d d'}
   → payment v r d ≡ payment v' r' d' → v ≡ v' × r ≡ r' × d ≡ d'
 payment-injective refl = refl , refl , refl
 
-CollectingSignatures-injective : ∀{p p' sigs sigs'}
-  → CollectingSignatures p sigs ≡ CollectingSignatures p' sigs'
+Collecting-injective : ∀{p p' sigs sigs'}
+  → Collecting p sigs ≡ Collecting p' sigs'
   → p ≡ p' × sigs ≡ sigs'
-CollectingSignatures-injective refl = refl , refl
+Collecting-injective refl = refl , refl
 
 ProposePayment-injective : ∀{p p'}
   → ProposePayment p ≡ ProposePayment p' → p ≡ p'
@@ -173,20 +174,20 @@ instance
   IsData-MS : IsData State
 
   toData ⦃ IsData-MS ⦄ Holding = CONSTR 0 []
-  toData ⦃ IsData-MS ⦄ (CollectingSignatures p sigs) = CONSTR 1
+  toData ⦃ IsData-MS ⦄ (Collecting p sigs) = CONSTR 1
     (toData p ∷ toData sigs ∷ [])
   fromData ⦃ IsData-MS ⦄ (CONSTR 0 []) = just Holding
   fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) =
-    ap (map CollectingSignatures (fromData p)) (fromData sigs)
+    ap (map Collecting (fromData p)) (fromData sigs)
   fromData ⦃ IsData-MS ⦄ _ = nothing
   from∘to ⦃ IsData-MS ⦄ Holding = refl
-  from∘to ⦃ IsData-MS ⦄ (CollectingSignatures p sigs)
+  from∘to ⦃ IsData-MS ⦄ (Collecting p sigs)
     rewrite from∘to p | from∘to sigs = refl
 
   from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) Holding p = refl
-  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (dp ∷ dsigs ∷ [])) (CollectingSignatures p sigs) q =
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (dp ∷ dsigs ∷ [])) (Collecting p sigs) q =
     let
-      x , x' = ap-map-just (fromData dp) p (fromData dsigs) sigs CollectingSignatures CollectingSignatures-injective q
+      x , x' = ap-map-just (fromData dp) p (fromData dsigs) sigs Collecting Collecting-injective q
     in
       cong₂ (λ p sigs → CONSTR 1 (p ∷ sigs ∷ [])) (from-inj dp p x) (from-inj dsigs sigs x')
 
@@ -202,10 +203,10 @@ instance
   from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) Holding ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) []) Holding ()
 
-  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) (CollectingSignatures _ _) ()
-  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 (_ ∷ _)) (CollectingSignatures _ _) ()
-  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) (CollectingSignatures _ _) ()
-  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) (CollectingSignatures _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 []) (Collecting _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 0 (_ ∷ _)) (Collecting _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 []) (Collecting _ _) ()
+  from-inj ⦃ IsData-MS ⦄ (CONSTR 1 (_ ∷ [])) (Collecting _ _) ()
   from-inj ⦃ IsData-MS ⦄ (CONSTR (suc (suc n)) _) _ ()
 
   IsData-MI : IsData Input
@@ -286,20 +287,20 @@ instance
 MultiSigSM : StateMachine State Input
 isInitial MultiSigSM Holding =  true
 isInitial MultiSigSM _ = false
-step MultiSigSM Holding (ProposePayment p) = just ((CollectingSignatures p []) , def)
-step MultiSigSM (CollectingSignatures p sigs) (AddSignature sig) with sig ∈? Signatories | sig ∈? sigs
+step MultiSigSM Holding (ProposePayment p) = just ((Collecting p []) , def)
+step MultiSigSM (Collecting p sigs) (AddSignature sig) with sig ∈? Signatories | sig ∈? sigs
 ... | no ¬q  | _     = nothing -- not a signatory
 ... | yes q  | no ¬r =
-  just (CollectingSignatures p (sig ∷ sigs) , def)
+  just (Collecting p (sig ∷ sigs) , def)
   -- TODO: need to add a new type of constraint to check signature
 ... | yes q  | yes r = nothing -- already signed
-step MultiSigSM (CollectingSignatures p sigs) Cancel =
-  just (Holding
+step MultiSigSM (Collecting p sigs) Cancel =
+  just ( Holding
        , record { forge≡ = nothing
                 ; range≡ = just (Payment.paymentDeadline p ⋯ +∞)
                            -- must be after payment deadline
                 ; spent≥ = nothing })
-step MultiSigSM (CollectingSignatures p sigs) Pay with length sigs ≥? Threshold
+step MultiSigSM (Collecting p sigs) Pay with length sigs ≥? Threshold
 ... | yes q =
   just (Holding
        , record { forge≡ = nothing
@@ -319,13 +320,13 @@ open import Data.Unit
 
 -- cancel is easy as there is no with
 P : State → Input → TxConstraints → State → Set
-P _ Cancel txc _ = Σ Payment λ p → range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
+P (Collecting p _) Cancel txc _ = range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
+P _ Cancel txc _ = ⊥
 P _ _ _ _ = ⊤
 
- -- ** T0D0: does not typecheck
 lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
 lemma (root {s = Holding}{i = ProposePayment pay} p x) = root p x _
 lemma (snoc {s' = Holding} {i = ProposePayment _} xs x) = snoc xs x _ (lemma xs)
-lemma (snoc {s' = CollectingSignatures pay sigs} {i = AddSignature sig} xs x) = snoc xs x _ (lemma xs)
-lemma (snoc {s' = CollectingSignatures pay sigs} {i = Cancel} xs refl) = snoc xs refl (pay , refl) (lemma xs)
-lemma (snoc {s' = CollectingSignatures pay sigs} {i = Pay} xs x) = snoc xs x _ (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} {i = AddSignature sig} xs x) = snoc xs x _ (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} {i = Cancel} xs refl) = snoc xs refl refl (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} {i = Pay} xs x) = snoc xs x _ (lemma xs)

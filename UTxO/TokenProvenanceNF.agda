@@ -133,14 +133,14 @@ Singletonᵖ = Singleton ∘ traces
 Singletonᵖ² : List (∃ $ Provenance L tx) → Set
 Singletonᵖ² xs = Singleton xs × All (Singletonᵖ ∘ proj₂) xs
 
-postulate
-  Singletonᵖ⇒len : ∀ {pr : Provenance L tx n} → Singletonᵖ pr → ∣ pr ∣ ≡ 1
-  len⇒Singletonᵖ : ∀ {pr : Provenance L tx n} → ∣ pr ∣ ≡ 1 → Singletonᵖ pr
-
-
-  singleton-combine : ∀ {xs : List (∃ $ Provenance L tx)} {∑≥ : ∑₁ xs ≥ n}
-    → Singletonᵖ² xs
-    → Singletonᵖ (combine xs ∑≥)
+singleton-combine : ∀ {xs : List (∃ $ Provenance L tx)} {∑≥ : ∑₁ xs ≥ n}
+  → Singletonᵖ² xs
+  → Singletonᵖ (combine xs ∑≥)
+singleton-combine {xs = []}            (() , _)
+singleton-combine {xs = (n , pr) ∷ []} (tt , s-pr ∷ [])
+  rewrite ++-identityʳ (traces pr)
+        = s-pr
+singleton-combine {xs = _ ∷ _ ∷ _}     (() , _)
 
 provenanceNF : ∀ {tx l} (vl : ValidLedger (tx ∷ l)) {o} (o∈ : o ∈ outputs tx)
   → (◆∈v : ◆∈ value o)
@@ -181,7 +181,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
             pr′ = go {o′} vl′ (a _ vl′≺vl) o∈′
 
             len≡1 : Singletonᵖ pr′
-            len≡1 = len⇒Singletonᵖ {pr = pr′} $ go′ vl′ (a _ vl′≺vl) o∈′ p nf′
+            len≡1 = len≡⇒Singleton {xs = traces pr′} $ go′ vl′ (a _ vl′≺vl) o∈′ p nf′
 
         nf′ : count (◆∈?_ ∘ resValue) (prevs vl vtx) + forge tx ◆ ≤ 1
         nf′ = nf-prevs {tx}{l}{vl}{vtx} nf
@@ -251,4 +251,4 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
         s-comb = singleton-combine s-allPrevs
 
         comb≡ : ∣ combine allPrevs ∑≥ ∣ ≡ 1
-        comb≡ = Singletonᵖ⇒len {pr = combine allPrevs ∑≥} s-comb
+        comb≡ = Singleton⇒len≡ {xs = traces $ combine allPrevs ∑≥} s-comb

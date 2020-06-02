@@ -198,12 +198,6 @@ module CEM
   ... | true | ≡[ g≡ ]
        = y , refl , true⇒T g≡
 
-  postulate
-    lookupDatum-helper : ∀ {pti : PendingMPS} {d♯ : HashId} {s : S}
-      → (lookupDatumPtx d♯ pti >>= fromData) ≡ just s
-        ---------------------------------------------
-      → d♯ ≡ toData s ♯ᵈ
-
   Tpolicy⇒ : ∀ {tx l pti}
     → this pti ≡ ℂ
     → txInfo pti ≡ mkTxInfo l tx
@@ -234,7 +228,7 @@ module CEM
     with s , fm≡′ , Tinit ← fromMaybe≡ {mx = lookupDatumPtx d♯ pti}{fromData}{initₛₘ} fm≡
       = v , s , frg≡
       , cong (λ x → [ record {value = v; address = v♯; datumHash = x} ])
-             (lookupDatum-helper {pti = pti}{d♯}{s} fm≡′)
+             (lookupDatum≡ {x = s}{d♯}{txi}{TxInfo.datumWitnesses txi} refl fm≡′)
       , Tinit
 
   ◆∈⇒Tpolicy : ∀ {tx l}

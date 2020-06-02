@@ -1,4 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Validity where
 
 open import Level    using (0ℓ)
@@ -31,7 +30,7 @@ open import Relation.Nullary                      using (Dec; ¬_; yes; no)
 open import Relation.Nullary.Product              using (_×-dec_)
 open import Relation.Nullary.Decidable            using (True; toWitness)
 open import Relation.Binary                       using (Rel; Transitive; Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong; trans; subst; inspect)
+open import Relation.Binary.PropositionalEquality
   renaming ([_] to ≡[_])
 
 open import Prelude.Lists
@@ -203,16 +202,17 @@ tx∈⇒valid {L = _ , vl} {tx = tx} tx∈
      = vtx
 
 -- An output spent in a previous transaction cannot be spent again.
-suf-utxo : ∀ {tx l l′ x}
-  → ValidLedger l
-  → Suffix≡ (tx ∷ l′) l
-  → x ∈ map outRef (utxo l′)
-  → x ∈ outputRefs tx
-  → x ∉ map outRef (utxo l)
-suf-utxo {tx} {l = x ∷ l} vl (here (refl ∷ p)) x∈′ x∈refs x∈
-  rewrite Pointwise-≡⇒≡ p
-        = {!!}
-suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
+postulate
+  suf-utxo : ∀ {tx l l′ x}
+    → ValidLedger l
+    → Suffix≡ (tx ∷ l′) l
+    → x ∈ map outRef (utxo l′)
+    → x ∈ outputRefs tx
+    → x ∉ map outRef (utxo l)
+-- suf-utxo {tx} {l = x ∷ l} vl (here (refl ∷ p)) x∈′ x∈refs x∈
+--   rewrite Pointwise-≡⇒≡ p
+--         = {!!}
+-- suf-utxo {tx} {l = x ∷ l} vl (there suf) x∈′ x∈refs x∈ = {!!}
 
 -- traceRef : ∀ {tx l}
 --   → ValidLedger (tx ∷ l)
@@ -234,20 +234,11 @@ record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : 
     vl′      : ValidLedger (prevTx ∷ l′)
     prevOut∈ : prevOut ∈ outputs prevTx
     vl′≺vl   : (prevTx ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
-    spent≡   : ∃ λ i → getSpentOutput l i ≡ just prevOut
+    spent≡   : ∃ λ i → (i ∈ inputs tx) × (getSpentOutput l i ≡ just prevOut)
 
-    -- i        : TxInput
-    -- i∈       : i ∈ inputs tx
-    -- spent≡   : getSpentOutput l i ≡ just prevOut
---
-    -- ≈ prevTx ↝⟦ value prevOut ◆ ⟧ tx
-    or∈      : Any ((prevTx ♯ ≡_) ∘ id) (outputRefs tx)
-    ⁉≡just   : (outputs prevTx ⁉ index (Any.lookup or∈)) ≡ just prevOut
---
-    -- i   : TxInput
-    -- i∈  : i ∈ inputs tx
-    -- id≡ : id i ≡ prevTx ♯
-    -- spent≡ : getSpentOutput l i ≡ just prevOut
+    -- ≈ prevTx ↝⟦ {-value prevOut ◆-} ⟧ tx
+    or∈      : Any ((prevTx ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
+    ⁉≡just   : outputs prevTx ⟦ index (Any.lookup or∈) ⟧ ≡ just prevOut
 
 resValue : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} → Res vl vtx → Value
 resValue = value ∘ Res.prevOut
@@ -258,7 +249,8 @@ prevs {tx} {l} vl vtx
   module P₀ where
     go : ∀ {i} → i ∈ inputs tx → Res vl vtx
     go {i} i∈
-      with u , u∈ , refl           ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
+      with outRef∈                 ← validOutputRefs vtx (∈-map⁺ outputRef i∈)
+      with u , u∈ , refl           ← ∈-map⁻ outRef outRef∈
       with prev∈ , prevOut∈ , refl ← ∈utxo⇒outRef≡ {l = l} u∈
       with l′ , suf                ← ∈⇒Suffix prev∈
         = record { prevTx   = prevTx u
@@ -267,16 +259,28 @@ prevs {tx} {l} vl vtx
                  ; vl′      = vl′
                  ; prevOut∈ = prevOut∈
                  ; vl′≺vl   = vl′≺vl
-                 ; spent≡   = i , utxo-getSpent {l = l} u∈
+                 ; spent≡   = i , i∈ , utxo-getSpent {l = l} u∈
                  ; or∈      = or∈
                  ; ⁉≡just   = ⁉≡just
                  }
         where
-          or∈ : Any ((prevTx u ♯ ≡_) ∘ id) (outputRefs tx)
-          or∈ = {!!}
+          id≡ : prevTx u ♯ₜₓ ≡ id (outputRef i)
+          id≡ = sym $ ⟨⟩≡just {l}{outputRef i}{prevTx u} (utxo-[] {l} u∈)
+
+          P⊆Q : ∀ {or} → outputRef i ≡ or → prevTx u ♯ₜₓ ≡ id or
+          P⊆Q refl = id≡
+
+          or∈ : Any ((prevTx u ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
+          or∈ = Any.map P⊆Q (∈-map⁺ outputRef i∈)
+
+          outRef≡ : Any.lookup or∈ ≡ outputRef i
+          outRef≡ = begin Any.lookup or∈                   ≡⟨ Any-lookup∘map P⊆Q (∈-map⁺ outputRef i∈) ⟩
+                          Any.lookup (∈-map⁺ outputRef i∈) ≡⟨ lookup∘∈-map⁺ {f = outputRef} i∈ ⟩
+                          outputRef i                      ∎
+                    where open ≡-Reasoning
 
           ⁉≡just : (outputs (prevTx u) ⁉ index (Any.lookup or∈)) ≡ just (out u)
-          ⁉≡just = {!!}
+          ⁉≡just rewrite outRef≡ = utxo-⟨⟩ {l} u∈
 
           v   = value $ out u
           vl′ = ≼⇒valid vl suf
@@ -302,16 +306,21 @@ prevs {tx} {l} vl vtx
     s≡ : ∀ {i} i∈ → getSpentOutput l i ≡ just (Res.prevOut $ go {i} i∈)
     s≡ {i} i∈
       with Res.spent≡ (go {i} i∈) | inspect Res.spent≡ (go {i} i∈)
-    ... | i′ , spent≡ | ≡[ go≡ ]
+    ... | i′ , _ , spent≡ | ≡[ go≡ ]
          = trans (cong (getSpentOutput l) i≡) spent≡
       where
         i≡ : i ≡ i′
         i≡ = trans (sym $ i′≡ {i} i∈) (cong proj₁ go≡)
 
-postulate
-  prevs⊆utxo : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
-    → map resValue (prevs vl vtx)
-    ⊆ map (value ∘ out) (utxo l)
+prevs⊆utxo : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l}
+  → map resValue (prevs vl vtx)
+  ⊆ map (value ∘ out) (utxo l)
+prevs⊆utxo {tx}{l}{vl}{vtx} v∈
+  with _ , pr∈ , refl ← ∈-map⁻ resValue v∈
+  with _ , i∈  , refl ← ∈-mapWith∈⁻ {f = P₀.go vl vtx} pr∈
+  with _ , u∈  , refl ← ∈-map⁻ outRef (validOutputRefs vtx (∈-map⁺ outputRef i∈))
+  with _ , _   , refl ← ∈utxo⇒outRef≡ {l = l} u∈
+  = ∈-map⁺ (value ∘ out) u∈
 
 -- Non-fungibility
 NonFungible : ∃ ValidLedger → TokenClass → Set

@@ -25,12 +25,14 @@ open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
 open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint)
 
 open import Relation.Nullary                      using (¬_; Dec; yes; no)
+open import Relation.Nullary.Product              using (_×-dec_)
 open import Relation.Nullary.Decidable            using (⌊_⌋)
 open import Relation.Nullary.Negation             using (¬?)
 open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
 
 open import Prelude.Lists
+import Prelude.Set' as SET
 
 open import UTxO.Hashing.Base
 
@@ -161,7 +163,8 @@ _-contributesTo-_ : Rel Value 0ℓ
 v′ -contributesTo- v = ¬ Disjoint (tokenClasses v′) (tokenClasses v)
 
 _-contributesTo?-_ : Decidable _-contributesTo-_
-v′ -contributesTo?- v = ¬? {!!} -- ¬? ((_∈? tokenClasses v′) ×-dec (_∈? tokenClasses v))
+v′ -contributesTo?- v = ¬? $ disjoint? (tokenClasses v′) (tokenClasses v)
+  where open SET {A = TokenClass} (≡-dec× _≟ℕ_ _≟ℕ_)
 
 _∈ᶜ_ : TokenClass → Value → Set
 nft ∈ᶜ v = v ◇ nft > 0

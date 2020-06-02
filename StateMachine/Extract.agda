@@ -194,7 +194,7 @@ hh {tx = tx}{tx′} (or∈ , o , ⁉≡just , ◆∈v) tx∈
   where
     l = proj₁ $ ∈⇒Suffix tx∈
 
-    ∃i : ∃ λ i → i ∈ inputs tx′ × (tx ♯ ≡ id (outputRef i))
+    ∃i : ∃ λ i → i ∈ inputs tx′ × (tx ♯ₜₓ ≡ id (outputRef i))
     ∃i  = find $ Any.map⁻ or∈
     i   = proj₁ ∃i
     i∈  = proj₁ $ proj₂ ∃i
@@ -224,7 +224,7 @@ h : ∀ {tx tx′ s}
   → tx ↝⟦ 1 ⟧ tx′
   → ∃ λ s′ → TxS tx′ s′ × (s ↝ s′)
 h {tx = tx}{tx′}{s} (record {s∈ = v , outs≡}) tx∈ tx↝
-  with txIn , o , txIn∈ , o∈ , ◆∈v , getSpent≡ ← hh tx↝ tx∈
+  with txIn , o , txIn∈ , o∈ , ◆∈v , getSpent≡ ← hh {tx = tx}{tx′} tx↝ tx∈
   = qed
   where
     open ≡-Reasoning

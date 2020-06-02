@@ -64,12 +64,8 @@ _~_ {l} _ s = (toData s) ♯ᵈ ∈ ( map (datumHash ∘ out)
                               ) (utxo l)
 
 -- alternative definition (T0D0: replace everywhere)
-_~′_ : ∀ {l} → ValidLedger l → S → Set
-_~′_ {l} _ s = Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ toData s ♯ᵈ) × (nftₛₘ ∈ᶜ value o)) (map out $ utxo l)
-
-postulate
-  ~-isoˡ : ∀ {l s} {vl : ValidLedger l} → vl ~′ s → vl ~ s
-  ~-isoʳ : ∀ {l s} {vl : ValidLedger l} → vl ~ s → vl ~′ s
+-- _~′_ : ∀ {l} → ValidLedger l → S → Set
+-- _~′_ {l} _ s = Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ toData s ♯ᵈ) × (nftₛₘ ∈ᶜ value o)) (map out $ utxo l)
 
 view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
   → vl ~ s

@@ -95,11 +95,20 @@ map-out≡ tx =
 -- auxiliary functions (from spec)
 
 _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
-[] ⟨ txo ⟩ = nothing
-(tx ∷ l) ⟨ txo ⟩
-  with id txo ≟ℕ tx ♯ₜₓ
+[] ⟨ or ⟩ = nothing
+(tx ∷ l) ⟨ or ⟩
+  with id or ≟ℕ tx ♯ₜₓ
 ... | yes _ = just tx
-... | no  _ = l ⟨ txo ⟩
+... | no  _ = l ⟨ or ⟩
+
+⟨⟩≡just : ∀ {l or tx}
+  → l ⟨ or ⟩ ≡ just tx
+  → id or ≡ tx ♯ₜₓ
+⟨⟩≡just {l = []}              ()
+⟨⟩≡just {l = tx′ ∷ l}{or}{tx} eq
+  with id or ≟ℕ tx′ ♯ₜₓ | eq
+... | yes refl | refl = refl
+... | no  _    | eq′  = ⟨⟩≡just {l}{or}{tx} eq′
 
 utxo-outRef↔prevTx : ∀ {u l}
   → u ∈ utxo l
@@ -211,21 +220,58 @@ ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl
 ∑ᵥ : List TxOutput → Value
 ∑ᵥ = flip ∑ value
 
-postulate
-  outRef∈txi : ∀ {tx l o}
-    → o ∈ map InputInfo.outputRef (TxInfo.inputInfo $ mkTxInfo l tx)
-    → o ∈ outputRefs tx
+outRef∈txi : ∀ {tx l o}
+  → o ∈ map InputInfo.outputRef (TxInfo.inputInfo $ mkTxInfo l tx)
+  → o ∈ outputRefs tx
+outRef∈txi {tx}{l}{o} o∈ with inputs tx | o∈
+... | []     | ()
+... | i ∷ is | here refl = here refl
+... | i ∷ is | there o∈′ = there (outRef∈txi {tx = record tx {inputs = is}}{l} o∈′)
 
-  lookup-⟨⟩ : ∀ {tx l i}
-    → Is-just (getSpentOutput l i)
-    → id (outputRef i) ≡ tx ♯
-      ----------------------------
-    → l ⟨ outputRef i ⟩ ≡ just tx
+lookup-⟨⟩ : ∀ {tx l i}
+  → Is-just (getSpentOutput l i)
+  → id (outputRef i) ≡ tx ♯ₜₓ
+    ----------------------------
+  → l ⟨ outputRef i ⟩ ≡ just tx
+lookup-⟨⟩ {tx}{l}{i@(record{outputRef = or})} getSpent≡ id≡
+  with l       | getSpent≡
+... | []       | ()
+... | tx′ ∷ l′ | getSpent≡′
+  with id or ≟ℕ tx′ ♯ₜₓ
+... | yes refl
+  rewrite injective♯ₜₓ {x = tx′} {y = tx} id≡
+    = refl
+... | no _
+    = lookup-⟨⟩ {tx}{l′}{i} getSpent≡′ id≡
 
 lookup-⟦⟧ : ∀ {tx l i o}
   → Is-just (getSpentOutput l i)
-  → id (outputRef i) ≡ tx ♯
+  → id (outputRef i) ≡ tx ♯ₜₓ
   → outputs tx ⟦ index (outputRef i) ⟧ ≡ just o
     -------------------------------------------
   → getSpentOutput l i ≡ just o
 lookup-⟦⟧ {tx = tx}{l}{i}{o} vvh id≡ p rewrite lookup-⟨⟩ {tx = tx}{l}{i} vvh id≡ = p
+
+postulate
+  -- Assume that datumWitnesses have been constructed properly.
+  -- T0D0: remove datumWitnesses and keep datums immediately in outputs
+  wits♯ : ∀ {txi d♯ d}
+    → (d♯ , d) ∈ TxInfo.datumWitnesses txi
+    → d♯ ≡ d ♯ᵈ
+
+lookupDatum≡ : ∀ {A : Set} {{_ : IsData A}} {x : A} {d♯ : HashId} {txi : TxInfo} {wits : List (HashId × DATA)}
+  → TxInfo.datumWitnesses txi ≡ wits
+  → (lookupDatum d♯ wits >>= fromData) ≡ just x
+  → d♯ ≡ toData x ♯ᵈ
+lookupDatum≡ {x = x}{d♯}{txi}{[]}             _    ()
+lookupDatum≡ {x = x}{d♯}{txi}{(h , d) ∷ wits} wits≡ eq
+  with d♯ ≟ℕ h
+... | yes p
+  rewrite filter-accept ((d♯ ≟ℕ_) ∘ proj₁) {x = h , d} {xs = wits} p
+    = begin d♯          ≡⟨ p ⟩
+            h           ≡⟨ wits♯ {txi}{h}{d} (subst ((h , d) ∈_) (sym wits≡) (here refl)) ⟩
+            d ♯ᵈ        ≡⟨ cong (_♯ᵈ) (from-inj _ _ eq) ⟩
+            toData x ♯ᵈ ∎
+... | no ¬p
+  rewrite filter-reject ((d♯ ≟ℕ_) ∘ proj₁) {x = h , d} {xs = wits} ¬p
+    = lookupDatum≡ {x = x}{d♯}{record txi {datumWitnesses = wits}}{wits} refl eq

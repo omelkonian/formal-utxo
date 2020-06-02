@@ -125,7 +125,6 @@ data RootedRun : S → S → Set where
   root : ∀{s} → T (initₛₘ s) → RootedRun s s
   snoc : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
 
--- ** T0D0: does not typecheck
 snoc-lem : ∀{s s' i s''}{xs xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → snoc xs x ≡ RootedRun.snoc xs' x' → xs ≡ xs' × x ≡ x'
 snoc-lem refl = refl , refl
 
