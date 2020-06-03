@@ -30,8 +30,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; t
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
@@ -114,98 +113,3 @@ T-validator {di} {s} {ptx} eq
 ... | false | ()
 ... | true  | _
     = i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , refl
-
--- james
-
-_—→[_]'_ : S → I → S → Set
-s —→[ i ]' s′ =
-  Σ TxConstraints λ tx≡ → stepₛₘ s i ≡ just (s′ , tx≡)
-
-data RootedRun : S → S → Set where
-  root : ∀{s} → T (initₛₘ s) → RootedRun s s
-  snoc : ∀{s s' i s''} → RootedRun s s' → s' —→[ i ]' s'' → RootedRun s s''
-
-snoc-lem : ∀{s s' i s''}{xs xs' : RootedRun s s'}{x x' : s' —→[ i ]' s''} → snoc xs x ≡ RootedRun.snoc xs' x' → xs ≡ xs' × x ≡ x'
-snoc-lem refl = refl , refl
-
--- the predicate P holds for all states in the run
-data AllS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
-  root : ∀ {s} → (p : T (initₛₘ s)) → P s → AllS P (root p)
-  snoc : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AllS P p → AllS P (snoc p q)
-
--- the property holds in the end
-end : ∀ P {s s'}{p : RootedRun s s'} → AllS P p → P s'
-end P (root p q) = q
-end P (snoc p q r s) = r
-
-all-lem : (P : S → Set)
-        → (∀{s} → T (initₛₘ s) → P s)
-        → (∀{s i s'} → s —→[ i ]' s' → P s → P s')
-        → ∀ {s s'}(p : RootedRun s s') → AllS P p
-all-lem P base step (root p) = root p (base p)
-all-lem P base step (snoc p q) =
-  snoc p q (step q (end P h)) h
-  where h = all-lem P base step p
-
--- any
-
-data AnyS (P : S → Set) : ∀{s s'} → RootedRun s s' → Set where
-
-  root   : ∀ {s} → (p : T (initₛₘ s)) → P s → AnyS P (root p)
-
-  here : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → P s'' → AnyS P (snoc p q)
-  there : ∀ {s s' i s''} (p : RootedRun s s')(q : s' —→[ i ]' s'')
-    → AnyS P p → AnyS P (snoc p q)
--- TODO: this isn't right, it needs two snoctructors for root
-
--- until
-
--- P+Q*
--- P holds and then Q holds
-
--- * P has to hold at least at the initial state, it can hold forever
--- and then Q doesn't need to hold at all
-
--- * if Q takes over then P does not need to hold anymore. There is no
--- enforced overlap
-
-data UntilS (P Q : S → Set) : ∀{s s'} → RootedRun s s' → Set where
-  prefix : ∀{s s'}(xs : RootedRun s s') → AllS P xs → UntilS P Q xs
-  suffix : ∀{s s' i s''}(xs : RootedRun s s')
-    → UntilS P Q xs → (x : s' —→[ i ]' s'') → Q s'' → UntilS P Q (snoc xs x)
-
-open import Bisimulation.Base {sm = sm}
--- non-empty rooted runs
-data RootedRun' : S → S → Set where
-  root : ∀{s s' i txc} → T (initₛₘ s) → s —→[ i ] (s' , txc) → RootedRun' s s'
-  snoc : ∀{s s' i s'' txc} → RootedRun' s s' → s' —→[ i ] (s'' , txc) → RootedRun' s s''
-
--- a version of AllS for non-empty runs:
--- the predicate P holds for all states in the run
-data AllS' (P : S → Set) : ∀{s s'} → RootedRun' s s' → Set where
-  root : ∀ {s i s' txc} → (p : T (initₛₘ s))(x : s —→[ i ] (s' , txc))
-    → P s → P s'
-    → AllS' P (root p x)
-  snoc : ∀ {s s' i s'' txc} (xs : RootedRun' s s')(x : s' —→[ i ] (s'' , txc))
-    → P s'' → AllS' P xs → AllS' P (snoc xs x)
-
-end' : ∀ P {s s'}{p : RootedRun' s s'} → AllS' P p → P s'
-end' P (root p x q r) = r
-end' P (snoc xs x p q) = p
-
-all'-lem : (P : S → Set)
-        → (∀{s} → T (initₛₘ s) → P s)
-        → (∀{s i s' tx≡} → s —→[ i ] (s' , tx≡) → P s → P s')
-        → ∀ {s s'}(p : RootedRun' s s') → AllS' P p
-all'-lem P base step (root p x)  = root p x (base p) (step x (base p))
-all'-lem P base step (snoc xs x) = snoc xs x (step x (end' P h)) h
-  where h = all'-lem P base step xs
-
--- properties of inputs (which may refer to the other stuff)
-data AllI (P : S → I → TxConstraints → S → Set) : ∀ {s s'} → RootedRun' s s' → Set where
-  root : ∀ {s s' i txc} → (p : T (initₛₘ s)) → (q : s —→[ i ] (s' , txc)) → P s i txc s'
-    → AllI P {s = s} (root p q)
-  snoc : ∀ {s s' i s'' txc} (p : RootedRun' s s')(q : s' —→[ i ] (s'' , txc))
-    → P s' i txc s'' → AllI P p → AllI P (snoc p q)

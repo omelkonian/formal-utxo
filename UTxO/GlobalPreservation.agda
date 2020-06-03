@@ -37,8 +37,7 @@ open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 
 open import Prelude.Lists using (mapWith∈↭filter; ↭⇒≡)
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types
 open import UTxO.TxUtilities

@@ -35,8 +35,7 @@ open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
 open import Prelude.General
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities hiding (prevTx)

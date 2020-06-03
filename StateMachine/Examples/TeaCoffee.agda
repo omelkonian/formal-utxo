@@ -1,4 +1,4 @@
-module StateMachine.TeaCoffee where
+module StateMachine.Examples.TeaCoffee where
 
 open import StateMachine.Base
 open import UTxO.Types

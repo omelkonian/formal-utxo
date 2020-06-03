@@ -39,8 +39,7 @@ open import Relation.Binary.PropositionalEquality as Eq using (_≡_; _≢_; ref
 open import Prelude.General
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.Validity

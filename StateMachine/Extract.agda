@@ -41,8 +41,7 @@ open import Relation.Binary.PropositionalEquality hiding ([_])
 open import Prelude.General
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
@@ -57,6 +56,7 @@ module StateMachine.Extract
 
 open CEM {sm = sm}
 open import StateMachine.Properties {sm = sm}
+open import StateMachine.Inductive {sm = sm}
 
 open FocusTokenClass nftₛₘ
 open import UTxO.TokenProvenance nftₛₘ
@@ -340,13 +340,13 @@ X¹→Xˢ {tx = tx} {tx′} (cons x¹ tx∈ tx↝) =
 Xˢ→R : ∀ {tx s tx′ s′} {txs : TxS tx s} {txs′ : TxS tx′ s′}
   → Xˢ (_ , _ , txs) (_ , _ , txs′)
     -------------------------------
-  → R s s′
+  → s ↝* s′
 Xˢ→R (root {tx = tx} tx∈ policy≡) =
   let _ , init-s , _ = h₀ {tx = tx} tx∈ policy≡
   in  root init-s
 Xˢ→R (cons {txs = txs} x tx∈ tx↝) =
   let _ , _ , s→s′ = h txs tx∈ tx↝
-  in  cons (Xˢ→R x) s→s′
+  in  snoc (Xˢ→R x) s→s′
 
 extract-Xˢ :
     (tr : Trace L tx n)
@@ -362,7 +362,7 @@ extract-R :
   → n > 0
   → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
     -----------------------------------------
-  → ∃ λ s → ∃ λ s′ → R s s′
+  → ∃ λ s → ∃ λ s′ → s ↝* s′
 extract-R tr n>0 policy≡ =
   let s , s′ , _ , _ , xˢ = extract-Xˢ tr n>0 policy≡
   in  s , s′ , Xˢ→R xˢ
@@ -371,7 +371,7 @@ extract : ∀ {tx o} (o∈ : o ∈ outputs tx)
   → tx ∈′ L
   → (◆∈v : ◆∈ value o)
   → Is-just originₛₘ
-  → ∃ λ s → ∃ λ s′ → R s s′
+  → ∃ λ s → ∃ λ s′ → s ↝* s′
 extract {tx = tx} o∈ tx∈ ◆∈v jo
   with l , l≺                     ← ∈⇒Suffix tx∈
   with vl                         ← ≼⇒valid (proj₂ L) l≺

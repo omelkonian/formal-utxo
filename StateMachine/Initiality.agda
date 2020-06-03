@@ -33,8 +33,7 @@ open import Relation.Binary.PropositionalEquality renaming ([_] to ≡[_])
 open import Prelude.General
 open import Prelude.Lists
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities

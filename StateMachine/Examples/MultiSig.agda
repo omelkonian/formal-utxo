@@ -1,24 +1,25 @@
+open import Function
+open import Data.Empty
 open import Data.List hiding (map)
 open import Data.Nat
-open import UTxO.Hashing.Base
-
-module StateMachine.MultiSig (Signatories : List HashId)(Threshold : ℕ)
-  where
-
-open import Data.Empty
-open import Data.Integer using (+_)
 open import Data.List.Membership.DecPropositional _≟_
+open import Data.Integer using (+_)
 open import Data.Maybe
 open import Data.Maybe.Properties
 open import Data.Product hiding (map)
 open import Data.Bool
+open import Data.Unit
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality hiding ([_])
 
 open import Prelude.Default
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types
 open import StateMachine.Base
+
+module StateMachine.Examples.MultiSig (Signatories : List HashId)(Threshold : ℕ)
+  where
 
 -- not sure if this is a suitable hash definition
 PubKeyHash = HashId
@@ -314,19 +315,17 @@ step MultiSigSM _ _ = nothing
 
 origin MultiSigSM = nothing
 
-open import Bisimulation.Base {sm = MultiSigSM}
-open import StateMachine.Properties {sm = MultiSigSM}
-open import Data.Unit
+open import StateMachine.Inductive {sm = MultiSigSM}
 
 -- cancel is easy as there is no with
 P : State → Input → TxConstraints → State → Set
 P (Collecting p _) Cancel txc _ = range≡ txc ≡ just (Payment.paymentDeadline p ⋯ +∞)
-P _ Cancel txc _ = ⊥
-P _ _ _ _ = ⊤
+P _                Cancel _   _ = ⊥
+P _                _      _   _ = ⊤
 
-lemma : ∀ {s s'} (xs : RootedRun' s s') → AllI P xs
-lemma (root {s = Holding}{i = ProposePayment pay} p x) = root p x _
-lemma (snoc {s' = Holding} {i = ProposePayment _} xs x) = snoc xs x _ (lemma xs)
-lemma (snoc {s' = Collecting pay sigs} {i = AddSignature sig} xs x) = snoc xs x _ (lemma xs)
-lemma (snoc {s' = Collecting pay sigs} {i = Cancel} xs refl) = snoc xs refl refl (lemma xs)
-lemma (snoc {s' = Collecting pay sigs} {i = Pay} xs x) = snoc xs x _ (lemma xs)
+lemma : ∀ {s s'} (xs : s ↝* s') → AllI (const ⊤) P xs
+lemma (root p) = root p tt
+lemma (snoc {s' = Holding}             xs x@(ProposePayment _ , _)) = snoc xs x tt   (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} xs x@(AddSignature sig , _)) = snoc xs x tt   (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} xs x@(Cancel , _ , refl))    = snoc xs x refl (lemma xs)
+lemma (snoc {s' = Collecting pay sigs} xs x@(Pay , _ , _))          = snoc xs x tt   (lemma xs)

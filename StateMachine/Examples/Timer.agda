@@ -1,4 +1,4 @@
-module StateMachine.Timer where
+module StateMachine.Examples.Timer where
 
 open import StateMachine.Base
 open import UTxO.Types

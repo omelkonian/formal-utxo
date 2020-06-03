@@ -1,7 +1,6 @@
 module UTxO.Defaults where
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Validity

@@ -1,6 +1,6 @@
 module Bisimulation where
 
-open import UTxO.Hashing.Base
+open import UTxO.Hashing
 open import UTxO.Types
 open import UTxO.Validity
 open import StateMachine.Base

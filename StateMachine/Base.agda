@@ -46,8 +46,7 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; t
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
 
-open import UTxO.Hashing.Base
-open import UTxO.Hashing.Types
+open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
@@ -106,6 +105,9 @@ module CEM
   initₛₘ   = isInitial sm
   stepₛₘ   = step sm
   originₛₘ = origin sm
+
+  Init : Pred S 0ℓ
+  Init = T ∘ initₛₘ
 
   spentsOrigin : TxInfo → Bool
   spentsOrigin txi =
@@ -170,18 +172,6 @@ module CEM
   withOutputs ss = record def
     { outputs        = map (_—→ threadₛₘ) ss
     ; datumWitnesses = map (λ s → toData s ♯ᵈ , toData s) ss }
-
-
-  -- Well-rooted sequences
-  _↝_ : Rel S 0ℓ
-  s ↝ s′ = ∃ λ i → ∃ λ tx≡ → stepₛₘ s i ≡ just (s′ , tx≡)
-
-  Init : Pred S 0ℓ
-  Init = T ∘ initₛₘ
-
-  data R : S → S → Set where
-    root : ∀ {s} → Init s → R s s
-    cons : ∀{s s′ s″} → R s s′ → s′ ↝ s″ → R s s″
 
   -- Lemmas
   open FocusTokenClass nftₛₘ
