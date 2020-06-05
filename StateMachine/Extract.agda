@@ -1,15 +1,16 @@
 open import Level
 open import Category.Monad using (RawMonad)
 open import Function hiding (id)
+open import Induction.WellFounded using (Acc; acc)
 
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.Unit using (⊤; tt)
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ; Σ-syntax; proj₁; proj₂)
 open import Data.Bool using (Bool; T; true; false)
-
 open import Data.Nat
   renaming (_≟_ to _≟ℕ_)
 open import Data.Nat.Properties
+open import Data.Nat.Induction using (<-wellFounded)
 
 open import Data.Maybe using (Maybe; just; nothing; Is-just; fromMaybe)
 import Data.Maybe.Relation.Unary.Any as M
@@ -20,8 +21,7 @@ open import Data.List
   hiding (fromMaybe)
   renaming (sum to ∑ℕ)
 open import Data.List.Properties
-open import Data.List.NonEmpty using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
-  renaming ([_] to [_]⁺; map to map⁺; head to head⁺; tail to tail⁺)
+open import Data.List.NonEmpty as NE using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
 open import Data.List.Membership.Propositional
 open import Data.List.Membership.Propositional.Properties
 open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
@@ -131,34 +131,32 @@ data X¹ : Tx → Tx → Set where
       --------------
     → X¹ tx tx″
 
-{-# TERMINATING #-}
+∣_∣ᵗ : Trace L tx n → ℕ
+∣_∣ᵗ = NE.length ∘ txs
+
 X→X¹ :
-    (tr : Trace L tx n)
-  → n > 0
+    n > 0
+  → (tr : Trace L tx n)
   → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
     -----------------------------------------
   → X¹ (origin tr) tx
 
-X→X¹ record {txs = tx ∷ []; trace∈ = tx∈ ∷ []; linked = root .tx _; head≡ = refl}
-     n>0 policy≡
-  = root tx tx∈ policy≡
-
-X→X¹ {n = n}
-     record {txs = tx′ ∷ (tx ∷ txs); trace∈ = tx∈ ∷ tr∈; linked = cons {tx ∷ txs}{tx′} lnk tx↝; head≡ = refl}
-     n>0 policy≡
-  rewrite last-∷ {x = tx′}{tx ∷ txs}
-  = cons x tx∈ tx↝⟦1⟧tx′
+X→X¹ {n = n} n>0 tr = go tr (<-wellFounded ∣ tr ∣ᵗ)
   where
-    tx₀ = last $ tx ∷ txs
+    -- NB: well-founded recursion used here, because Agda could not figure out tr′ is structurally smaller!!
+    go : ∀ (tr : Trace L tx n) → Acc _<_ ∣ tr ∣ᵗ → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ) → X¹ (origin tr) tx
+    go record {txs = tx ∷ []; trace∈ = tx∈ ∷ []; linked = root .tx _; head≡ = refl} _ p≡
+      = root tx tx∈ p≡
+    go record {txs = tx′ ∷ (tx ∷ txs); trace∈ = tx∈ ∷ tr∈; linked = cons {tx ∷ txs}{tx′} lnk tx↝; head≡ = refl}
+       (acc a) p≡
+       rewrite last-∷ {x = tx′}{tx ∷ txs}
+       = cons (go tr′ (a _ (s≤s ≤-refl)) p≡) tx∈ tx↝⟦1⟧tx′
+       where
+         tr′ : Trace L tx n
+         tr′ = record {txs = tx ∷ txs; trace∈ = tr∈; linked = lnk; head≡ = refl}
 
-    tr₀ : Trace L tx n
-    tr₀ = record {txs = tx ∷ txs; trace∈ = tr∈; linked = lnk; head≡ = refl}
-
-    x : X¹ tx₀ tx
-    x = X→X¹ tr₀ n>0 policy≡
-
-    tx↝⟦1⟧tx′ : tx ↝⟦ 1 ⟧ tx′
-    tx↝⟦1⟧tx′ = weaken-↝ {tx = tx}{tx′} tx↝ n>0
+         tx↝⟦1⟧tx′ : tx ↝⟦ 1 ⟧ tx′
+         tx↝⟦1⟧tx′ = weaken-↝ {tx = tx}{tx′} tx↝ n>0
 
 OutputsWith◆ : Tx → S → Set
 OutputsWith◆ tx s =
@@ -175,9 +173,9 @@ h₀ : ∀ {tx}
   → (tx∈ : tx ∈′ L)
   → T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx})
   → ∃ λ s → Init s × TxS tx s
-h₀ {tx = tx} tx∈ policy≡
+h₀ {tx = tx} tx∈ p≡
   with v , s , _ , outs≡ , init-s
-       ← Tpolicy⇒ {tx = tx} {l = proj₁ $ ∈⇒Suffix tx∈} refl refl policy≡
+       ← Tpolicy⇒ {tx = tx} {l = proj₁ $ ∈⇒Suffix tx∈} refl refl p≡
   = s , init-s , record {tx∈ = tx∈; s∈ = v , outs≡}
 
 hh : ∀ {tx tx′}
@@ -309,9 +307,9 @@ data Xˢ : ∃TxS → ∃TxS → Set where
   root : ∀ {tx}
 
     → (tx∈ : tx ∈′ L)
-    → (policy≡ : T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx}))
+    → (p≡ : T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx}))
       --------------------------------------------------------
-    → let s , _ , txs = h₀ tx∈ policy≡
+    → let s , _ , txs = h₀ tx∈ p≡
       in  Xˢ (tx , s , txs) (tx , s , txs)
 
   cons : ∀ {txs₀ tx s tx′} {txs : TxS tx s}
@@ -329,9 +327,9 @@ X¹→Xˢ : ∀ {tx tx′}
     -------------------------------------
   → ∃ λ s → ∃ λ s′ → ∃ λ txs → ∃ λ txs′ →
       Xˢ (tx , s , txs) (tx′ , s′ , txs′)
-X¹→Xˢ {tx = tx} {.tx} (root .tx tx∈ policy≡) =
-  let s , _ , txs = h₀ tx∈ policy≡
-  in  _ , _ , _ , _ , root tx∈ policy≡
+X¹→Xˢ {tx = tx} {.tx} (root .tx tx∈ p≡) =
+  let s , _ , txs = h₀ tx∈ p≡
+  in  _ , _ , _ , _ , root tx∈ p≡
 X¹→Xˢ {tx = tx} {tx′} (cons x¹ tx∈ tx↝) =
   let _ , s , _ , txs , xˢ  = X¹→Xˢ x¹
       s′ , txs′ , _ = h txs tx∈ tx↝
@@ -341,30 +339,30 @@ Xˢ→R : ∀ {tx s tx′ s′} {txs : TxS tx s} {txs′ : TxS tx′ s′}
   → Xˢ (_ , _ , txs) (_ , _ , txs′)
     -------------------------------
   → s ↝* s′
-Xˢ→R (root {tx = tx} tx∈ policy≡) =
-  let _ , init-s , _ = h₀ {tx = tx} tx∈ policy≡
+Xˢ→R (root {tx = tx} tx∈ p≡) =
+  let _ , init-s , _ = h₀ {tx = tx} tx∈ p≡
   in  root init-s
 Xˢ→R (cons {txs = txs} x tx∈ tx↝) =
   let _ , _ , s→s′ = h txs tx∈ tx↝
   in  snoc (Xˢ→R x) s→s′
 
 extract-Xˢ :
-    (tr : Trace L tx n)
-  → n > 0
+    n > 0
+  → (tr : Trace L tx n)
   → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
     --------------------------------------------------
   → ∃ λ s → ∃ λ s′ → ∃ λ txs → ∃ λ txs′ →
       Xˢ (origin tr , s , txs) (tx , s′ , txs′)
-extract-Xˢ tr n>0 policy≡ = X¹→Xˢ $ X→X¹ tr n>0 policy≡
+extract-Xˢ n>0 tr p≡ = X¹→Xˢ $ X→X¹ n>0 tr p≡
 
 extract-R :
-    (tr : Trace L tx n)
-  → n > 0
+    n > 0
+  → (tr : Trace L tx n)
   → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
     -----------------------------------------
   → ∃ λ s → ∃ λ s′ → s ↝* s′
-extract-R tr n>0 policy≡ =
-  let s , s′ , _ , _ , xˢ = extract-Xˢ tr n>0 policy≡
+extract-R n>0 tr p≡ =
+  let s , s′ , _ , _ , xˢ = extract-Xˢ n>0 tr p≡
   in  s , s′ , Xˢ→R xˢ
 
 extract : ∀ {tx o} (o∈ : o ∈ outputs tx)
@@ -373,13 +371,13 @@ extract : ∀ {tx o} (o∈ : o ∈ outputs tx)
   → Is-just originₛₘ
   → ∃ λ s → ∃ λ s′ → s ↝* s′
 extract {tx = tx} o∈ tx∈ ◆∈v jo
-  with l , l≺                     ← ∈⇒Suffix tx∈
-  with vl                         ← ≼⇒valid (proj₂ L) l≺
-  with n , tr , _ , n>0 , policy≡ ← initiality vl o∈ ◆∈v jo
-  = extract-R tr′ n>0 policy≡′
+  with l , l≺                ← ∈⇒Suffix tx∈
+  with vl                    ← ≼⇒valid (proj₂ L) l≺
+  with n , tr , _ , n>0 , p≡ ← initiality vl o∈ ◆∈v jo
+  = extract-R n>0 tr′ p≡′
   where
     tr′ : Trace L tx n
     tr′ = weakenTrace l≺ tr
 
-    policy≡′ : T (policyₛₘ $ mkPendingMPS {L = L} tr′ ℂ)
-    policy≡′ rewrite mps≡ {L = L}{_ , vl} l≺ tr = policy≡
+    p≡′ : T (policyₛₘ $ mkPendingMPS {L = L} tr′ ℂ)
+    p≡′ rewrite mps≡ {L = L}{_ , vl} l≺ tr = p≡
