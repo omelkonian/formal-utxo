@@ -1,34 +1,11 @@
-open import Level    using (0ℓ)
-open import Function using (_∘_; case_of_; _$_)
+open import Data.List.Membership.Propositional.Properties using (∈-filter⁻)
 
-open import Category.Monad using (RawMonad)
-
-open import Data.Empty   using (⊥-elim)
-open import Data.Unit    using (tt)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax; ∃-syntax;Σ)
-  renaming (map to map₁₂)
-open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; maybe′)
-open import Data.List    using (List; null; []; _∷_; [_]; filter; map; length; and)
-open import Data.Nat     using (ℕ)
-  renaming (_≟_ to _≟ℕ_)
-open import Data.Sum using (_⊎_)
-
-open import Data.Maybe.Properties  using (just-injective)
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List.Membership.Propositional            using (_∈_)
-open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-filter⁻)
-open import Data.List.Relation.Unary.Any as Any           using (here)
-
-open import Relation.Nullary                      using (yes; no)
-open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; trans; sym; cong; subst)
-  renaming ([_] to ≡[_])
-
+open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
+open import Prelude.DecEq
+open import Prelude.Bifunctor
+open import Prelude.Monad
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -48,10 +25,10 @@ T-propagates : ∀ {ptx}
     ------------------------------
   → ((valueAtⁱ (thisValidator ptx) (txInfo ptx) ≥ᶜ threadₛₘ) ≡ true)
   × ((valueAtᵒ (thisValidator ptx) (txInfo ptx) ≥ᶜ threadₛₘ) ≡ true)
-T-propagates {ptx} eq = map₁₂ T⇒true T⇒true (T-∧ $ true⇒T eq)
+T-propagates {ptx} eq = bimap T⇒true T⇒true (T-∧ $ true⇒T eq)
 
 T-outputsOK : ∀ {l tx di ds s′} {txIn : TxInput} {txIn∈ : txIn ∈ inputs tx}
-  → let ptx = toPendingTx l tx (Any.index txIn∈) in
+  → let ptx = toPendingTx l tx (L.Any.index txIn∈) in
     outputsOK ptx di ds s′ ≡ true
     --------------------------------
   → ∃[ o ] ( (o ∈ outputs tx)
@@ -61,14 +38,14 @@ T-outputsOK : ∀ {l tx di ds s′} {txIn : TxInput} {txIn∈ : txIn ∈ inputs 
            × (address o ≡ validator txIn ♯)
            )
 T-outputsOK {l} {tx} {di} {ds} {s′} {txIn} {txIn∈} eq
-  with getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
-     | inspect getContinuingOutputs (toPendingTx l tx (Any.index txIn∈))
+  with getContinuingOutputs (toPendingTx l tx (L.Any.index txIn∈))
+     | inspect getContinuingOutputs (toPendingTx l tx (L.Any.index txIn∈))
 ... | (o ∷ []) | ≡[ out≡ ]
   rewrite ptx-‼ {l = l} {tx = tx} {i∈ = txIn∈}
-  with ∈-filter⁻ (((validator txIn) ♯ ≟ℕ_) ∘ address)
+  with ∈-filter⁻ (((validator txIn) ♯ ≟_) ∘ address)
                   {v = o} {xs = outputs tx} (singleton→∈ (_ , out≡))
 ... | o∈ , refl
-  with datumHash o ≟ℕ toData s′ ♯ᵈ | eq
+  with datumHash o ≟ toData s′ ♯ᵈ | eq
 ... | no ¬p    | ()
 ... | yes refl | _
     = o , o∈ , refl , refl , sym (sum-single {v = value o}) , refl

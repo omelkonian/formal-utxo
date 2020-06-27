@@ -1,12 +1,12 @@
 module UTxO.Defaults where
 
+open import Prelude.Init
+open import Prelude.Default
+
 open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types
 open import UTxO.Validity
-
-open import Data.Nat using (ℕ)
-open import Prelude.Default
 
 instance
   Default-Value : Default Value

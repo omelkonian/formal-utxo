@@ -1,47 +1,11 @@
-open import Level          using (0ℓ)
-open import Function       using (_$_; _∘_; flip)
-open import Category.Monad using (RawMonad)
-
-open import Induction.WellFounded using (Acc; acc)
-
-open import Data.Empty               using (⊥; ⊥-elim)
-open import Data.Unit                using (⊤; tt)
-open import Data.Product             using (_×_; _,_; Σ-syntax; ∃; ∃-syntax; proj₁; proj₂; map₁; map₂)
-open import Data.Sum                 using (_⊎_; inj₁; inj₂)
-open import Data.Bool                using (T; if_then_else_)
-open import Data.Fin                 using (toℕ)
-
-open import Data.Nat
 open import Data.Nat.Properties
-
-open import Data.Maybe using (Maybe; just; nothing; Is-just; Is-nothing)
-open import Data.Maybe.Relation.Unary.All as MAll using ()
-open import Data.Maybe.Relation.Unary.Any as MAny using ()
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List hiding (tail)
-  renaming (sum to ∑ℕ)
-open import Data.List.NonEmpty using (List⁺; _∷_; head; tail; toList; _⁺++_; _++⁺_; _∷⁺_)
-  renaming ([_] to [_]⁺)
 open import Data.List.Properties
-open import Data.List.Membership.Propositional             using (_∈_; mapWith∈)
-open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻; ∈-map⁺)
-open import Data.List.Relation.Unary.All as All            using (All; []; _∷_; tabulate)
-import Data.List.Relation.Unary.All.Properties as All
-open import Data.List.Relation.Unary.Any as Any            using (Any; here; there)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
-open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
+open import Data.List.Membership.Propositional.Properties using (∈-++⁻)
 
-open import Relation.Nullary                            using (¬_; yes; no)
-open import Relation.Unary as Unary                     using (Pred)
-open import Relation.Binary                             using (Transitive)
-open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; _≢_; sym; subst; cong; trans; inspect)
-  renaming ([_] to ≡[_])
-open Eq.≡-Reasoning
-
+open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.ToN
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -214,12 +178,12 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
             p₁ = count≡0⇒All¬ {xs = rs} (◆∈?_ ∘ resValue) count≡0
 
             p₂ : All Is-nothing (map res→traces rs)
-            p₂ = All.map⁺ $ All-map {P = ¬_ ∘ ◆∈_ ∘ resValue} {Q = Is-nothing ∘ res→traces} P⇒Q p₁
+            p₂ = L.All.map⁺ $ All-map {P = ¬_ ∘ ◆∈_ ∘ resValue} {Q = Is-nothing ∘ res→traces} P⇒Q p₁
               where
                 P⇒Q : ∀ r → ¬ ◆∈ (resValue r) → Is-nothing (res→traces r)
                 P⇒Q r ◆∉r with ◆∈? resValue r
                 ... | yes ◆∈r = ⊥-elim $ ◆∉r ◆∈r
-                ... | no  _   = MAll.nothing
+                ... | no  _   = M.All.nothing
 
             fromPrevs≡[] : Null fromPrevs
             fromPrevs≡[] = All-nothing⇒mapMaybe≡[] p₂
@@ -234,7 +198,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
 
             r>0⇒just : ∀ r → ◆∈ resValue r → Is-just (res→traces r)
             r>0⇒just r r>0 with ◆∈? resValue r
-            ... | yes _   = MAny.just tt
+            ... | yes _   = M.Any.just tt
             ... | no ¬r>0 = ⊥-elim $ ¬r>0 r>0
 
             ams-fromPrevs : AtMostSingleton fromPrevs
@@ -245,7 +209,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
             s-fromPrevs = am-¬null⇒singleton ams-fromPrevs ¬n
 
         s-allPrevs : Singletonᵖ² allPrevs
-        s-allPrevs = s-allPrevs₁ , All.tabulate s-allPrevs₂
+        s-allPrevs = s-allPrevs₁ , L.All.tabulate s-allPrevs₂
 
         s-comb : Singletonᵖ (combine allPrevs ∑≥)
         s-comb = singleton-combine s-allPrevs

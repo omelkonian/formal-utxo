@@ -1,45 +1,13 @@
 module UTxO.Uniqueness where
 
-open import Level          using (0ℓ)
-open import Function       using (_∘_; flip; case_of_; _$_)
-open import Category.Monad using (RawMonad)
-
-open import Data.Empty   using (⊥; ⊥-elim)
-open import Data.Unit    using (⊤)
-open import Data.Sum     using (_⊎_)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃-syntax)
-open import Data.Bool    using (true)
-open import Data.List    using (List; []; _∷_; map; filter)
-open import Data.Maybe   using (Maybe)
-open import Data.Fin     using ()
-  renaming (zero to fzero; suc to fsuc)
-
-open import Data.Fin.Properties using (suc-injective; toℕ-injective)
-
-open import Data.Maybe.Properties using (just-injective)
-import Data.Maybe.Relation.Unary.Any as M
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List.Membership.Propositional            using (_∈_; _∉_; mapWith∈)
 open import Data.List.Membership.Propositional.Properties using (∈-map⁻; ∈-filter⁻)
-
-open import Data.List.Relation.Unary.All as All                      using (All)
-open import Data.List.Relation.Unary.All.Properties                  using (¬Any⇒All¬)
-open import Data.List.Relation.Unary.Any as Any                      using (Any; here; there)
-open import Data.List.Relation.Unary.AllPairs as AllPairs            using ([]; _∷_)
-open import Data.List.Relation.Unary.Unique.Propositional            using (Unique)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (++⁺; filter⁺)
-open import Data.List.Relation.Binary.Subset.Propositional           using (_⊆_)
-open import Data.List.Relation.Binary.Disjoint.Propositional         using (Disjoint)
+import Data.List.Relation.Unary.AllPairs as AllPairs
 
-open import Relation.Nullary                      using (¬_; yes; no)
-open import Relation.Nullary.Decidable            using (⌊_⌋)
-import Relation.Unary as Unary
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; cong; sym; _≢_)
-
+open import Prelude.Init
 open import Prelude.Lists
+open import Prelude.DecEq
+open import Prelude.Set'
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -58,7 +26,7 @@ Unique-ledger {.tx ∷ l} vl₀@(vl ⊕ tx ∶- vtx)
 ... | yes px
     = count-single {P? = null? ∘ inputs} (genesis vl₀ λ ()) px ∷ Unique-ledger vl
 ... | no ¬px
-    = ¬Any⇒All¬ l tx∉ ∷ Unique-ledger vl
+    = L.All.¬Any⇒All¬ l tx∉ ∷ Unique-ledger vl
     where
       tx∉ : tx ∉ l
       tx∉ tx∈ with x , x∈        ← ¬Null⇒∃x (map≢[] {f = outputRef} ¬px)
@@ -77,27 +45,27 @@ Unique-utxo : ∀ {l}
 Unique-utxo {l = []}     ∙                     = []
 Unique-utxo {l = tx ∷ l} vl₀@(vl ⊕ .tx ∶- vtx) = ++⁺ uniqˡ uniqʳ disj
   where
-    lˡ = filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)
+    lˡ = filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)
     lʳ = mapWith∈ (outputs tx) (mkUtxo tx)
 
     uniqˡ : Unique lˡ
-    uniqˡ = filter⁺ ((SETₒ._∉? outputRefs tx) ∘ outRef) (Unique-utxo vl)
+    uniqˡ = filter⁺ ((_∉? outputRefs tx) ∘ outRef) (Unique-utxo vl)
 
     uniqʳ : Unique lʳ
     uniqʳ = Unique-mapWith∈ h
       where
         h : ∀ {x x′} {x∈ : x ∈ outputs tx} {x∈′ : x′ ∈ outputs tx}
           → mkUtxo tx x∈ ≡ mkUtxo tx x∈′
-          → Any.index x∈ ≡ Any.index x∈′
-        h = toℕ-injective ∘ cong (index ∘ outRef)
+          → L.Any.index x∈ ≡ L.Any.index x∈′
+        h = F.toℕ-injective ∘ cong (index ∘ outRef)
 
     disj : Disjoint lˡ lʳ
     disj (x∈ˡ , x∈ʳ)
-      with ∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {xs = utxo l} x∈ˡ
+      with ∈-filter⁻ ((_∉? outputRefs tx) ∘ outRef) {xs = utxo l} x∈ˡ
     ... | x∈ˡ′ , _
       with ∈utxo⇒outRef≡ {l = l} x∈ˡ′
     ... | x∈ˡ″ , _
       rewrite u∈mkUtxo x∈ʳ
       with AllPairs.head (Unique-ledger vl₀)
     ... | all≢tx
-        = All.lookup all≢tx x∈ˡ″ refl
+        = L.All.lookup all≢tx x∈ˡ″ refl

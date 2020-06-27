@@ -1,34 +1,16 @@
 module UTxO.TxUtilities where
 
-open import Level          using (0ℓ)
-open import Function       using (_∘_; _∋_; flip; _$_)
-open import Category.Monad using (RawMonad)
-
-open import Data.Empty   using (⊥; ⊥-elim)
-open import Data.Unit    using (⊤; tt)
-open import Data.Bool    using (Bool; T)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; ∃; ∃-syntax; Σ-syntax; map₁)
-open import Data.Sum     using (inj₁; inj₂)
-open import Data.Fin     using (Fin; toℕ; fromℕ<)
-open import Data.Nat     using (ℕ; zero; suc; _+_; _<_)
-  renaming (_≟_ to _≟ℕ_)
-
-open import Data.Maybe using (Maybe; just; nothing; maybe; Is-just)
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List using (List; []; _∷_; [_]; length; map; _++_; filter; lookup)
 open import Data.List.Properties
-open import Data.List.Membership.Propositional             using (_∈_; mapWith∈; find)
-open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻)
-open import Data.List.Relation.Unary.Any as Any            using (Any; here; there)
+open import Data.List.Membership.Propositional.Properties using (∈-++⁻; ∈-filter⁻)
 
-open import Relation.Nullary                      using (yes; no)
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality
-open ≡-Reasoning
-
-open import Prelude.Lists
+open import Prelude.Init
+open import Prelude.Lists hiding (⟦_⟧)
+open import Prelude.DecEq
+open import Prelude.Set'
+open import Prelude.ToN
+-- open import Prelude.Functor
+open import Prelude.Bifunctor
+open import Prelude.Monad
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -43,14 +25,16 @@ record UTXO : Set where
 open UTXO public
 
 mkUtxo : ∀ {out} tx → out ∈ outputs tx → UTXO
-outRef (mkUtxo tx out∈)   = (tx ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+outRef (mkUtxo tx out∈)   = (tx ♯ₜₓ) indexed-at toℕ (L.Any.index out∈)
 out    (mkUtxo {out} _ _) = out
 prevTx (mkUtxo tx _ )     = tx
 
 utxo : Ledger → List UTXO
 utxo []       = []
-utxo (tx ∷ l) = filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)
+utxo (tx ∷ l) = filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)
              ++ mapWith∈ (outputs tx) (mkUtxo tx)
+
+open ≡-Reasoning
 
 map-out≡ : ∀ tx → map out (mapWith∈ (outputs tx) (mkUtxo tx)) ≡ outputs tx
 map-out≡ tx =
@@ -61,9 +45,9 @@ map-out≡ tx =
 
 ∑utxo≥∑out : ∀ tx l → T $ ∑ (utxo $ tx ∷ l) (value ∘ out) ≥ᶜ ∑ (outputs tx) value
 ∑utxo≥∑out tx l
-  rewrite ∑-++ {xs = filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)}
+  rewrite ∑-++ {xs = filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)}
                {ys = mapWith∈ (outputs tx) (mkUtxo tx)} {fv = value ∘ out}
-        = ≥ᶜ-+ᶜ {x = ∑ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)}
+        = ≥ᶜ-+ᶜ {x = ∑ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)}
                 {y = ∑ (mapWith∈ (outputs tx) (mkUtxo tx)) (value ∘ out)}
                 {z = ∑ (outputs tx) value}
                 (≥ᶜ-refl′ ∑≡)
@@ -77,13 +61,13 @@ map-out≡ tx =
   → u ∈ utxo l
   → prevTx u ∈ l
   × Σ[ out∈ ∈ (out u ∈ outputs (prevTx u)) ]
-      outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (Any.index out∈)
+      outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (L.Any.index out∈)
 ∈utxo⇒outRef≡ {l = tx ∷ l} u∈
-  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
-... | inj₁ u∈ˡ = map₁ there (∈utxo⇒outRef≡ (proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) u∈ˡ)))
+  with ∈-++⁻ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
+... | inj₁ u∈ˡ = map₁ there (∈utxo⇒outRef≡ (proj₁ (∈-filter⁻ ((_∉? outputRefs tx) ∘ outRef) u∈ˡ)))
 ... | inj₂ u∈ʳ = (mapWith∈-∀ {P = λ u → prevTx u ∈ (tx ∷ l)
                                       × Σ[ out∈ ∈ (out u ∈ outputs (prevTx u)) ]
-                                          outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (Any.index out∈)}
+                                          outRef u ≡ ((prevTx u) ♯ₜₓ) indexed-at toℕ (L.Any.index out∈)}
                              (λ x∈ → here refl , x∈ , refl))
                              u∈ʳ
 
@@ -96,7 +80,7 @@ map-out≡ tx =
 _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
 [] ⟨ or ⟩ = nothing
 (tx ∷ l) ⟨ or ⟩
-  with id or ≟ℕ tx ♯ₜₓ
+  with id or ≟ tx ♯ₜₓ
 ... | yes _ = just tx
 ... | no  _ = l ⟨ or ⟩
 
@@ -105,7 +89,7 @@ _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
   → id or ≡ tx ♯ₜₓ
 ⟨⟩≡just {l = []}              ()
 ⟨⟩≡just {l = tx′ ∷ l}{or}{tx} eq
-  with id or ≟ℕ tx′ ♯ₜₓ | eq
+  with id or ≟ tx′ ♯ₜₓ | eq
 ... | yes refl | refl = refl
 ... | no  _    | eq′  = ⟨⟩≡just {l}{or}{tx} eq′
 
@@ -126,9 +110,9 @@ utxo-≢ : ∀ {l u tx}
   → id (outRef u) ≢ tx ♯ₜₓ
   → u ∈ utxo l
 utxo-≢ {l} {u} {tx} u∈ ¬p
-  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
+  with ∈-++⁻ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
 ... | inj₁ u∈ˡ
-    = proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ)
+    = proj₁ (∈-filter⁻ ((_∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ)
 ... | inj₂ u∈ʳ
     = ⊥-elim (¬p (trans (utxo-outRef↔prevTx {u} {tx ∷ l} u∈) (sym (cong _♯ₜₓ (utxo-∈ʳ {u} {tx} u∈ʳ)))))
 
@@ -136,7 +120,7 @@ utxo-[] : ∀ {l u}
   → u ∈ utxo l
   → l ⟨ outRef u ⟩ ≡ just (prevTx u)
 utxo-[] {l = tx ∷ l} {u} u∈
-  with id (outRef u) ≟ℕ tx ♯ₜₓ
+  with id (outRef u) ≟ tx ♯ₜₓ
 ... | yes p
   rewrite injective♯ₜₓ {x = prevTx u} {y = tx} (trans (sym (utxo-outRef↔prevTx {u} {tx ∷ l} u∈)) p)
     = refl
@@ -149,12 +133,12 @@ utxo-⟨⟩ : ∀ {l u}
   → u ∈ utxo l
   → outputs (prevTx u) ⟦ index (outRef u) ⟧ ≡ just (out u)
 utxo-⟨⟩ {tx ∷ l} {u} u∈
-  with ∈-++⁻ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
+  with ∈-++⁻ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
 ... | inj₁ u∈ˡ
-    = utxo-⟨⟩ {l} {u} (proj₁ (∈-filter⁻ ((SETₒ._∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ))
+    = utxo-⟨⟩ {l} {u} (proj₁ (∈-filter⁻ ((_∉? outputRefs tx) ∘ outRef) {v = u} {xs = utxo l} u∈ˡ))
 ... | inj₂ u∈ʳ
     = mapWith∈-∀ {P = λ u → outputs (prevTx u) ⟦ index (outRef u) ⟧ ≡ just (out u)}
-                 (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = Any.index x∈})) (cong just (‼-index x∈))) u∈ʳ
+                 (λ x∈ → trans (sym (‼→⁉ {xs = outputs tx} {ix = L.Any.index x∈})) (cong just (‼-index x∈))) u∈ʳ
 
 getSpentOutputRef : Ledger → TxOutputRef → Maybe TxOutput
 getSpentOutputRef l oRef =
@@ -175,7 +159,8 @@ utxo-getSpentᵛ : ∀ {l u i}
   → u ∈ utxo l
   → outRef u ≡ outputRef i
   → (value <$> getSpentOutput l i) ≡ just (value $ out u)
-utxo-getSpentᵛ {l} {u} {i} u∈ refl = cong (value <$>_) (utxo-getSpent {l} {u} u∈)
+utxo-getSpentᵛ {l} {u} {i} u∈ refl = cong (_<$>_ value) (utxo-getSpent {l} {u} u∈)
+-- BUG: `cong (value <$>_)` leads to unresolved instances...
 
 --
 
@@ -209,7 +194,7 @@ toPendingMPS l tx i = record
 --
 
 ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
-  let ptx = toPendingTx l tx (Any.index i∈)
+  let ptx = toPendingTx l tx (L.Any.index i∈)
   in  (TxInfo.inputInfo (txInfo ptx) ‼ this ptx) ≡ mkInputInfo l i
 ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl
 
@@ -236,7 +221,7 @@ lookup-⟨⟩ {tx}{l}{i@(record{outputRef = or})} getSpent≡ id≡
   with l       | getSpent≡
 ... | []       | ()
 ... | tx′ ∷ l′ | getSpent≡′
-  with id or ≟ℕ tx′ ♯ₜₓ
+  with id or ≟ tx′ ♯ₜₓ
 ... | yes refl
   rewrite injective♯ₜₓ {x = tx′} {y = tx} id≡
     = refl
@@ -264,13 +249,13 @@ lookupDatum≡ : ∀ {A : Set} {{_ : IsData A}} {x : A} {d♯ : HashId} {txi : T
   → d♯ ≡ toData x ♯ᵈ
 lookupDatum≡ {x = x}{d♯}{txi}{[]}             _    ()
 lookupDatum≡ {x = x}{d♯}{txi}{(h , d) ∷ wits} wits≡ eq
-  with d♯ ≟ℕ h
+  with d♯ ≟ h
 ... | yes p
-  rewrite filter-accept ((d♯ ≟ℕ_) ∘ proj₁) {x = h , d} {xs = wits} p
+  rewrite filter-accept ((d♯ ≟_) ∘ proj₁) {x = h , d} {xs = wits} p
     = begin d♯          ≡⟨ p ⟩
             h           ≡⟨ wits♯ {txi}{h}{d} (subst ((h , d) ∈_) (sym wits≡) (here refl)) ⟩
             d ♯ᵈ        ≡⟨ cong (_♯ᵈ) (from-inj _ _ eq) ⟩
             toData x ♯ᵈ ∎
 ... | no ¬p
-  rewrite filter-reject ((d♯ ≟ℕ_) ∘ proj₁) {x = h , d} {xs = wits} ¬p
+  rewrite filter-reject ((d♯ ≟_) ∘ proj₁) {x = h , d} {xs = wits} ¬p
     = lookupDatum≡ {x = x}{d♯}{record txi {datumWitnesses = wits}}{wits} refl eq

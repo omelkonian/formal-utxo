@@ -1,21 +1,8 @@
 module UTxO.Hashing.Base where
 
-open import Level                using (_⊔_)
-open import Function             using (_∘_)
-open import Function.Definitions using (Injective)
-open import Function.Bundles     using (module Injection; _↣_)
+import Data.List.Relation.Unary.Any as Any
 
-open import Data.Product  using (_,_; _×_)
-open import Data.String   using (String; toList)
-open import Data.Char     using (toℕ)
-open import Data.Nat      using (ℕ; _+_)
-open import Data.Nat.Show using (show)
-open import Data.List     using (List; []; _∷_; map; sum)
-
-open import Data.List.Membership.Propositional  using (_∈_)
-open import Data.List.Relation.Unary.Any as Any using (Any)
-
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Prelude.Init
 
 --------------------------------------------------------------------------------
 -- Types for hash functions.
@@ -30,7 +17,7 @@ _-via-_ : ∀ {ℓᵃ ℓᵇ} {A : Set ℓᵃ} {B : Set ℓᵇ} → A → A ↣ 
 a -via- record { f = f } = f a
 
 -- A hash-preserving injection.
-record _,_↪_,_ {ℓᵃ ℓᵇ} (A : Set ℓᵃ) (_♯ᵃ : Hash A) (B : Set ℓᵇ) (_♯ᵇ : Hash B) : Set (ℓᵃ ⊔ ℓᵇ) where
+record _,_↪_,_ {ℓᵃ ℓᵇ} (A : Set ℓᵃ) (_♯ᵃ : Hash A) (B : Set ℓᵇ) (_♯ᵇ : Hash B) : Set (ℓᵃ ⊔ₗ ℓᵇ) where
   field
     A↣B        : A ↣ B
     preserves♯ : ∀ (a : A) → a ♯ᵃ ≡ (a -via- A↣B) ♯ᵇ
@@ -53,7 +40,7 @@ hashPair : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → Hash A → 
 hashPair h₁ h₂ (a , b) = merge♯ (h₁ a ∷ h₂ b ∷ [])
 
 _♯ₛₜᵣ : String → HashId
-_♯ₛₜᵣ = hashList toℕ ∘ toList
+_♯ₛₜᵣ = hashList Ch.toℕ ∘ Str.toList
 
 -- Postulate there are hash functions for any type, e.g. functions.
 postulate

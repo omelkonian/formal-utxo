@@ -5,17 +5,10 @@ module UTxO.ExampleLedger where
 
 open import Agda.Builtin.Equality.Rewrite
 
-open import Data.Product  using (_,_)
-open import Data.Bool     using (Bool; true; false; _∧_; _∨_)
-open import Data.Nat      using (ℕ; _≟_; _≡ᵇ_)
-open import Data.List     using (List; []; [_]; _∷_)
-open import Data.Integer  using (ℤ)
-open import Data.Maybe    using (just)
-
-open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Binary.PropositionalEquality using (_≡_)
-
+open import Prelude.Init
 open import Prelude.Default
+open import Prelude.DecEq
+open import Prelude.Lists
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -37,19 +30,19 @@ adaᵃ : Address
 adaᵃ = 1234 -- ADA identifier
 
 adaPolicy : PendingMPS → Bool
-adaPolicy (record {txInfo = record {range = r}}) = ⌊ r ≟ˢ (t= 0 ⋯ t= 0) ⌋ ∨ ⌊ r ≟ˢ (t= 3 ⋯ t= 3) ⌋
+adaPolicy (record {txInfo = record {range = r}}) = ⌊ r ≟ (t= 0 ⋯ t= 0) ⌋ ∨ ⌊ r ≟ (t= 3 ⋯ t= 3) ⌋
 
 dummyValidator : PendingTx → DATA → DATA → Bool
 dummyValidator _ _ _ = true
 
 mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
-mkValidator tin _ (LIST (I (ℤ.pos n) ∷ I (ℤ.pos n') ∷ [])) _ = (id tin ≡ᵇ n) ∧ (index tin ≡ᵇ n')
+mkValidator tin _ (LIST (I (+ n) ∷ I (+ n') ∷ [])) _ = (id tin == n) ∧ (index tin == n')
 mkValidator tin _ _ _                                        = false
 
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
-                         ; redeemer  = LIST (I (ℤ.pos (id tin)) ∷ (I (ℤ.pos (index tin)) ∷ []))
+                         ; redeemer  = LIST ⟦ I (+ id tin) , I (+ index tin) ⟧
                                        {- λ _ → id tin , index tin -}
                          ; validator = mkValidator tin
                          ; datum     = def
@@ -78,7 +71,7 @@ t₁₀ = (t₁ ♯ₜₓ) indexed-at 0
 t₂ : Tx
 t₂ = record def
   { inputs   = [ withScripts t₁₀ ]
-  ; outputs  = $ 800 at 2ᵃ ∷ $ 200 at 1ᵃ ∷ []
+  ; outputs  = ⟦ $ 800 at 2ᵃ , $ 200 at 1ᵃ ⟧
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₂₀ = (t₂ ♯ₜₓ) indexed-at 0
 t₂₁ = (t₂ ♯ₜₓ) indexed-at 1
@@ -102,15 +95,15 @@ t₄₀ = (t₄ ♯ₜₓ) indexed-at 0
 
 t₅ : Tx
 t₅ = record def
-  { inputs   = withScripts t₂₀ ∷ withScripts t₄₀ ∷ []
-  ; outputs  = $ 505 at 2ᵃ ∷ $ 505 at 3ᵃ ∷ []
+  { inputs   = ⟦ withScripts t₂₀ , withScripts t₄₀ ⟧
+  ; outputs  = ⟦ $ 505 at 2ᵃ , $ 505 at 3ᵃ ⟧
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₅₀ = (t₅ ♯ₜₓ) indexed-at 0
 t₅₁ = (t₅ ♯ₜₓ) indexed-at 1
 
 t₆ : Tx
 t₆ = record def
-  { inputs   = withScripts t₅₀ ∷ withScripts t₅₁ ∷ []
+  { inputs   = ⟦ withScripts t₅₀ , withScripts t₅₁ ⟧
   ; outputs  = [ $ 1010 at 3ᵃ ]
   ; datumWitnesses = [ def ♯ᵈ , def ] }
 t₆₀ = (t₆ ♯ₜₓ) indexed-at 0
@@ -137,5 +130,5 @@ postulate
 {-# REWRITE validator♯₅₁  #-}
 {-# REWRITE validator♯₆₀  #-}
 
-ex-ledger : ValidLedger (t₆ ∷ t₅ ∷ t₄ ∷ t₃ ∷ t₂ ∷ t₁ ∷ [])
+ex-ledger : ValidLedger ⟦ t₆ , t₅ , t₄ , t₃ , t₂ , t₁ ⟧
 ex-ledger = ∙ ⊕ t₁ ⊕ t₂ ⊕ t₃ ⊕ t₄ ⊕ t₅ ⊕ t₆

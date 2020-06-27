@@ -1,46 +1,12 @@
-open import Level          using (0ℓ)
-open import Function       using (_$_; _∘_; flip; case_of_)
-open import Category.Monad using (RawMonad)
-
-open import Induction.WellFounded using (Acc; acc)
-
-open import Data.Empty               using (⊥; ⊥-elim)
-open import Data.Unit                using (⊤; tt)
-open import Data.Product             using (_×_; _,_; Σ-syntax; ∃; ∃-syntax; proj₁; proj₂; map₁; map₂)
-open import Data.Sum                 using (_⊎_; inj₁; inj₂)
-open import Data.Bool                using (T; if_then_else_; true; false)
-open import Data.Fin                 using (toℕ)
-
-open import Data.Nat
-  renaming (_≟_ to _≟ℕ_)
+open import Data.List.Properties
 open import Data.Nat.Properties
 
-open import Data.Maybe using (Maybe; just; nothing; Is-nothing)
-open import Data.Maybe.Relation.Unary.All as MAll using ()
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List
-  hiding (_∷ʳ_)
-  renaming (sum to ∑ℕ)
-open import Data.List.NonEmpty using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
-  renaming ([_] to [_]⁺; map to map⁺; head to head⁺; tail to tail⁺)
-open import Data.List.Properties
-open import Data.List.Membership.Propositional             using (_∈_; mapWith∈)
-open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-++⁻; ∈-filter⁻; ∈-map⁺)
-open import Data.List.Relation.Unary.All as All            using (All; []; _∷_; tabulate)
-import Data.List.Relation.Unary.All.Properties as All
-open import Data.List.Relation.Unary.Any as Any            using (Any; here; there)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
-open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
-
-open import Relation.Nullary                      using (¬_; yes; no; does)
-open import Relation.Unary                        using (Pred)
-open import Relation.Binary                       using (Transitive; Decidable; Rel)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; subst; cong; trans; module ≡-Reasoning)
-
+open import Prelude.Init renaming (sum to ∑ℕ)
+open L.NE using (head; last)
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.ToN
+open import Prelude.Bifunctor
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -63,7 +29,7 @@ private
 
 _↝⟦_⟧_ : Tx → Quantity → Tx → Set
 tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ₜₓ ≡_) ∘ id) (outputRefs tx′) ]
-                  ∃[ o ] ( ((outputs tx ⁉ index (Any.lookup or∈)) ≡ just o)
+                  ∃[ o ] ( ((outputs tx ⁉ index (L.Any.lookup or∈)) ≡ just o)
                          × (value o ◆ ≥ n) )
 
 data X (n : Quantity) : List⁺ Tx → Set where
@@ -77,7 +43,7 @@ data X (n : Quantity) : List⁺ Tx → Set where
   cons : ∀ {txs tx}
 
     → X n txs
-    → head⁺ txs ↝⟦ n ⟧ tx
+    → head txs ↝⟦ n ⟧ tx
       -------------------
     → X n (tx ∷⁺ txs)
 
@@ -90,7 +56,7 @@ record Trace L (tx : Tx) (n : Quantity) : Set where
     txs    : List⁺ Tx
     trace∈ : All⁺ (_∈′ L) txs
     linked : X n txs
-    head≡  : head⁺ txs ≡ tx
+    head≡  : head txs ≡ tx
 open Trace public
 
 record Provenance L tx (n : Quantity) : Set where
@@ -111,8 +77,8 @@ weaken-↝ : ∀ {tx tx′ n n′} → tx ↝⟦ n ⟧ tx′ → n′ ≤ n → 
 weaken-↝ {n = n}{n′} (or∈ , o , p , ≤v) n≤ = or∈ , o , p , ≤-trans {i = n′} {j = n} {k = value o ◆} n≤ ≤v
 
 weakenTrace : ∀ {L L′} → L′ ≼′ L → Trace L′ tx n → Trace L tx n
-weakenTrace L′≼ record {txs = txs; trace∈ = tr∈;                        linked = p; head≡ = h≡}
-              = record {txs = txs; trace∈ = All.map (Suffix⇒⊆ L′≼) tr∈; linked = p; head≡ = h≡}
+weakenTrace L′≼ record {txs = txs; trace∈ = tr∈;                          linked = p; head≡ = h≡}
+              = record {txs = txs; trace∈ = L.All.map (Suffix⇒⊆ L′≼) tr∈; linked = p; head≡ = h≡}
 
 weakenTraceⁿ : ∀ {n n′} → n′ ≤ n → Trace L tx n → Trace L tx n′
 weakenTraceⁿ n< record {txs = txs; trace∈ = tr∈; linked = p;            head≡ = h≡}
@@ -121,7 +87,7 @@ weakenTraceⁿ n< record {txs = txs; trace∈ = tr∈; linked = p;            he
 weakenProvenance : ∀ {L L′} → L′ ≼′ L → Provenance L′ tx n → Provenance L tx n
 weakenProvenance {tx = tx} {n = n} {L = L}{L′} L≼
     record { traces = trs;              sums = p }
-  = record { traces = map (map₂ f) trs; sums = subst (_≥ n) (sym $ ∑₁-map₂ {xs = trs} {f = f}) p }
+  = record { traces = map (map₂′ f) trs; sums = subst (_≥ n) (sym $ ∑₁-map₂ {xs = trs} {f = f}) p }
   where
     f : ∀ {n} → Trace L′ tx n → Trace L tx n
     f = weakenTrace L≼
@@ -241,8 +207,8 @@ provenance {tx}{l} vl = go vl (≺′-wf (_ , vl))
           where
             p₁ : ∀ r → Is-nothing (res→traces r) → resValue r ◆ ≡ 0
             p₁ r rn with ◆∈? resValue r | rn
-            ... | yes _ | MAll.just ()
-            ... | no ¬p | _           = ¬x>0⇒x≡0 ¬p
+            ... | yes _ | M.All.just ()
+            ... | no ¬p | _ = ¬x>0⇒x≡0 ¬p
 
             p₂ : ∀ r v → res→traces r ≡ just v → resValue r ◆ ≡ proj₁ v
             p₂ r v rj with ◆∈? resValue r | rj

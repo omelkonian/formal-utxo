@@ -1,45 +1,10 @@
-open import Level
-open import Category.Monad using (RawMonad)
-open import Function hiding (id)
-open import Induction.WellFounded using (Acc; acc)
-
-open import Data.Empty using (⊥; ⊥-elim)
-open import Data.Unit using (⊤; tt)
-open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ; Σ-syntax; proj₁; proj₂)
-open import Data.Bool using (Bool; T; true; false)
-open import Data.Nat
-  renaming (_≟_ to _≟ℕ_)
 open import Data.Nat.Properties
 open import Data.Nat.Induction using (<-wellFounded)
+open import Data.List.Membership.Propositional.Properties using (∈-filter⁺)
 
-open import Data.Maybe using (Maybe; just; nothing; Is-just; fromMaybe)
-import Data.Maybe.Relation.Unary.Any as M
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List
-  hiding (fromMaybe)
-  renaming (sum to ∑ℕ)
-open import Data.List.Properties
-open import Data.List.NonEmpty as NE using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
-open import Data.List.Membership.Propositional
-open import Data.List.Membership.Propositional.Properties
-open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
-open import Data.List.Relation.Unary.All.Properties as All
-open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
-import Data.List.Relation.Unary.Any.Properties as Any
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
-open import Data.List.Relation.Binary.Pointwise using (≡⇒Pointwise-≡)
-open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
-
-open import Relation.Nullary using (¬_; yes; no)
-open import Relation.Nullary.Decidable using (⌊_⌋; toWitness)
-open import Relation.Unary using (Pred)
-open import Relation.Binary using (Rel)
-open import Relation.Binary.PropositionalEquality hiding ([_])
-
+open import Prelude.Init renaming (sum to ∑ℕ)
 open import Prelude.General
-open import Prelude.Lists
+open import Prelude.Lists hiding (⟦_⟧)
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -95,7 +60,7 @@ ams-outputs◆ {tx} tx∈
                ∑ l forge ◆             ∎
 
     qed : AtMostSingleton (outputs◆ tx)
-    qed with outputs◆ tx | All.all-filter (◆∈?_ ∘ value) (outputs tx) | ∑≥
+    qed with outputs◆ tx | L.All.all-filter (◆∈?_ ∘ value) (outputs tx) | ∑≥
     ... | []         | []            | _   = tt
     ... | _ ∷ []     | _ ∷ _         | _   = tt
     ... | x ∷ y ∷ os | ◆∈x ∷ ◆∈y ∷ _ | ∑≥′ = ⊥-elim $ ¬i≥x+y ∑forge≤1 ◆∈x ◆∈y i≥x+y
@@ -132,7 +97,7 @@ data X¹ : Tx → Tx → Set where
     → X¹ tx tx″
 
 ∣_∣ᵗ : Trace L tx n → ℕ
-∣_∣ᵗ = NE.length ∘ txs
+∣_∣ᵗ = L.NE.length ∘ txs
 
 X→X¹ :
     n > 0
@@ -193,15 +158,15 @@ hh {tx = tx}{tx′} (or∈ , o , ⁉≡just , ◆∈v) tx∈
     l = proj₁ $ ∈⇒Suffix tx∈
 
     ∃i : ∃ λ i → i ∈ inputs tx′ × (tx ♯ₜₓ ≡ id (outputRef i))
-    ∃i  = find $ Any.map⁻ or∈
+    ∃i  = find $ L.Any.map⁻ or∈
     i   = proj₁ ∃i
     i∈  = proj₁ $ proj₂ ∃i
     id≡ = proj₂ $ proj₂ ∃i
 
     o∈ : o ∈ outputs tx
-    o∈ = just-⁉⇒∈ {i = index (Any.lookup or∈)} ⁉≡just
+    o∈ = just-⁉⇒∈ {i = index (L.Any.lookup or∈)} ⁉≡just
 
-    index≡ : Any.lookup or∈ ≡ outputRef i
+    index≡ : L.Any.lookup or∈ ≡ outputRef i
     index≡ = lookup≡find∘map⁻ {xs = inputs tx′} {f = outputRef} or∈
 
     ⁉≡just′ : outputs tx ⟦ index (outputRef i) ⟧ ≡ just o
@@ -211,7 +176,7 @@ hh {tx = tx}{tx′} (or∈ , o , ⁉≡just , ◆∈v) tx∈
     vtx = tx∈⇒valid {L = L} tx∈
 
     vvh : Is-just (getSpentOutput l i)
-    vvh = Any⇒Is-just {mx = getSpentOutput l i} $ All.lookup (validateValidHashes vtx) i∈
+    vvh = Any⇒Is-just {mx = getSpentOutput l i} $ L.All.lookup (validateValidHashes vtx) i∈
 
     getSpent≡ : getSpentOutput l i ≡ just o
     getSpent≡ = lookup-⟦⟧ {tx = tx}{l}{i}{o} vvh (sym id≡) ⁉≡just′
@@ -242,21 +207,21 @@ h {tx = tx}{tx′}{s} (record {s∈ = v , outs≡}) tx∈ tx↝
     ri = redeemer txIn
     di = datum txIn
     ds = toData s
-    ptx = toPendingTx l tx′ (Any.index txIn∈)
+    ptx = toPendingTx l tx′ (L.Any.index txIn∈)
 
     aiv : All (λ{ (n , i) → T (validator i (toPendingTx l tx′ n) (redeemer i) (datum i))})
               (enumerate $ inputs tx′)
     aiv = allInputsValidate vtx
 
     aiv′ : T $ vi ptx ri di
-    aiv′ = All.lookup aiv (x∈→ix∈ txIn∈)
+    aiv′ = L.All.lookup aiv (x∈→ix∈ txIn∈)
 
-    vvh : All (λ i → M.Any (λ o → (address o ≡ validator i ♯) × (datumHash o ≡ datum i ♯ᵈ)) (getSpentOutput l i))
+    vvh : All (λ i → M.Any.Any (λ o → (address o ≡ validator i ♯) × (datumHash o ≡ datum i ♯ᵈ)) (getSpentOutput l i))
               (inputs tx′)
     vvh = validateValidHashes vtx
 
-    vvh′ : M.Any (λ o → (address o ≡ vi ♯) × (datumHash o ≡ di ♯ᵈ)) (getSpentOutput l txIn)
-    vvh′ = All.lookup vvh txIn∈
+    vvh′ : M.Any.Any (λ o → (address o ≡ vi ♯) × (datumHash o ≡ di ♯ᵈ)) (getSpentOutput l txIn)
+    vvh′ = L.All.lookup vvh txIn∈
 
     vvh″ : (address o ≡ vi ♯) × (datumHash o ≡ di ♯ᵈ)
     vvh″ = Any-just {mx = getSpentOutput l txIn} getSpent≡ vvh′

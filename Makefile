@@ -1,7 +1,7 @@
 default: site
 
 site:
-	agda +RTS -M2G -RTS --html --html-dir=docs --css=css/Agda.css Main.agda \
+	agda --html --html-dir=docs --css=css/Agda.css Main.agda \
 	  && cp docs/Main.html docs/index.html 
 
 clean:

@@ -1,38 +1,12 @@
 {-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
-open import Level          using (0ℓ)
-open import Function       using (_∘_; flip; _$_)
-open import Category.Monad using (RawMonad)
-
-open import Data.Product using (_×_; _,_; proj₁; proj₂; map₂; ∃; ∃-syntax)
-open import Data.Bool    using (Bool; true; _∧_; T)
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; Is-nothing)
-open import Data.Nat     using (ℕ; _+_; suc; _≤_; _≥_; _>_)
-  renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; _∷_; []; [_]; _++_; map; foldr; and; filter; mapMaybe)
-  renaming (sum to ∑ℕ)
-
-import Data.Maybe.Relation.Unary.Any as M
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.Nat.Properties     using (<-strictTotalOrder; _≥?_; _>?_; +-identityʳ)
-open import Data.List.Properties    renaming (≡-dec to ≡-decs)
-open import Data.Product.Properties renaming (≡-dec to ≡-dec×)
-
-open import Data.List.Membership.Propositional using (_∈_; mapWith∈)
-open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint)
-
-open import Relation.Nullary                      using (¬_; Dec; yes; no)
-open import Relation.Nullary.Product              using (_×-dec_)
-open import Relation.Nullary.Decidable            using (⌊_⌋)
-open import Relation.Nullary.Negation             using (¬?)
-open import Relation.Binary                       using (StrictTotalOrder; Rel; Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
-
+open import Prelude.Init
 open import Prelude.Lists
-import Prelude.Set' as SET
+open import Prelude.DecEq
+open import Prelude.Set'
+open import Prelude.Monad
+open import Prelude.Bifunctor
 
 open import UTxO.Hashing.Base
 
@@ -70,13 +44,10 @@ ex-map = (1 , (0 , 50) ∷ [])
        ∷ (2 , (0 , 77) ∷ (1 , 23) ∷ [])
        ∷ []
 
-open import Algebra.Definitions {A = Value} _≡_
-  using (LeftIdentity; RightIdentity; Identity; Commutative; Associative)
-
 --------------------------
 -- Implementation
 
-open import Data.AVL.Map <-strictTotalOrder
+open import Data.AVL.Map Nat.<-strictTotalOrder
   using    (Map; empty; unionWith; lookup)
   renaming (map to mapᵛ; fromList to fromListᵛ; toList to toListᵛ)
 
@@ -94,11 +65,11 @@ fromListᶜ = fromListᵛ ∘ mapᶜ fromListᵛ
 
 infixl 6 _+ᵛ′_
 _+ᵛ′_ : TokenMap → TokenMap → TokenMap
-_+ᵛ′_ = unionWith (λ v v′ → v + fromMaybe 0 v′)
+_+ᵛ′_ = unionWith (λ v v′ → v + M.fromMaybe 0 v′)
 
 infixl 6 _+ᵛ_
 _+ᵛ_ : CurrencyMap → CurrencyMap → CurrencyMap
-_+ᵛ_ = unionWith (λ v v′ → v +ᵛ′ fromMaybe empty v′)
+_+ᵛ_ = unionWith (λ v v′ → v +ᵛ′ M.fromMaybe empty v′)
 
 infixl 6 _+ᶜ_
 _+ᶜ_ : Value → Value → Value
@@ -107,12 +78,8 @@ c +ᶜ c′ = toListᶜ (fromListᶜ c +ᵛ fromListᶜ c′)
 sumᶜ : List Value → Value
 sumᶜ = foldr _+ᶜ_ $0
 
-infix 4 _≟ᶜ_
-_≟ᶜ_ : Decidable {A = Value} _≡_
-_≟ᶜ_ = ≡-decs (≡-dec× _≟ℕ_ (≡-decs (≡-dec× _≟ℕ_ _≟ℕ_)))
-
 lookupQuantity : TokenClass → Value → Quantity
-lookupQuantity (c , t) v = fromMaybe 0 (lookup c (fromListᶜ v) >>= lookup t)
+lookupQuantity (c , t) v = M.fromMaybe 0 (lookup c (fromListᶜ v) >>= lookup t)
 
 infix 5 _◇_
 _◇_ : Value → TokenClass → Quantity
@@ -162,14 +129,13 @@ tokenClasses ((c , sv) ∷ v) = go sv ++ tokenClasses v
 _-contributesTo-_ : Rel Value 0ℓ
 v′ -contributesTo- v = ¬ Disjoint (tokenClasses v′) (tokenClasses v)
 
-_-contributesTo?-_ : Decidable _-contributesTo-_
+_-contributesTo?-_ : Decidable² _-contributesTo-_
 v′ -contributesTo?- v = ¬? $ disjoint? (tokenClasses v′) (tokenClasses v)
-  where open SET {A = TokenClass} (≡-dec× _≟ℕ_ _≟ℕ_)
 
 _∈ᶜ_ : TokenClass → Value → Set
 nft ∈ᶜ v = v ◇ nft > 0
 
-_∈?ᶜ_ : Decidable _∈ᶜ_
+_∈?ᶜ_ : Decidable² _∈ᶜ_
 nft ∈?ᶜ v = v ◇ nft >? 0
 
 -------------------
@@ -258,12 +224,12 @@ module FocusTokenClass (tk : TokenClass) where
     ◆-single : ∀ {n} → [ proj₁ tk , [ proj₂ tk , n ] ] ◆ ≡ n
 
     ∑-◆ : ∀ {xs : List A} {f : A → Value}
-      → ∑ xs f ◆ ≡ ∑ℕ (map (_◆ ∘ f) xs)
+      → ∑ xs f ◆ ≡ sum (map (_◆ ∘ f) xs)
 
     ∑-mapMaybe : ∀ {X : Set} {xs : List A} {fm : A → Maybe X} {g : A → Value} {fv : X → Quantity}
       → (∀ x → Is-nothing (fm x) → g x ◆ ≡ 0)
       → (∀ x v → fm x ≡ just v → g x ◆ ≡ fv v)
-      → ∑ℕ (map (_◆ ∘ g) xs) ≡ ∑ℕ (map fv $ mapMaybe fm xs)
+      → sum (map (_◆ ∘ g) xs) ≡ sum (map fv $ mapMaybe fm xs)
 
     ∑-filter-◆ : ∀ {xs : List A} {fv : A → Value}
       → ∑ (filter (◆∈?_ ∘ fv) xs) fv ◆
@@ -291,14 +257,15 @@ unionWith-empty-id {m = m} {f = f} f≡
         = refl
 
 x+ᶜ′0≡x : ∀ {m} → m +ᵛ′ empty ≡ m
-x+ᶜ′0≡x {m} rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + fromMaybe 0 v′} (λ {x} → +-identityʳ x)
+x+ᶜ′0≡x {m}
+  rewrite unionWith-empty-id {m = m} {f = λ v v′ → v + M.fromMaybe 0 v′} (λ {x} → Nat.+-identityʳ x)
                   = refl
 
 +ᶜ-identityˡ : LeftIdentity $0 _+ᶜ_
 +ᶜ-identityˡ v = toListᶜ∘fromListᶜ {v = v}
 
 +ᶜ-identityʳ : RightIdentity $0 _+ᶜ_
-+ᶜ-identityʳ v rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ fromMaybe empty v′} x+ᶜ′0≡x
++ᶜ-identityʳ v rewrite unionWith-empty-id {m = fromListᶜ v} {f = λ v v′ → v +ᵛ′ M.fromMaybe empty v′} x+ᶜ′0≡x
                  | toListᶜ∘fromListᶜ {v = v}
                  = refl
 
@@ -316,9 +283,9 @@ x+ᶜy+ᶜ0≡x+ᶜy+0 {x} {y}
 
 ∑M≡just : ∀ {x : A} {mx : Maybe A} {P : A → Set}
  → mx ≡ just x
- → M.Any P mx
+ → M.Any.Any P mx
  → P x
-∑M≡just refl (M.just p) = p
+∑M≡just refl (M.Any.just p) = p
 
 ∑M-[] : ∀ {f : A → Value}
   → ∑M [] f ≡ just $0

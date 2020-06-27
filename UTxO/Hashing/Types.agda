@@ -3,15 +3,7 @@
 ------------------------------------------------------------------------
 module UTxO.Hashing.Types where
 
-open import Function.Definitions using (Injective)
-
-open import Data.Product using (_×_; _,_)
-open import Data.List    using (List; []; _∷_)
-open import Data.Integer using (ℤ; ∣_∣)
-open import Data.Nat     using (_+_)
-
-open import Relation.Binary                       using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Prelude.Init
 
 open import UTxO.Hashing.Base
 open import UTxO.Value
@@ -24,7 +16,7 @@ _♯ᵢ : Hash TxInput
 i ♯ᵢ = (outputRef i) ♯ₒᵣ
 
 _♯ℤ : Hash ℤ
-_♯ℤ = ∣_∣
+_♯ℤ = Integer.∣_∣
 
 _♯ᵇ : Hash Bound
 -∞     ♯ᵇ = 0

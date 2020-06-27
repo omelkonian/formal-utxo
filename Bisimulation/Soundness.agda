@@ -1,39 +1,13 @@
-open import Level          using (0ℓ)
-open import Function       using (_∘_; _$_; case_of_)
-open import Category.Monad using (RawMonad)
-
-open import Data.Unit    using (tt)
-open import Data.Bool    using (true; false)
-open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ-syntax; proj₁; proj₂; map₁)
-open import Data.Fin     using (toℕ)
-  renaming (zero to fzero)
-open import Data.Maybe   using (just; nothing; maybe)
-open import Data.Nat     using ()
-  renaming (_≟_ to _≟ℕ_)
-open import Data.List    using (List; []; _∷_; [_]; filter; map)
-
-open import Data.Bool.Properties using (T?)
-  renaming (_≟_ to _≟𝔹_)
-
 open import Data.List.Membership.Propositional.Properties using (∈-map⁺; ∈-filter⁺; ∈-++⁺ʳ)
-open import Data.List.Relation.Unary.Any as Any           using (Any; here; there)
-import Data.List.Relation.Unary.Any.Properties as AnyP
-open import Data.List.Relation.Unary.All as All           using (All; []; _∷_; all)
-import Data.List.Relation.Unary.All.Properties as AllP
-open import Data.List.Relation.Unary.AllPairs             using ([]; _∷_)
 
-import Data.Maybe.Relation.Unary.Any as M
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Relation.Nullary           using (¬_)
-open import Relation.Nullary.Decidable using (toWitness; ⌊_⌋; True)
-
-open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl; sym; cong; subst)
-open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
-
+open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.DecEq
+open import Prelude.Set'
+open import Prelude.ToN
+open import Prelude.Bifunctor
+open import Prelude.Monad
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -50,6 +24,7 @@ module Bisimulation.Soundness
 
 open CEM {sm = sm}
 open import Bisimulation.Base {sm = sm}
+open ≡-Reasoning
 
 soundness : ∀ {s i s′ tx≡ l} {vl : ValidLedger l}
 --  → finalₛₘ s′ ≡ false
@@ -89,7 +64,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
     -- *** Constants
 
     prevOut   = s —→ v
-    prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (Any.index prevOut∈)
+    prevTxRef = (prevTx ♯ₜₓ) indexed-at toℕ (L.Any.index prevOut∈)
     txIn      = prevTxRef ←— (i , s)
     forge′    = forge tx
 
@@ -103,7 +78,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
       ; address   = 𝕍
       ; datumHash = ds′ ♯ᵈ }
 
-    ptx   = toPendingTx l tx fzero
+    ptx   = toPendingTx l tx 0F
     txi   = txInfo ptx
     ptxIn = mkInputInfo l txIn
 
@@ -120,7 +95,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
 
     preservesValues     vtx
       rewrite getSpent≡
-            = M.just (x+ᶜy+ᶜ0≡x+ᶜy+0 {x = forge′} {y = v})
+            = M.Any.just (x+ᶜy+ᶜ0≡x+ᶜy+0 {x = forge′} {y = v})
 
     noDoubleSpending    vtx = [] ∷ []
 
@@ -133,10 +108,10 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
         thisVal≡ = cong InputInfo.validatorHash (ptx-‼ {l} {tx} {txIn} {here refl})
 
         inputs≡ : inputsAt 𝕍 txi ≡ [ ptxIn ]
-        inputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ InputInfo.validatorHash} (≟-refl _≟ℕ_ 𝕍)
+        inputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ InputInfo.validatorHash} (≟-refl _≟_ 𝕍)
 
         outputs≡ : outputsAt 𝕍 txi ≡ [ txOut ]
-        outputs≡ = filter-singleton {P? = (𝕍 ≟ℕ_) ∘ address} (≟-refl _≟ℕ_ 𝕍)
+        outputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ address} (≟-refl _≟_ 𝕍)
 
         getCont≡ : getContinuingOutputs ptx ≡ [ txOut ]
         getCont≡ =
@@ -152,11 +127,11 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
           ∎
 
         outputsOK≡ : outputsOK ptx di ds s′ ≡ true
-        outputsOK≡ rewrite {- final≡ | -} getCont≡ | ≟-refl _≟ℕ_ (ds′ ♯ᵈ) = refl
+        outputsOK≡ rewrite {- final≡ | -} getCont≡ | ≟-refl _≟_ (ds′ ♯ᵈ) = refl
 
         valueAtⁱ≡ : valueAtⁱ 𝕍 txi ≡ v
         valueAtⁱ≡ =
-          -- rewrite ≟-refl _≟ℕ_ 𝕍 | getSpent≡ = sum-single {v = v}
+          -- rewrite ≟-refl _≟_ 𝕍 | getSpent≡ = sum-single {v = v}
           begin
             valueAtⁱ 𝕍 txi
           ≡⟨⟩
@@ -171,7 +146,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
 
         valueAtᵒ≡ : valueAtᵒ 𝕍 txi ≡ forge′ +ᶜ v
         valueAtᵒ≡ =
-          -- rewrite ≟-refl _≟ℕ_ 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
+          -- rewrite ≟-refl _≟_ 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
           begin
             (sumᶜ ∘ map value ∘ outputsAt 𝕍) txi
           ≡⟨ cong (sumᶜ ∘ map value) outputs≡ ⟩
@@ -198,8 +173,8 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
 
     validateValidHashes vtx = vvh ∷ []
       where
-        vvh : M.Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ ds ♯ᵈ)) (getSpentOutput l txIn)
-        vvh rewrite getSpent≡ = M.just (refl , refl)
+        vvh : M.Any.Any (λ o → (address o ≡ 𝕍) × (datumHash o ≡ ds ♯ᵈ)) (getSpentOutput l txIn)
+        vvh rewrite getSpent≡ = M.Any.just (refl , refl)
 
     forging             vtx with
       forge≡ tx≡
@@ -211,7 +186,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
                 (map proj₁ (map (map₁ _♯) xs))
         All-Any-helper {xs = xs}
           rewrite map-proj₁-map₁ {xs = xs} {f = _♯}
-                = AllP.map⁺ $ All.map AnyP.map⁺ All-Any-refl
+                = L.All.map⁺ $ L.All.map L.Any.map⁺ All-Any-refl
 
     vl′ : ValidLedger (tx ∷ l)
     vl′ = vl ⊕ tx ∶- vtx
@@ -222,8 +197,8 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
     vl′~s′ : vl′ ~ s′
     vl′~s′ =
       ∈-map⁺ (datumHash ∘ out)
-        (∈-filter⁺ ((_≟𝔹 true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out)
-          (∈-filter⁺ ((𝕍 ≟ℕ_) ∘ address ∘ out)
-            (∈-++⁺ʳ (filter ((SETₒ._∉? outputRefs tx) ∘ outRef) (utxo l)) (here refl))
+        (∈-filter⁺ ((_≟ true) ∘ (_≥ᶜ threadₛₘ) ∘ value ∘ out)
+          (∈-filter⁺ ((𝕍 ≟_) ∘ address ∘ out)
+            (∈-++⁺ʳ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) (here refl))
             refl)
           (T⇒true (≥ᶜ-+ᶜ {x = forge tx} {y = v} {z = threadₛₘ} (true⇒T threadToken≡))))

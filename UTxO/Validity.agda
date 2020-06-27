@@ -1,39 +1,15 @@
 module UTxO.Validity where
 
-open import Level    using (0ℓ)
-open import Function using (_∘_; flip; _$_)
-
-open import Data.Sum             using (_⊎_)
-open import Data.Product         using (_×_; _,_; proj₁; ∃)
-open import Data.Maybe           using (Maybe; Is-just; just)
-  renaming (map to _<$>_)
-open import Data.Bool            using (T; true)
-open import Data.Bool.Properties using (T?)
-open import Data.Nat             using (ℕ; zero; suc; _<_; _≤_)
-  renaming (_≟_ to _≟ℕ_)
-open import Data.Nat.Properties  using (suc-injective; ≤-trans)
-open import Data.Fin             using (Fin; toℕ; fromℕ<)
-open import Data.List            using (List; []; _∷_; map; length)
-
-open import Data.List.Relation.Unary.Any as Any            using (Any; any; here; there)
-open import Data.List.Relation.Unary.All                   using (All; all)
-open import Data.List.Membership.Propositional             using (_∈_; _∉_; mapWith∈)
-open import Data.List.Membership.Propositional.Properties  using (∈-map⁻; ∈-map⁺)
-open import Data.List.Relation.Unary.Unique.Propositional  using (Unique)
-open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (Suffix; here; there; tail)
-open import Data.List.Relation.Binary.Pointwise            using (_∷_; Pointwise-≡⇒≡)
-
+open import Data.List.Membership.Propositional.Properties using (∈-map⁺; ∈-map⁻)
+open import Data.List.Relation.Binary.Suffix.Heterogeneous using (tail)
+open import Data.List.Relation.Binary.Pointwise            using (Pointwise-≡⇒≡)
 import Data.Maybe.Relation.Unary.Any as M
 
-open import Relation.Nullary                      using (Dec; ¬_; yes; no)
-open import Relation.Nullary.Product              using (_×-dec_)
-open import Relation.Nullary.Decidable            using (True; toWitness)
-open import Relation.Binary                       using (Rel; Transitive; Decidable)
-open import Relation.Binary.PropositionalEquality
-  renaming ([_] to ≡[_])
-
-open import Prelude.Lists
+open import Prelude.Init hiding (module M; _∋_)
+open import Prelude.Lists hiding (⟦_⟧)
+open import Prelude.DecEq
+open import Prelude.Functor
+open import Prelude.Set' hiding (_∈′_)
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -105,19 +81,19 @@ _⊕_ : ∀ {l}
   → ValidLedger l
   → (tx : Tx)
   → {wi  : True (T? (range tx ∋ length l))}
-  → {vor : True (outputRefs tx SETₒ.⊆? map outRef (utxo l))}
-  → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ᶜ ∑ (outputs tx) value)
+  → {vor : True (outputRefs tx ⊆? map outRef (utxo l))}
+  → {pv  : True (M.dec (λ q → forge tx +ᶜ q ≟ ∑ (outputs tx) value)
                        (∑M (map (getSpentOutput l) (inputs tx)) value))}
-  → {ndp : True (SETₒ.unique? (outputRefs tx))}
-  → {aiv : True (all (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (datum i))})
-                     (enumerate (inputs tx)))}
-  → {apv : True (all (λ f → T? (f (toPendingMPS l tx (f ♯))))
-                     (policies tx))}
-  → {vvh : True (all (λ i → M.dec (λ o → (address o ≟ℕ validator i ♯) ×-dec (datumHash o ≟ℕ datum i ♯ᵈ))
-                                  (getSpentOutput l i))
+  → {ndp : True (unique? (outputRefs tx))}
+  → {aiv : True (all? (λ{ (n , i) → T? (validator i (toPendingTx l tx n) (redeemer i) (datum i))})
+                      (enumerate (inputs tx)))}
+  → {apv : True (all? (λ f → T? (f (toPendingMPS l tx (f ♯))))
+                      (policies tx))}
+  → {vvh : True (all? (λ i → M.dec (λ o → (address o ≟ validator i ♯) ×-dec (datumHash o ≟ datum i ♯ᵈ))
+                                   (getSpentOutput l i))
                      (inputs tx))}
-  → {frg : True (all (λ c → any (λ f → c ≟ℕ f ♯) (policies tx))
-                     (currencies (forge tx)))}
+  → {frg : True (all? (λ c → any? (λ f → c ≟ f ♯) (policies tx))
+                      (currencies (forge tx)))}
   → ValidLedger (tx ∷ l)
 (vl ⊕ tx) {wi} {vor} {pv} {ndp} {aiv} {apv} {vvh} {frg}
   = vl ⊕ tx ∶- record { withinInterval      = toWitness wi
@@ -141,9 +117,6 @@ tx ∈′ (l , _) = tx ∈ l
 
 --------------------------------------------------------
 -- Well-founded recursion on suffixes of the ledger.
-
-open import Induction
-open import Induction.WellFounded
 
 infix 4 _≼_ _≼′_ _≺_ _≺′_
 
@@ -180,7 +153,7 @@ postulate
     _≺′⇒≺_ : ∀ vl → Acc _≺_ (proj₁ vl) → Acc _≺′_ vl
     (l , _) ≺′⇒≺ acc w = acc λ{ (l′ , _) l′<l → (l′ , _) ≺′⇒≺ w l′ l′<l }
 
-≺′-rec = All.wfRec ≺′-wf 0ℓ
+≺′-rec = WF.All.wfRec ≺′-wf 0ℓ
 
 ----------------------
 -- Properties.
@@ -237,7 +210,7 @@ record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : 
 
     -- ≈ prevTx ↝⟦ {-value prevOut ◆-} ⟧ tx
     or∈      : Any ((prevTx ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
-    ⁉≡just   : outputs prevTx ⟦ index (Any.lookup or∈) ⟧ ≡ just prevOut
+    ⁉≡just   : outputs prevTx ⟦ index (L.Any.lookup or∈) ⟧ ≡ just prevOut
 
 resValue : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} → Res vl vtx → Value
 resValue = value ∘ Res.prevOut
@@ -270,15 +243,15 @@ prevs {tx} {l} vl vtx
           P⊆Q refl = id≡
 
           or∈ : Any ((prevTx u ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
-          or∈ = Any.map P⊆Q (∈-map⁺ outputRef i∈)
+          or∈ = L.Any.map P⊆Q (∈-map⁺ outputRef i∈)
 
-          outRef≡ : Any.lookup or∈ ≡ outputRef i
-          outRef≡ = begin Any.lookup or∈                   ≡⟨ Any-lookup∘map P⊆Q (∈-map⁺ outputRef i∈) ⟩
-                          Any.lookup (∈-map⁺ outputRef i∈) ≡⟨ lookup∘∈-map⁺ {f = outputRef} i∈ ⟩
+          outRef≡ : L.Any.lookup or∈ ≡ outputRef i
+          outRef≡ = begin L.Any.lookup or∈                   ≡⟨ Any-lookup∘map P⊆Q (∈-map⁺ outputRef i∈) ⟩
+                          L.Any.lookup (∈-map⁺ outputRef i∈) ≡⟨ lookup∘∈-map⁺ {f = outputRef} i∈ ⟩
                           outputRef i                      ∎
                     where open ≡-Reasoning
 
-          ⁉≡just : (outputs (prevTx u) ⁉ index (Any.lookup or∈)) ≡ just (out u)
+          ⁉≡just : (outputs (prevTx u) ⁉ index (L.Any.lookup or∈)) ≡ just (out u)
           ⁉≡just rewrite outRef≡ = utxo-⟨⟩ {l} u∈
 
           v   = value $ out u
@@ -291,7 +264,8 @@ prevs {tx} {l} vl vtx
 ∑prevs≡ : ∀ {tx l} (vl : ValidLedger l) (vtx : IsValidTx tx l)
         → ∑M (map (getSpentOutput l) (inputs tx)) value ≡ just (∑ (prevs vl vtx) resValue)
 ∑prevs≡ {tx} {l} vl vtx = ∑M-help {A = TxInput} {xs = inputs tx} {f = getSpentOutput l} {g = value}
-                                  {R = Res vl vtx} {go = go} {r = resValue} (cong (value <$>_) ∘ s≡)
+                                  {R = Res vl vtx} {go = go} {r = resValue} (cong (_<$>_ value) ∘ s≡)
+                                  -- BUG: `cong (value <$>_)` results in unresolved metas...
   where
     open P₀ vl vtx
 
@@ -326,5 +300,5 @@ NonFungible : ∃ ValidLedger → TokenClass → Set
 NonFungible (l , _) nft = ∑ l forge ◇ nft ≤ 1
 
 NF-weaken : ∀ {nft l l′} → l′ ≺′ l → NonFungible l nft → NonFungible l′ nft
-NF-weaken {nft}{l , _}{l′ , _} vl′≺ = ≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
+NF-weaken {nft}{l , _}{l′ , _} vl′≺ = Nat.≤-trans (≥ᶜ-◆ {x = ∑ l forge} {y = ∑ l′ forge} $ ≺-∑forge vl′≺)
   where open FocusTokenClass nft

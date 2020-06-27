@@ -1,4 +1,10 @@
+open import Data.Sum using ([_,_])
+
+open import Prelude.Init
+open import Prelude.Default
+
 open import UTxO.Types
+open import UTxO.Validity
 open import StateMachine.Base
 
 module StateMachine.Properties.Ledger
@@ -6,24 +12,14 @@ module StateMachine.Properties.Ledger
   where
 
 open CEM {sm = sm}
-open import UTxO.Validity
 open import StateMachine.Properties {sm = sm}
-open import Bisimulation.Completeness {sm = sm}
-
-open import Relation.Binary.PropositionalEquality using (_≡_;trans;cong;subst;refl)
-open import Data.Bool using (T)
-open import Data.Sum using ([_,_];inj₁;inj₂;_⊎_)
-open import Data.Product using (_,_;proj₁;proj₂;Σ;_×_)
-open import Data.Maybe using (just)
-open import Data.List using (_∷_;[])
--- to the chain!
-
 open import StateMachine.Inductive {sm = sm}
+open import Bisimulation.Completeness {sm = sm}
 open import Bisimulation.Base {sm = sm}
 
+
+-- to the chain!
 -- trivial constraints are trivially satisfied
-open import Prelude.Default
-open import Data.List.Relation.Unary.All
 
 lemmaSat : ∀ {s l} {vl : ValidLedger l}
   → (p : vl ~ s)

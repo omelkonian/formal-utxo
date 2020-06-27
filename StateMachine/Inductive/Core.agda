@@ -1,10 +1,4 @@
-open import Level
-
-open import Data.Maybe
-open import Data.Product
-
-open import Relation.Binary
-open import Relation.Binary.PropositionalEquality
+open import Prelude.Init
 
 open import UTxO.Hashing
 open import UTxO.Value

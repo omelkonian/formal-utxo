@@ -9,51 +9,25 @@ transition in the context of the current transaction.
 -}
 module StateMachine.Base where
 
-open import Level    using (0ℓ)
-open import Function using (_∘_; case_of_; _$_)
-open import Category.Monad using (RawMonad)
-
-open import Data.Empty   using (⊥-elim)
-open import Data.Unit    using (tt)
-open import Data.Product using (_×_; _,_; proj₁; proj₂; Σ-syntax; ∃; ∃-syntax)
-open import Data.Bool    using (Bool; true; false; _∧_; if_then_else_; T)
-
-open import Data.Nat
-  renaming (_≟_ to _≟ℕ_)
-open import Data.Nat.Properties
-
-open import Data.Maybe   using (Maybe; just; nothing; fromMaybe; maybe′; Is-just)
-open import Data.Maybe.Properties  using (just-injective)
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List    using (List; []; _∷_; [_]; filter; map; length; and)
-open import Data.List.NonEmpty using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
-  renaming ([_] to [_]⁺; map to map⁺; head to head⁺)
-open import Data.List.Membership.Propositional using (_∈_; _∉_)
-open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
-open import Data.List.Relation.Unary.Any using (Any; here; there)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
+open import Data.Maybe using (fromMaybe)
 open import Data.List.Relation.Binary.Pointwise using (≡⇒Pointwise-≡)
+open import Data.Nat.Properties using (+-identityˡ; <⇒≢; ≤⇒pred≤)
 
-open import Relation.Nullary                      using (¬_; yes; no)
-open import Relation.Nullary.Decidable            using (⌊_⌋; toWitness)
-open import Relation.Unary                        using (Pred)
-open import Relation.Binary                       using (Rel)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; inspect; trans; sym; cong)
-  renaming ([_] to ≡[_])
-
+open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
+open import Prelude.Default
+open import Prelude.DecEq
+open import Prelude.Set'
+open import Prelude.Monad
 
 open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
-
-open import Prelude.Default
 open import UTxO.Defaults
+
 
 --------------------------
 -- Transaction constraints
@@ -78,8 +52,8 @@ ma >>=ₜ f = fromMaybe true (ma >>= pure ∘ f)
 
 verifyTxInfo : TxInfo → TxConstraints → Bool
 verifyTxInfo tx tx≡ =
-  (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge tx ≟ᶜ toValue v ⌋) ∧
-  (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range tx ≟ˢ r ⌋) ∧
+  (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge tx ≟ toValue v ⌋) ∧
+  (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range tx ≟ r ⌋) ∧
   (spent≥ tx≡ >>=ₜ λ v → valueSpent tx ≥ᶜ v)
 
 verifyTx : Ledger → Tx → TxConstraints → Bool
@@ -111,17 +85,17 @@ module CEM
 
   spentsOrigin : TxInfo → Bool
   spentsOrigin txi =
-    originₛₘ >>=ₜ λ o → ⌊ o SETₒ.∈? map InputInfo.outputRef (TxInfo.inputInfo txi) ⌋
+    originₛₘ >>=ₜ λ o → ⌊ o ∈? map InputInfo.outputRef (TxInfo.inputInfo txi) ⌋
 
   𝕍 : HashId
 
   policyₛₘ : MonetaryPolicy
   policyₛₘ pti@(record {this = c; txInfo = txi})
-    = ⌊ lookupQuantity (c , 𝕋) (TxInfo.forge txi) ≟ℕ 1 ⌋
+    = ⌊ lookupQuantity (c , 𝕋) (TxInfo.forge txi) ≟ 1 ⌋
     ∧ spentsOrigin txi
     ∧ (case outputsOf (c , 𝕋) pti of λ
         { (record {value = v; address = v♯; datumHash = d♯} ∷ [])
-          → ⌊ v♯ ≟ℕ 𝕍 ⌋
+          → ⌊ v♯ ≟ 𝕍 ⌋
           ∧ (fromMaybe false $ lookupDatumPtx d♯ pti >>= fromData >>= pure ∘ initₛₘ)
         ; _ → false })
     where
@@ -148,7 +122,7 @@ module CEM
     module _ where
       outputsOK : S → Bool
       outputsOK st = case getContinuingOutputs ptx of λ
-        { (o ∷ []) → ⌊ datumHash o ≟ℕ toData st ♯ᵈ ⌋
+        { (o ∷ []) → ⌊ datumHash o ≟ toData st ♯ᵈ ⌋
         ; _        → false }
 
   𝕍 = validatorₛₘ ♯
@@ -197,7 +171,7 @@ module CEM
         × outputsOf nftₛₘ pti ≡ [ record {value = v; address = 𝕍; datumHash = toData s ♯ᵈ} ]
         × Init s
   Tpolicy⇒ {tx = tx}{l}{pti@(record {this = .ℂ; txInfo = txi})} refl refl h₀
-    with forge tx ◆ ≟ℕ 1 | h₀
+    with forge tx ◆ ≟ 1 | h₀
   ... | no  _    | ()
   ... | yes frg≡ | h₁
     with spentsOrigin txi | h₁
@@ -207,7 +181,7 @@ module CEM
   ... | [] | ()
   ... | _ ∷ _ ∷ _ | ()
   ... | record {value = v; address = v♯; datumHash = d♯} ∷ [] | h₃
-    with v♯ ≟ℕ 𝕍 | h₃
+    with v♯ ≟ 𝕍 | h₃
   ... | no  _    | ()
   ... | yes refl | h₄
     with fromMaybe false (lookupDatumPtx d♯ pti >>= fromData >>= pure ∘ initₛₘ)
@@ -228,7 +202,7 @@ module CEM
   ◆∈⇒Tpolicy {tx} {l} vtx ◆∈ = policy≡
     where
       policy≡ : T (policyₛₘ $ toPendingMPS l tx ℂ)
-      policy≡ = All.lookup (allPoliciesValidate vtx) $ ∈♯ $ All.lookup (forging vtx) $ ◆-currencies∈ ◆∈
+      policy≡ = L.All.lookup (allPoliciesValidate vtx) $ ∈♯ $ L.All.lookup (forging vtx) $ ◆-currencies∈ ◆∈
 
   module JustOrigin (just-origin : Is-just originₛₘ) where
 
@@ -253,7 +227,7 @@ module CEM
             Tpolicy = ◆∈⇒Tpolicy vtx ◆∈frg
 
             frg≡1 : forge tx ◆ ≡ 1
-            frg≡1 = toWitness {Q = lookupQuantity (ℂ , 𝕋) (forge tx) ≟ℕ 1} (proj₁ $ T-∧ Tpolicy)
+            frg≡1 = toWitness {Q = lookupQuantity (ℂ , 𝕋) (forge tx) ≟ 1} (proj₁ $ T-∧ Tpolicy)
 
     ∃forging : ∀ {l}
       → ValidLedger l
@@ -302,7 +276,7 @@ module CEM
         Tpolicy = ◆∈⇒Tpolicy vtx ◆∈frg
 
         Tspents : T (spentsOrigin txi)
-        Tspents = proj₁ $ T-∧ {l = spentsOrigin txi} $ proj₂ $ T-∧ {l = ⌊ forge tx ◆ ≟ℕ 1 ⌋} Tpolicy
+        Tspents = proj₁ $ T-∧ {l = spentsOrigin txi} $ proj₂ $ T-∧ {l = ⌊ forge tx ◆ ≟ 1 ⌋} Tpolicy
 
     nf : ∀ L → NonFungible L nftₛₘ
     nf L@(l , vl) = ¬>⇒≤ nf′

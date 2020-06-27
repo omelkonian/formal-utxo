@@ -1,35 +1,6 @@
-open import Level
-open import Category.Monad using (RawMonad)
-open import Function
+open import Data.Nat.Properties using (+-identityʳ; ≤-trans)
 
-open import Data.Empty using (⊥; ⊥-elim)
-open import Data.Unit using (⊤; tt)
-open import Data.Product using (_×_; _,_; ∃; ∃-syntax; Σ; Σ-syntax; proj₁; proj₂)
-open import Data.Bool using (Bool; T; true; false)
-open import Data.Nat
-  renaming (_≟_ to _≟ℕ_)
-open import Data.Nat.Properties
-open ≤-Reasoning
-
-open import Data.Maybe using (Maybe; just; nothing; Is-just; fromMaybe)
-import Data.Maybe.Categorical as MaybeCat
-open RawMonad {f = 0ℓ} MaybeCat.monad renaming (_⊛_ to _<*>_)
-
-open import Data.List hiding (fromMaybe)
-open import Data.List.NonEmpty using (List⁺; _∷_; toList; _⁺++_; _++⁺_; _∷⁺_; _∷ʳ_; last)
-  renaming ([_] to [_]⁺; map to map⁺; head to head⁺)
-open import Data.List.Membership.Propositional
-open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
-open import Data.List.Relation.Unary.Any as Any using (Any; here; there)
-open import Data.List.Relation.Binary.Suffix.Heterogeneous using (here; there)
-open import Data.List.Relation.Binary.Pointwise using (≡⇒Pointwise-≡)
-
-open import Relation.Nullary using (¬_; yes; no)
-open import Relation.Nullary.Decidable using (⌊_⌋; toWitness)
-open import Relation.Unary using (Pred)
-open import Relation.Binary using (Rel)
-open import Relation.Binary.PropositionalEquality renaming ([_] to ≡[_])
-
+open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists
 
@@ -73,6 +44,7 @@ initiality {tx}{l} vl {o} o∈ ◆∈v jo
     v≤ = begin value o ◆ ≤⟨ ∑≥ ⟩
                n + 0     ≡⟨ +-identityʳ n ⟩
                n ∎
+         where open ≤-Reasoning
 
     n>0 : n > 0
     n>0 = ≤-trans ◆∈v v≤
