@@ -8,7 +8,9 @@ open import Agda.Builtin.Equality.Rewrite
 open import Prelude.Init
 open import Prelude.Default
 open import Prelude.DecEq
-open import Prelude.Lists
+open import Prelude.Semigroup
+open import Prelude.Applicative
+open import Prelude.Nary
 
 open import UTxO.Hashing
 open import UTxO.Value

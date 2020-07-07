@@ -4,7 +4,7 @@ open import Data.List.Properties
 open import Data.List.Membership.Propositional.Properties using (∈-++⁻; ∈-filter⁻)
 
 open import Prelude.Init
-open import Prelude.Lists hiding (⟦_⟧)
+open import Prelude.Lists
 open import Prelude.DecEq
 open import Prelude.Set'
 open import Prelude.ToN

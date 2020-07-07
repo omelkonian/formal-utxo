@@ -6,7 +6,7 @@ open import Data.List.Relation.Binary.Pointwise            using (Pointwise-≡�
 import Data.Maybe.Relation.Unary.Any as M
 
 open import Prelude.Init hiding (module M; _∋_)
-open import Prelude.Lists hiding (⟦_⟧)
+open import Prelude.Lists
 open import Prelude.DecEq
 open import Prelude.Functor
 open import Prelude.Set' hiding (_∈′_)
@@ -205,7 +205,7 @@ record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : 
     prevOut  : TxOutput
     vl′      : ValidLedger (prevTx ∷ l′)
     prevOut∈ : prevOut ∈ outputs prevTx
-    vl′≺vl   : (prevTx ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
+    vl′≺vl   : (prevTx ∷ l′ , vl′) ≺′ (tx ∷ l , (vl ⊕ tx ∶- vtx))
     spent≡   : ∃ λ i → (i ∈ inputs tx) × (getSpentOutput l i ≡ just prevOut)
 
     -- ≈ prevTx ↝⟦ {-value prevOut ◆-} ⟧ tx
@@ -257,7 +257,7 @@ prevs {tx} {l} vl vtx
           v   = value $ out u
           vl′ = ≼⇒valid vl suf
 
-          vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , vl ⊕ tx ∶- vtx)
+          vl′≺vl : (prevTx u ∷ l′ , vl′) ≺′ (tx ∷ l , (vl ⊕ tx ∶- vtx))
           vl′≺vl = ≺-transˡ suf (tx , suffix-refl (tx ∷ l))
           -- NB. suf ≈ (prevTx u ∷ l′) ≼ l
 

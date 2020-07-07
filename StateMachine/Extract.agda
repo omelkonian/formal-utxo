@@ -4,7 +4,7 @@ open import Data.List.Membership.Propositional.Properties using (∈-filter⁺)
 
 open import Prelude.Init renaming (sum to ∑ℕ)
 open import Prelude.General
-open import Prelude.Lists hiding (⟦_⟧)
+open import Prelude.Lists
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -311,38 +311,40 @@ Xˢ→R (cons {txs = txs} x tx∈ tx↝) =
   let _ , _ , s→s′ = h txs tx∈ tx↝
   in  snoc (Xˢ→R x) s→s′
 
-extract-Xˢ :
-    n > 0
-  → (tr : Trace L tx n)
-  → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
-    --------------------------------------------------
-  → ∃ λ s → ∃ λ s′ → ∃ λ txs → ∃ λ txs′ →
-      Xˢ (origin tr , s , txs) (tx , s′ , txs′)
-extract-Xˢ n>0 tr p≡ = X¹→Xˢ $ X→X¹ n>0 tr p≡
+∃Xˢ = ∃[ tx ] ∃[ tx′ ] ∃[ s ] ∃[ s′ ] ∃[ txs ] ∃[ txs′ ] Xˢ (tx , s , txs) (tx′ , s′ , txs′)
 
-extract-R :
-    n > 0
-  → (tr : Trace L tx n)
-  → T (policyₛₘ $ mkPendingMPS {L = L} tr ℂ)
-    -----------------------------------------
-  → ∃ λ s → ∃ λ s′ → s ↝* s′
-extract-R n>0 tr p≡ =
-  let s , s′ , _ , _ , xˢ = extract-Xˢ n>0 tr p≡
-  in  s , s′ , Xˢ→R xˢ
-
-extract : ∀ {tx o} (o∈ : o ∈ outputs tx)
-  → tx ∈′ L
-  → (◆∈v : ◆∈ value o)
-  → Is-just originₛₘ
-  → ∃ λ s → ∃ λ s′ → s ↝* s′
-extract {tx = tx} o∈ tx∈ ◆∈v jo
-  with l , l≺                ← ∈⇒Suffix tx∈
-  with vl                    ← ≼⇒valid (proj₂ L) l≺
-  with n , tr , _ , n>0 , p≡ ← initiality vl o∈ ◆∈v jo
-  = extract-R n>0 tr′ p≡′
+module Extraction {tx o}
+  (o∈  : o ∈ outputs tx)
+  (jo  : Is-just originₛₘ)
   where
-    tr′ : Trace L tx n
-    tr′ = weakenTrace l≺ tr
 
-    p≡′ : T (policyₛₘ $ mkPendingMPS {L = L} tr′ ℂ)
-    p≡′ rewrite mps≡ {L = L}{_ , vl} l≺ tr = p≡
+  source dest : ∃Xˢ → S
+  source = proj₁ ∘ proj₂ ∘ proj₂
+  dest   = proj₁ ∘ proj₂ ∘ proj₂ ∘ proj₂
+
+  provenanceˢ :
+      (tx∈ : tx ∈′ L)
+    → (◆∈v : ◆∈ value o)
+      ------------------
+    → ∃Xˢ
+  provenanceˢ tx∈ ◆∈v
+    with l , l≺                ← ∈⇒Suffix tx∈
+    with vl                    ← ≼⇒valid (proj₂ L) l≺
+    with n , tr , _ , n>0 , p≡ ← initiality vl o∈ ◆∈v jo
+     = _ , _ , X¹→Xˢ (X→X¹ n>0 tr′ p≡′)
+    where
+      tr′ : Trace L tx n
+      tr′ = weakenTrace l≺ tr
+
+      p≡′ : T (policyₛₘ $ mkPendingMPS {L = L} tr′ ℂ)
+      p≡′ = subst (λ x → T (policyₛₘ $ toPendingMPS x (origin tr) ℂ)) (sym $ mps≡ {L = L} {_ , vl} l≺ tr) p≡
+      -- rewrite mps≡ {L = L}{_ , vl} l≺ tr = p≡
+
+  extract :
+      (tx∈ : tx ∈′ L)
+    → (◆∈v : ◆∈ value o)
+    → let xˢ = provenanceˢ tx∈ ◆∈v in
+    ---------------------------------
+    source xˢ ↝* dest xˢ
+  extract tx∈ ◆∈v = let _ , _ , _ , _ , _ , _ , xˢ = provenanceˢ tx∈ ◆∈v
+                    in  Xˢ→R xˢ
