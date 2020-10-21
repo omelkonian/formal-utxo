@@ -55,6 +55,6 @@ end~ : ∀{l}{s}{vl : ValidLedger l}{s'}{l'}{vl' : ValidLedger l'} → X vl s vl
 end~ (root vl s p q) = q
 end~ (snoc xs p s'' q) = q
 
-forget : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → s ↝* s'
+forget : ∀{s s' l l'}{vl : ValidLedger l}{vl' : ValidLedger l'}(xs : X vl s vl' s') → s ↝⋆ s'
 forget (root _ _ p q) = root p
-forget {l = l}{l'}{vl}{vl'}(snoc {s' = s'} xs p s'' q) = Data.Sum.[ (λ {(i , s''' , tx≡ , q' , q'' , _) → snoc rs (i , tx≡ , trans q' (cong (λ x → just (x , tx≡)) (~uniq l' vl' _ _ q'' q)))}) , (λ q' → subst (_ ↝*_) (~uniq l' vl' _ _ q' q) rs) ] (completeness {s'} p (end~ xs)) where rs = forget xs
+forget {l = l}{l'}{vl}{vl'}(snoc {s' = s'} xs p s'' q) = Data.Sum.[ (λ {(i , s''' , tx≡ , q' , q'' , _) → snoc rs (i , tx≡ , trans q' (cong (λ x → just (x , tx≡)) (~uniq l' vl' _ _ q'' q)))}) , (λ q' → subst (_ ↝⋆_) (~uniq l' vl' _ _ q' q) rs) ] (completeness {s'} p (end~ xs)) where rs = forget xs

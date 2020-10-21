@@ -80,7 +80,7 @@ lemma-initial : ∀{s} → T (isInitial CounterSM s) → Valid s
 lemma-initial {counter (+ 0)} _ = inj₁ _
 
 -- Validity for all states in any rooted run
-all-valid : ∀{s s'}(xs : s ↝* s') → AllS Valid xs
+all-valid : ∀{s s'}(xs : s ↝⋆ s') → AllS Valid xs
 all-valid xs = all-lem Valid lemma-initial lemma-step xs
 
 open CEM {sm = CounterSM}

@@ -303,7 +303,7 @@ X¹→Xˢ {tx = tx} {tx′} (cons x¹ tx∈ tx↝) =
 Xˢ→R : ∀ {tx s tx′ s′} {txs : TxS tx s} {txs′ : TxS tx′ s′}
   → Xˢ (_ , _ , txs) (_ , _ , txs′)
     -------------------------------
-  → s ↝* s′
+  → s ↝⋆ s′
 Xˢ→R (root {tx = tx} tx∈ p≡) =
   let _ , init-s , _ = h₀ {tx = tx} tx∈ p≡
   in  root init-s
@@ -345,6 +345,6 @@ module Extraction {tx o}
     → (◆∈v : ◆∈ value o)
     → let xˢ = provenanceˢ tx∈ ◆∈v in
     ---------------------------------
-    source xˢ ↝* dest xˢ
+    source xˢ ↝⋆ dest xˢ
   extract tx∈ ◆∈v = let _ , _ , _ , _ , _ , _ , xˢ = provenanceˢ tx∈ ◆∈v
                     in  Xˢ→R xˢ

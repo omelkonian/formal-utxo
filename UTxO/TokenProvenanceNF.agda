@@ -133,7 +133,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
 
         s-allPrevs₂ {pr} pr∈ | inj₂ pr∈ʳ
           with r@(record {prevTx = tx′; vl′ = vl′; prevOut = o′; prevOut∈ = o∈′; vl′≺vl = vl′≺vl})
-             , r∈ , rj ← ∈-mapMaybe⁻ {xs = rs} {f = res→traces} pr∈ʳ
+             , r∈ , rj ← ∈-mapMaybe⁻ res→traces {xs = rs} pr∈ʳ
           with ◆∈? resValue r | rj
         ... | no  _ | ()
         ... | yes p | refl = singleton-map $ singleton-map len≡1

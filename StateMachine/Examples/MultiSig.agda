@@ -1,17 +1,12 @@
-open import Function
-open import Data.Empty
-open import Data.List hiding (map)
-open import Data.Nat
-open import Data.List.Membership.DecPropositional _≟_
-open import Data.Integer using (+_)
-open import Data.Maybe
-open import Data.Maybe.Properties
-open import Data.Product hiding (map)
-open import Data.Bool
-open import Data.Unit
-open import Relation.Nullary
-open import Relation.Binary.PropositionalEquality hiding ([_])
+open import Data.Maybe.Properties using (just-injective)
+open import Relation.Binary.PropositionalEquality using (cong₂)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties using (⊆-refl)
 
+open import Prelude.Init
+open import Prelude.Lists
+open import Prelude.DecEq
+-- open import Prelude.Functor
+open import Prelude.Applicative
 open import Prelude.Default
 open import UTxO.Hashing
 open import UTxO.Value
@@ -44,20 +39,20 @@ data Input : Set where
 map-just' : {A B : Set}(ma : Maybe A)(a : A)
   → (f : A → B)
   → (∀{a a'} → f a ≡ f a' → a ≡ a')
-  → map f ma ≡ just (f a)
+  → (f <$> ma) ≡ just (f a)
   → ma ≡ just a
 map-just' (just _) a f p q = cong just (p (just-injective q))
 
 map-nothing' : {A B : Set}(ma : Maybe A)
   → (f : A → B)
-  → map f ma ≡ nothing
+  → (f <$> ma) ≡ nothing
   → ma ≡ nothing
 map-nothing' nothing f p = refl
 
 ap-map-just : {A B C : Set}(ma : Maybe A)(a : A)(mb : Maybe B)(b : B)
   → (f : A → B → C)
   → (∀{a a'}{b b'} → f a b ≡ f a' b' → a ≡ a' × b ≡ b')
-  → Data.Maybe.ap (map f ma) mb ≡ just (f a b)
+  → ⦇ f ma mb ⦈ ≡ just (f a b)
   → ma ≡ just a × mb ≡ just b
 ap-map-just (just _) a (just _) b f p q =
  let
@@ -71,7 +66,7 @@ ap-ap-map-just : {A B C D : Set}
   → (mc : Maybe C)(c : C)
   → (f : A → B → C → D)
   → (∀{a a'}{b b'}{c c'} → f a b c ≡ f a' b' c' → a ≡ a' × b ≡ b' × c ≡ c')
-  → Data.Maybe.ap (Data.Maybe.ap (map f ma) mb) mc ≡ just (f a b c)
+  → (⦇ f ma mb ⦈ <*> mc) ≡ just (f a b c)
   → ma ≡ just a × mb ≡ just b × mc ≡ just c
 ap-ap-map-just (just _) a (just _) b (just _) c f p q =
  let
@@ -123,7 +118,7 @@ instance
   toData ⦃ isData-Bound ⦄ +∞      =  CONSTR 2 []
   fromData ⦃ isData-Bound ⦄ (CONSTR 0 [])        = just -∞
   fromData ⦃ isData-Bound ⦄ (CONSTR 1 (dt ∷ [])) =
-    map t=_ (fromData dt)
+    t=_ <$> fromData dt
   fromData ⦃ isData-Bound ⦄ (CONSTR 2 [])        = just +∞
   fromData ⦃ isData-Bound ⦄ _                    = nothing
   from∘to ⦃ isData-Bound ⦄ -∞     = refl
@@ -149,7 +144,7 @@ instance
     → IsData (A × B)
   toData ⦃ IsData-Pair ⦄ (a , b) = LIST (toData a ∷ toData b ∷ [])
   fromData ⦃ IsData-Pair ⦄ (LIST (a ∷ b ∷ [])) =
-    ap (map _,_ (fromData a)) (fromData b)
+    ⦇ fromData a , fromData b ⦈
   fromData ⦃ IsData-Pair ⦄ _ = nothing
   from∘to ⦃ IsData-Pair ⦄ (a , b) rewrite from∘to a | from∘to b = refl
   from-inj ⦃ IsData-Pair ⦄ (LIST (da ∷ db ∷ [])) (a , b) p =
@@ -163,7 +158,7 @@ instance
   toData   ⦃ IsData-Payment ⦄ (payment v r d) =
     LIST (toData v ∷ toData r ∷ toData d ∷ [])
   fromData ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) =
-    ap (ap (map payment (fromData dv)) (fromData dr)) (fromData dd)
+    ⦇ payment (fromData dv) (fromData dr) ⦈ <*> fromData dd
   fromData ⦃ IsData-Payment ⦄ _ = nothing
   from∘to ⦃ IsData-Payment ⦄ (payment v r d) rewrite from∘to v | from∘to r | from∘to d = refl
   from-inj ⦃ IsData-Payment ⦄ (LIST (dv ∷ dr ∷ dd ∷ [])) (payment v r d) p =
@@ -179,7 +174,7 @@ instance
     (toData p ∷ toData sigs ∷ [])
   fromData ⦃ IsData-MS ⦄ (CONSTR 0 []) = just Holding
   fromData ⦃ IsData-MS ⦄ (CONSTR 1 (p ∷ sigs ∷ [])) =
-    ap (map Collecting (fromData p)) (fromData sigs)
+    ⦇ Collecting (fromData p) (fromData sigs) ⦈
   fromData ⦃ IsData-MS ⦄ _ = nothing
   from∘to ⦃ IsData-MS ⦄ Holding = refl
   from∘to ⦃ IsData-MS ⦄ (Collecting p sigs)
@@ -215,8 +210,8 @@ instance
   toData ⦃ IsData-MI ⦄ (AddSignature sig) = CONSTR 1 [ toData sig ]
   toData ⦃ IsData-MI ⦄ Pay = CONSTR 2 []
   toData ⦃ IsData-MI ⦄ Cancel = CONSTR 3 []
-  fromData ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) = map ProposePayment (fromData dp)
-  fromData ⦃ IsData-MI ⦄ (CONSTR 1 (dsig ∷ [])) = map AddSignature (fromData dsig)
+  fromData ⦃ IsData-MI ⦄ (CONSTR 0 (dp ∷ [])) = ProposePayment <$> fromData dp
+  fromData ⦃ IsData-MI ⦄ (CONSTR 1 (dsig ∷ [])) = AddSignature <$> fromData dsig
   fromData ⦃ IsData-MI ⦄ (CONSTR 2 []) = just Pay
   fromData ⦃ IsData-MI ⦄ (CONSTR 3 []) = just Cancel
   fromData ⦃ IsData-MI ⦄ _ = nothing
@@ -323,9 +318,31 @@ P (Collecting p _) Cancel txc _ = range≡ txc ≡ just (Payment.paymentDeadline
 P _                Cancel _   _ = ⊥
 P _                _      _   _ = ⊤
 
-lemma : ∀ {s s'} (xs : s ↝* s') → AllI (const ⊤) P xs
+lemma : ∀ {s s'} (xs : s ↝⋆ s') → AllI (const ⊤) P xs
 lemma (root p) = root p tt
 lemma (snoc {s' = Holding}             xs x@(ProposePayment _ , _)) = snoc xs x tt   (lemma xs)
 lemma (snoc {s' = Collecting pay sigs} xs x@(AddSignature sig , _)) = snoc xs x tt   (lemma xs)
 lemma (snoc {s' = Collecting pay sigs} xs x@(Cancel , _ , refl))    = snoc xs x refl (lemma xs)
 lemma (snoc {s' = Collecting pay sigs} xs x@(Pay , _ , _))          = snoc xs x tt   (lemma xs)
+
+
+-- *** a temporal property ***
+-- starting from a `Collecting` state, doing only `Add` moves, the stored signatures are extended
+temp : ∀ {sigs₀} →
+     (λ{ (Collecting _ sigs) → sigs ≡ sigs₀
+       ; Holding             → ⊥ })
+  ↝⋆⟨ (λ{ (AddSignature _) → ⊤
+        ; _                → ⊥ }) ⟩
+     (λ{ (Collecting _ sigs) → sigs₀ ⊆ sigs
+       ; Holding             → ⊥ })
+-- temp {sigs₀} (Collecting _ sigs) ps s′ s↝s′ = {!!}
+temp {sigs₀} (Collecting _ .sigs₀) refl .(Collecting _ sigs₀)
+  base⁇
+  = ⊆-refl
+temp {sigs₀} (Collecting _ .sigs₀) refl s″
+  (step⁇ {s′ = s′} {i = AddSignature sig } s↝s′ (_ , eq) p)
+  with s′ | temp _ refl _ s↝s′
+... | Collecting _ sigs | sigs₀⊆sigs
+  with sig ∈? Signatories | sig ∈? sigs | s″ | eq
+... | yes _ | no _ | .(Collecting _ (sig ∷ sigs)) | refl
+  = there ∘ sigs₀⊆sigs
