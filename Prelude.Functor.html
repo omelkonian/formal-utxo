@@ -1,0 +1,29 @@
+<!DOCTYPE HTML>
+<html><head><meta charset="utf-8"><title>Prelude.Functor</title><link rel="stylesheet" href="css/Agda.css"></head><body><pre class="Agda"><a id="1" class="Keyword">module</a> <a id="8" href="Prelude.Functor.html" class="Module">Prelude.Functor</a> <a id="24" class="Keyword">where</a>
+
+<a id="31" class="Keyword">open</a> <a id="36" class="Keyword">import</a> <a id="43" href="Prelude.Init.html" class="Module">Prelude.Init</a>
+<a id="56" class="Keyword">open</a> <a id="61" class="Keyword">import</a> <a id="68" href="Prelude.DecEq.html" class="Module">Prelude.DecEq</a>
+<a id="82" class="Keyword">open</a> <a id="87" class="Keyword">import</a> <a id="94" href="Prelude.Set%2527.html" class="Module">Prelude.Set&#39;</a>
+
+<a id="108" class="Keyword">private</a>
+  <a id="118" class="Keyword">variable</a>
+    <a id="131" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a> <a id="133" class="Symbol">:</a> <a id="135" href="Agda.Primitive.html#423" class="Postulate">Level</a>
+    <a id="145" href="Prelude.Functor.html#145" class="Generalizable">n</a> <a id="147" class="Symbol">:</a> <a id="149" href="Agda.Builtin.Nat.html#192" class="Datatype">ℕ</a>
+
+<a id="Functor"></a><a id="152" href="Prelude.Functor.html#152" class="Function">Functor</a> <a id="160" class="Symbol">:</a> <a id="162" class="Symbol">(</a><a id="163" class="PrimitiveType">Set</a> <a id="167" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a> <a id="169" class="Symbol">→</a> <a id="171" class="PrimitiveType">Set</a> <a id="175" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a><a id="176" class="Symbol">)</a> <a id="178" class="Symbol">→</a> <a id="180" class="PrimitiveType">Set</a> <a id="184" class="Symbol">(</a><a id="185" href="Prelude.Init.html#108" class="Primitive">lsuc</a> <a id="190" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a><a id="191" class="Symbol">)</a>
+<a id="193" href="Prelude.Functor.html#152" class="Function">Functor</a> <a id="201" class="Symbol">{</a><a id="202" class="Argument">ℓ</a> <a id="204" class="Symbol">=</a> <a id="206" href="Prelude.Functor.html#206" class="Bound">ℓ</a><a id="207" class="Symbol">}</a> <a id="209" class="Symbol">=</a> <a id="211" href="Category.Functor.html#481" class="Record">RawFunctor</a> <a id="222" class="Symbol">{</a><a id="223" class="Argument">ℓ</a> <a id="225" class="Symbol">=</a> <a id="227" href="Prelude.Functor.html#206" class="Bound">ℓ</a><a id="228" class="Symbol">}</a> <a id="230" class="Symbol">{</a><a id="231" class="Argument">ℓ′</a> <a id="234" class="Symbol">=</a> <a id="236" href="Prelude.Functor.html#206" class="Bound">ℓ</a><a id="237" class="Symbol">}</a>
+<a id="239" class="Keyword">open</a> <a id="244" href="Category.Functor.html#481" class="Module">RawFunctor</a> <a id="255" class="Symbol">{{...}}</a> <a id="263" class="Keyword">public</a>
+
+<a id="271" class="Keyword">instance</a>
+  <a id="Functor-Maybe"></a><a id="282" href="Prelude.Functor.html#282" class="Function">Functor-Maybe</a> <a id="296" class="Symbol">:</a> <a id="298" href="Prelude.Functor.html#152" class="Function">Functor</a> <a id="306" class="Symbol">{</a><a id="307" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a><a id="308" class="Symbol">}</a> <a id="310" href="Data.Maybe.Base.html#838" class="Datatype">Maybe</a>
+  <a id="318" href="Prelude.Functor.html#282" class="Function">Functor-Maybe</a> <a id="332" class="Symbol">=</a> <a id="334" href="Data.Maybe.Categorical.html#569" class="Function">M.Cat.functor</a>
+
+  <a id="Functor-List"></a><a id="351" href="Prelude.Functor.html#351" class="Function">Functor-List</a> <a id="364" class="Symbol">:</a> <a id="366" href="Prelude.Functor.html#152" class="Function">Functor</a> <a id="374" class="Symbol">{</a><a id="375" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a><a id="376" class="Symbol">}</a> <a id="378" href="Agda.Builtin.List.html#148" class="Datatype">List</a>
+  <a id="385" href="Prelude.Functor.html#351" class="Function">Functor-List</a> <a id="398" class="Symbol">=</a> <a id="400" href="Data.List.Categorical.html#706" class="Function">L.Cat.functor</a>
+
+  <a id="Functor-Vec"></a><a id="417" href="Prelude.Functor.html#417" class="Function">Functor-Vec</a> <a id="429" class="Symbol">:</a> <a id="431" href="Prelude.Functor.html#152" class="Function">Functor</a> <a id="439" class="Symbol">{</a><a id="440" href="Prelude.Functor.html#131" class="Generalizable">ℓ</a><a id="441" class="Symbol">}</a> <a id="443" class="Symbol">(</a><a id="444" href="Function.Base.html#1193" class="Function">flip</a> <a id="449" href="Data.Vec.Base.html#959" class="Datatype">Vec</a> <a id="453" href="Prelude.Functor.html#145" class="Generalizable">n</a><a id="454" class="Symbol">)</a>
+  <a id="458" href="Prelude.Functor.html#417" class="Function">Functor-Vec</a> <a id="470" class="Symbol">=</a> <a id="472" href="Data.Vec.Categorical.html#781" class="Function">V.Cat.functor</a>
+
+  <a id="489" class="Comment">-- Functor-Set&#39; : Functor {0ℓ} λ A {{_ : DecEq A}} → Set⟨ A ⟩</a>
+  <a id="553" class="Comment">-- Functor-Set&#39; ._&lt;$&gt;_ f = (f &lt;$&gt;_) ∘ list</a>
+</pre></body></html>

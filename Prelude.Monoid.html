@@ -1,0 +1,27 @@
+<!DOCTYPE HTML>
+<html><head><meta charset="utf-8"><title>Prelude.Monoid</title><link rel="stylesheet" href="css/Agda.css"></head><body><pre class="Agda"><a id="1" class="Keyword">module</a> <a id="8" href="Prelude.Monoid.html" class="Module">Prelude.Monoid</a> <a id="23" class="Keyword">where</a>
+
+<a id="30" class="Keyword">open</a> <a id="35" class="Keyword">import</a> <a id="42" href="Prelude.Init.html" class="Module">Prelude.Init</a>
+<a id="55" class="Keyword">open</a> <a id="60" class="Keyword">import</a> <a id="67" href="Prelude.Semigroup.html" class="Module">Prelude.Semigroup</a> <a id="85" class="Keyword">public</a>
+
+<a id="93" class="Keyword">record</a> <a id="Monoid"></a><a id="100" href="Prelude.Monoid.html#100" class="Record">Monoid</a> <a id="107" class="Symbol">(</a><a id="108" href="Prelude.Monoid.html#108" class="Bound">A</a> <a id="110" class="Symbol">:</a> <a id="112" class="PrimitiveType">Set</a><a id="115" class="Symbol">)</a> <a id="117" class="Symbol">:</a> <a id="119" class="PrimitiveType">Set</a> <a id="123" class="Keyword">where</a>
+  <a id="131" class="Keyword">field</a>
+    <a id="Monoid.ε"></a><a id="141" href="Prelude.Monoid.html#141" class="Field">ε</a> <a id="143" class="Symbol">:</a> <a id="145" href="Prelude.Monoid.html#108" class="Bound">A</a>
+    <a id="151" class="Keyword">overlap</a> <a id="159" class="Symbol">{{</a><a id="Monoid.smₐ"></a><a id="161" href="Prelude.Monoid.html#161" class="Field">smₐ</a><a id="164" class="Symbol">}}</a> <a id="167" class="Symbol">:</a> <a id="169" href="Prelude.Semigroup.html#66" class="Record">Semigroup</a> <a id="179" href="Prelude.Monoid.html#108" class="Bound">A</a>
+
+<a id="182" class="Keyword">open</a> <a id="187" href="Prelude.Monoid.html#100" class="Module">Monoid</a> <a id="194" class="Symbol">{{...}}</a> <a id="202" class="Keyword">public</a> <a id="209" class="Keyword">hiding</a> <a id="216" class="Symbol">(</a>smₐ<a id="220" class="Symbol">)</a>
+
+<a id="223" class="Keyword">private</a>
+  <a id="233" class="Keyword">variable</a>
+    <a id="246" href="Prelude.Monoid.html#246" class="Generalizable">A</a> <a id="248" class="Symbol">:</a> <a id="250" class="PrimitiveType">Set</a>
+
+<a id="255" class="Keyword">instance</a>
+  <a id="Monoid-List"></a><a id="266" href="Prelude.Monoid.html#266" class="Function">Monoid-List</a> <a id="278" class="Symbol">:</a> <a id="280" href="Prelude.Monoid.html#100" class="Record">Monoid</a> <a id="287" class="Symbol">(</a><a id="288" href="Agda.Builtin.List.html#148" class="Datatype">List</a> <a id="293" href="Prelude.Monoid.html#246" class="Generalizable">A</a><a id="294" class="Symbol">)</a>
+  <a id="298" href="Prelude.Monoid.html#266" class="Function">Monoid-List</a> <a id="310" class="Symbol">.</a><a id="311" href="Prelude.Monoid.html#141" class="Field">ε</a> <a id="313" class="Symbol">=</a> <a id="315" href="Agda.Builtin.List.html#185" class="InductiveConstructor">[]</a>
+
+  <a id="Monoid-Vec"></a><a id="321" href="Prelude.Monoid.html#321" class="Function">Monoid-Vec</a> <a id="332" class="Symbol">:</a> <a id="334" href="Prelude.Monoid.html#100" class="Record">Monoid</a> <a id="341" class="Symbol">(</a><a id="342" href="Data.Product.html#1369" class="Function">∃</a> <a id="344" class="Symbol">(</a><a id="345" href="Data.Vec.Base.html#959" class="Datatype">Vec</a> <a id="349" href="Prelude.Monoid.html#246" class="Generalizable">A</a><a id="350" class="Symbol">))</a>
+  <a id="355" href="Prelude.Monoid.html#321" class="Function">Monoid-Vec</a> <a id="366" class="Symbol">.</a><a id="367" href="Prelude.Monoid.html#141" class="Field">ε</a> <a id="369" class="Symbol">=</a> <a id="371" class="Number">0</a> <a id="373" href="Agda.Builtin.Sigma.html#236" class="InductiveConstructor Operator">,</a> <a id="375" href="Data.Vec.Base.html#995" class="InductiveConstructor">[]</a>
+
+  <a id="Monoid-String"></a><a id="381" href="Prelude.Monoid.html#381" class="Function">Monoid-String</a> <a id="395" class="Symbol">:</a> <a id="397" href="Prelude.Monoid.html#100" class="Record">Monoid</a> <a id="404" href="Agda.Builtin.String.html#274" class="Postulate">String</a>
+  <a id="413" href="Prelude.Monoid.html#381" class="Function">Monoid-String</a> <a id="427" class="Symbol">.</a><a id="428" href="Prelude.Monoid.html#141" class="Field">ε</a>   <a id="432" class="Symbol">=</a> <a id="434" class="String">&quot;&quot;</a>
+</pre></body></html>

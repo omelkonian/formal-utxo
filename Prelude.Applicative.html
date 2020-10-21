@@ -1,0 +1,30 @@
+<!DOCTYPE HTML>
+<html><head><meta charset="utf-8"><title>Prelude.Applicative</title><link rel="stylesheet" href="css/Agda.css"></head><body><pre class="Agda"><a id="1" class="Keyword">module</a> <a id="8" href="Prelude.Applicative.html" class="Module">Prelude.Applicative</a> <a id="28" class="Keyword">where</a>
+
+<a id="35" class="Keyword">open</a> <a id="40" class="Keyword">import</a> <a id="47" href="Prelude.Init.html" class="Module">Prelude.Init</a>
+
+<a id="61" class="Keyword">private</a>
+  <a id="71" class="Keyword">variable</a>
+    <a id="84" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a> <a id="86" class="Symbol">:</a> <a id="88" href="Agda.Primitive.html#423" class="Postulate">Level</a>
+
+<a id="Applicative"></a><a id="95" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="107" class="Symbol">:</a> <a id="109" class="Symbol">(</a><a id="110" class="PrimitiveType">Set</a> <a id="114" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a> <a id="116" class="Symbol">→</a> <a id="118" class="PrimitiveType">Set</a> <a id="122" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="123" class="Symbol">)</a> <a id="125" class="Symbol">→</a> <a id="127" class="PrimitiveType">Set</a> <a id="131" class="Symbol">(</a><a id="132" href="Prelude.Init.html#108" class="Primitive">lsuc</a> <a id="137" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="138" class="Symbol">)</a>
+<a id="140" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="152" class="Symbol">{</a><a id="153" class="Argument">ℓ</a> <a id="155" class="Symbol">=</a> <a id="157" href="Prelude.Applicative.html#157" class="Bound">ℓ</a><a id="158" class="Symbol">}</a> <a id="160" class="Symbol">=</a> <a id="162" href="Category.Applicative.html#494" class="Function">RawApplicative</a> <a id="177" class="Symbol">{</a><a id="178" class="Argument">f</a> <a id="180" class="Symbol">=</a> <a id="182" href="Prelude.Applicative.html#157" class="Bound">ℓ</a><a id="183" class="Symbol">}</a>
+<a id="185" class="Keyword">open</a> <a id="190" href="Category.Applicative.html#602" class="Module">RawApplicative</a> <a id="205" class="Symbol">{{...}}</a> <a id="213" class="Keyword">public</a>
+  <a id="222" class="Keyword">renaming</a> <a id="231" class="Symbol">(</a>_⊛_ <a id="236" class="Symbol">to</a> _&lt;*&gt;_<a id="244" class="Symbol">)</a>
+
+<a id="247" class="Keyword">instance</a>
+  <a id="Applicative-Maybe"></a><a id="258" href="Prelude.Applicative.html#258" class="Function">Applicative-Maybe</a> <a id="276" class="Symbol">:</a> <a id="278" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="290" class="Symbol">{</a><a id="291" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="292" class="Symbol">}</a> <a id="294" href="Data.Maybe.Base.html#838" class="Datatype">Maybe</a>
+  <a id="302" href="Prelude.Applicative.html#258" class="Function">Applicative-Maybe</a> <a id="320" class="Symbol">=</a> <a id="322" href="Data.Maybe.Categorical.html#646" class="Function">M.Cat.applicative</a>
+
+  <a id="Applicative-List"></a><a id="343" href="Prelude.Applicative.html#343" class="Function">Applicative-List</a> <a id="360" class="Symbol">:</a> <a id="362" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="374" class="Symbol">{</a><a id="375" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="376" class="Symbol">}</a> <a id="378" href="Agda.Builtin.List.html#148" class="Datatype">List</a>
+  <a id="385" href="Prelude.Applicative.html#343" class="Function">Applicative-List</a> <a id="402" class="Symbol">=</a> <a id="404" href="Data.List.Categorical.html#778" class="Function">L.Cat.applicative</a>
+
+  <a id="Applicative-List⁺"></a><a id="425" href="Prelude.Applicative.html#425" class="Function">Applicative-List⁺</a> <a id="443" class="Symbol">:</a> <a id="445" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="457" class="Symbol">{</a><a id="458" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="459" class="Symbol">}</a> <a id="461" href="Data.List.NonEmpty.html#1318" class="Record">List⁺</a>
+  <a id="469" href="Prelude.Applicative.html#425" class="Function">Applicative-List⁺</a> <a id="487" class="Symbol">=</a> <a id="489" href="Data.List.NonEmpty.Categorical.html#751" class="Function">L.NE.Cat.applicative</a>
+
+  <a id="Applicative-Vec"></a><a id="513" href="Prelude.Applicative.html#513" class="Function">Applicative-Vec</a> <a id="529" class="Symbol">:</a> <a id="531" class="Symbol">∀</a> <a id="533" class="Symbol">{</a><a id="534" href="Prelude.Applicative.html#534" class="Bound">n</a><a id="535" class="Symbol">}</a> <a id="537" class="Symbol">→</a> <a id="539" href="Prelude.Applicative.html#95" class="Function">Applicative</a> <a id="551" class="Symbol">{</a><a id="552" href="Prelude.Applicative.html#84" class="Generalizable">ℓ</a><a id="553" class="Symbol">}</a> <a id="555" class="Symbol">(</a><a id="556" href="Function.Base.html#1193" class="Function">flip</a> <a id="561" href="Data.Vec.Base.html#959" class="Datatype">Vec</a> <a id="565" href="Prelude.Applicative.html#534" class="Bound">n</a><a id="566" class="Symbol">)</a>
+  <a id="570" href="Prelude.Applicative.html#513" class="Function">Applicative-Vec</a> <a id="586" class="Symbol">=</a> <a id="588" href="Data.Vec.Categorical.html#866" class="Function">V.Cat.applicative</a>
+
+  <a id="609" class="Comment">-- Applicative-∃Vec : Applicative {ℓ} (∃ ∘ Vec)</a>
+  <a id="659" class="Comment">-- Applicative-∃Vec = record { pure = λ x → 1 , pure x ; _⊛_ = λ{ (_ , v) (_ , v′) → _ , (V._⊛_ v v′) } }</a>
+</pre></body></html>
