@@ -128,7 +128,7 @@ infix 6 t=_
 record TxOutputRef : Set where
   constructor _indexed-at_
   field
-    id    : HashId -- hash of the referenced transaction
+    hid   : HashId -- hash of the referenced transaction
     index : ℕ      -- index into its outputs
 unquoteDecl DecEqᵒʳ = DERIVE DecEq [ quote TxOutputRef , DecEqᵒʳ ]
 open TxOutputRef public

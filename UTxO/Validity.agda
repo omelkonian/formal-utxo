@@ -190,7 +190,7 @@ postulate
 --   → ValidLedger (tx ∷ l)
 --   → ∀ o → o ∈ outputRefs tx
 --   → ∃[ tx′ ] ( (tx′ ∈ l)
---              × (tx′ ♯ ≡ id o) )
+--              × (tx′ ♯ ≡ hid o) )
 -- traceRef {tx} {l} (vl ⊕ .tx ∶- vtx) o o∈ = {!!}
 
 
@@ -209,7 +209,7 @@ record Res {tx : Tx} {l : Ledger} (vl : ValidLedger l) (vtx : IsValidTx tx l) : 
     spent≡   : ∃ λ i → (i ∈ inputs tx) × (getSpentOutput l i ≡ just prevOut)
 
     -- ≈ prevTx ↝⟦ {-value prevOut ◆-} ⟧ tx
-    or∈      : Any ((prevTx ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
+    or∈      : Any ((prevTx ♯ₜₓ ≡_) ∘ hid) (outputRefs tx)
     ⁉≡just   : outputs prevTx ⟦ index (L.Any.lookup or∈) ⟧ ≡ just prevOut
 
 resValue : ∀ {tx l} {vl : ValidLedger l} {vtx : IsValidTx tx l} → Res vl vtx → Value
@@ -236,13 +236,13 @@ prevs {tx} {l} vl vtx
                  ; ⁉≡just   = ⁉≡just
                  }
         where
-          id≡ : prevTx u ♯ₜₓ ≡ id (outputRef i)
+          id≡ : prevTx u ♯ₜₓ ≡ hid (outputRef i)
           id≡ = sym $ ⟨⟩≡just {l}{outputRef i}{prevTx u} (utxo-[] {l} u∈)
 
-          P⊆Q : ∀ {or} → outputRef i ≡ or → prevTx u ♯ₜₓ ≡ id or
+          P⊆Q : ∀ {or} → outputRef i ≡ or → prevTx u ♯ₜₓ ≡ hid or
           P⊆Q refl = id≡
 
-          or∈ : Any ((prevTx u ♯ₜₓ ≡_) ∘ id) (outputRefs tx)
+          or∈ : Any ((prevTx u ♯ₜₓ ≡_) ∘ hid) (outputRefs tx)
           or∈ = L.Any.map P⊆Q (∈-map⁺ outputRef i∈)
 
           outRef≡ : L.Any.lookup or∈ ≡ outputRef i

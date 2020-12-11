@@ -157,7 +157,7 @@ hh {tx = tx}{tx′} (or∈ , o , ⁉≡just , ◆∈v) tx∈
   where
     l = proj₁ $ ∈⇒Suffix tx∈
 
-    ∃i : ∃ λ i → i ∈ inputs tx′ × (tx ♯ₜₓ ≡ id (outputRef i))
+    ∃i : ∃ λ i → i ∈ inputs tx′ × (tx ♯ₜₓ ≡ hid (outputRef i))
     ∃i  = find $ L.Any.map⁻ or∈
     i   = proj₁ ∃i
     i∈  = proj₁ $ proj₂ ∃i

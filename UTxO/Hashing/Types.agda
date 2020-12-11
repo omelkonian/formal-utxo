@@ -10,7 +10,7 @@ open import UTxO.Value
 open import UTxO.Types
 
 _♯ₒᵣ : Hash TxOutputRef
-o ♯ₒᵣ = merge♯ (id o ∷ index o ∷ [])
+o ♯ₒᵣ = merge♯ (hid o ∷ index o ∷ [])
 
 _♯ᵢ : Hash TxInput
 i ♯ᵢ = (outputRef i) ♯ₒᵣ

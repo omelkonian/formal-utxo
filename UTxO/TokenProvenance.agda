@@ -28,7 +28,7 @@ private
 -- Definitions.
 
 _↝⟦_⟧_ : Tx → Quantity → Tx → Set
-tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ₜₓ ≡_) ∘ id) (outputRefs tx′) ]
+tx ↝⟦ n ⟧ tx′ = Σ[ or∈ ∈ Any ((tx ♯ₜₓ ≡_) ∘ hid) (outputRefs tx′) ]
                   ∃[ o ] ( ((outputs tx ⁉ index (L.Any.lookup or∈)) ≡ just o)
                          × (value o ◆ ≥ n) )
 

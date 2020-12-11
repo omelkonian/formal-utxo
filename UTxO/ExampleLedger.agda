@@ -38,14 +38,14 @@ dummyValidator : PendingTx → DATA → DATA → Bool
 dummyValidator _ _ _ = true
 
 mkValidator : TxOutputRef → (PendingTx → DATA → DATA → Bool)
-mkValidator tin _ (LIST (I (+ n) ∷ I (+ n') ∷ [])) _ = (id tin == n) ∧ (index tin == n')
-mkValidator tin _ _ _                                        = false
+mkValidator tin _ (LIST (I (+ n) ∷ I (+ n') ∷ [])) _ = (hid tin == n) ∧ (index tin == n')
+mkValidator tin _ _ _                                = false
 
 -- smart constructors
 withScripts : TxOutputRef → TxInput
 withScripts tin = record { outputRef = tin
-                         ; redeemer  = LIST ⟦ I (+ id tin) , I (+ index tin) ⟧
-                                       {- λ _ → id tin , index tin -}
+                         ; redeemer  = LIST ⟦ I (+ hid tin) , I (+ index tin) ⟧
+                                       {- λ _ → hid tin , index tin -}
                          ; validator = mkValidator tin
                          ; datum     = def
                          }

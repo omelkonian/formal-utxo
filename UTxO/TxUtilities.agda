@@ -80,22 +80,22 @@ map-out≡ tx =
 _⟨_⟩ : Ledger → TxOutputRef → Maybe Tx
 [] ⟨ or ⟩ = nothing
 (tx ∷ l) ⟨ or ⟩
-  with id or ≟ tx ♯ₜₓ
+  with hid or ≟ tx ♯ₜₓ
 ... | yes _ = just tx
 ... | no  _ = l ⟨ or ⟩
 
 ⟨⟩≡just : ∀ {l or tx}
   → l ⟨ or ⟩ ≡ just tx
-  → id or ≡ tx ♯ₜₓ
+  → hid or ≡ tx ♯ₜₓ
 ⟨⟩≡just {l = []}              ()
 ⟨⟩≡just {l = tx′ ∷ l}{or}{tx} eq
-  with id or ≟ tx′ ♯ₜₓ | eq
+  with hid or ≟ tx′ ♯ₜₓ | eq
 ... | yes refl | refl = refl
 ... | no  _    | eq′  = ⟨⟩≡just {l}{or}{tx} eq′
 
 utxo-outRef↔prevTx : ∀ {u l}
   → u ∈ utxo l
-  → id (outRef u) ≡ prevTx u ♯ₜₓ
+  → hid (outRef u) ≡ prevTx u ♯ₜₓ
 utxo-outRef↔prevTx {u} {l} u∈
   rewrite proj₂ (proj₂ (∈utxo⇒outRef≡ {u} {l} u∈))
         = refl
@@ -107,7 +107,7 @@ utxo-∈ʳ {u} {tx} = mapWith∈-∀ {P = (tx ≡_) ∘ prevTx} λ _ → refl
 
 utxo-≢ : ∀ {l u tx}
   → u ∈ utxo (tx ∷ l)
-  → id (outRef u) ≢ tx ♯ₜₓ
+  → hid (outRef u) ≢ tx ♯ₜₓ
   → u ∈ utxo l
 utxo-≢ {l} {u} {tx} u∈ ¬p
   with ∈-++⁻ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) u∈
@@ -120,7 +120,7 @@ utxo-[] : ∀ {l u}
   → u ∈ utxo l
   → l ⟨ outRef u ⟩ ≡ just (prevTx u)
 utxo-[] {l = tx ∷ l} {u} u∈
-  with id (outRef u) ≟ tx ♯ₜₓ
+  with hid (outRef u) ≟ tx ♯ₜₓ
 ... | yes p
   rewrite injective♯ₜₓ {x = prevTx u} {y = tx} (trans (sym (utxo-outRef↔prevTx {u} {tx ∷ l} u∈)) p)
     = refl
@@ -214,14 +214,14 @@ outRef∈txi {tx}{l}{o} o∈ with inputs tx | o∈
 
 lookup-⟨⟩ : ∀ {tx l i}
   → Is-just (getSpentOutput l i)
-  → id (outputRef i) ≡ tx ♯ₜₓ
+  → hid (outputRef i) ≡ tx ♯ₜₓ
     ----------------------------
   → l ⟨ outputRef i ⟩ ≡ just tx
 lookup-⟨⟩ {tx}{l}{i@(record{outputRef = or})} getSpent≡ id≡
   with l       | getSpent≡
 ... | []       | ()
 ... | tx′ ∷ l′ | getSpent≡′
-  with id or ≟ tx′ ♯ₜₓ
+  with hid or ≟ tx′ ♯ₜₓ
 ... | yes refl
   rewrite injective♯ₜₓ {x = tx′} {y = tx} id≡
     = refl
@@ -230,7 +230,7 @@ lookup-⟨⟩ {tx}{l}{i@(record{outputRef = or})} getSpent≡ id≡
 
 lookup-⟦⟧ : ∀ {tx l i o}
   → Is-just (getSpentOutput l i)
-  → id (outputRef i) ≡ tx ♯ₜₓ
+  → hid (outputRef i) ≡ tx ♯ₜₓ
   → outputs tx ⟦ index (outputRef i) ⟧ ≡ just o
     -------------------------------------------
   → getSpentOutput l i ≡ just o
