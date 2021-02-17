@@ -6,7 +6,7 @@ open import Data.List.Membership.Propositional.Properties using (∈-++⁻; ∈-
 open import Prelude.Init
 open import Prelude.Lists
 open import Prelude.DecEq
-open import Prelude.Set'
+open import Prelude.Sets
 open import Prelude.ToN
 -- open import Prelude.Functor
 open import Prelude.Bifunctor

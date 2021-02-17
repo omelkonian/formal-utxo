@@ -7,7 +7,7 @@ import Data.List.Relation.Unary.AllPairs as AllPairs
 open import Prelude.Init
 open import Prelude.Lists
 open import Prelude.DecEq
-open import Prelude.Set'
+open import Prelude.Sets
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types

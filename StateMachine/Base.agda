@@ -18,7 +18,7 @@ open import Prelude.General
 open import Prelude.Lists using (enumerate)
 open import Prelude.Default
 open import Prelude.DecEq
-open import Prelude.Set'
+open import Prelude.Sets
 open import Prelude.Monad
 
 open import UTxO.Hashing

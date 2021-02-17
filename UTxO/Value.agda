@@ -4,7 +4,7 @@ module UTxO.Value where
 open import Prelude.Init
 open import Prelude.Lists
 open import Prelude.DecEq
-open import Prelude.Set'
+open import Prelude.Sets
 open import Prelude.Monad
 open import Prelude.Bifunctor
 
@@ -147,6 +147,8 @@ private
     xs ys : List A
     v     : List (ℕ × A)
     m     : Map B
+
+open Alg≡
 
 postulate
   -- Properties of _+ᶜ_

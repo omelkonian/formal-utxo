@@ -7,7 +7,7 @@ open import Data.List.Relation.Binary.Permutation.Propositional.Properties using
 open import Prelude.Init
 open import Prelude.Lists using (mapWith∈↭filter; ↭⇒≡)
 open import Prelude.DecEq
-open import Prelude.Set'
+open import Prelude.Sets
 open import Prelude.Monad
 
 open import UTxO.Hashing

@@ -9,7 +9,7 @@ open import Prelude.Init hiding (module M; _∋_)
 open import Prelude.Lists
 open import Prelude.DecEq
 open import Prelude.Functor
-open import Prelude.Set' hiding (_∈′_)
+open import Prelude.Sets
 
 open import UTxO.Hashing
 open import UTxO.Value
