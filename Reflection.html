@@ -1,248 +1,237 @@
 <!DOCTYPE HTML>
-<html><head><meta charset="utf-8"><title>Reflection</title><link rel="stylesheet" href="css/Agda.css"></head><body><pre class="Agda"><a id="1" class="Comment">------------------------------------------------------------------------</a>
+<html><head><meta charset="utf-8"><title>Reflection</title><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css'/><style>.github-fork-ribbon:before { background-color: #333; }</style><link rel="stylesheet" href="css/Agda.css"></head><body><a class='github-fork-ribbon'href='https://github.com/omelkonian/formal-utxo/tree/master/'data-ribbon='Source code on Github' title='Source code on Github'>Source code on Github</a><pre class="Agda"><a id="1" class="Comment">------------------------------------------------------------------------</a>
 <a id="74" class="Comment">-- The Agda standard library</a>
 <a id="103" class="Comment">--</a>
 <a id="106" class="Comment">-- Support for reflection</a>
 <a id="132" class="Comment">------------------------------------------------------------------------</a>
 
-<a id="206" class="Symbol">{-#</a> <a id="210" class="Keyword">OPTIONS</a> <a id="218" class="Pragma">--without-K</a> <a id="230" class="Pragma">--safe</a> <a id="237" class="Symbol">#-}</a>
+<a id="206" class="Symbol">{-#</a> <a id="210" class="Keyword">OPTIONS</a> <a id="218" class="Pragma">--cubical-compatible</a> <a id="239" class="Pragma">--safe</a> <a id="246" class="Symbol">#-}</a>
 
-<a id="242" class="Keyword">module</a> <a id="249" href="Reflection.html" class="Module">Reflection</a> <a id="260" class="Keyword">where</a>
+<a id="251" class="Keyword">module</a> <a id="258" href="Reflection.html" class="Module">Reflection</a> <a id="269" class="Keyword">where</a>
 
-<a id="267" class="Keyword">import</a> <a id="274" href="Agda.Builtin.Reflection.html" class="Module">Agda.Builtin.Reflection</a> <a id="298" class="Symbol">as</a> <a id="301" class="Module">Builtin</a>
+<a id="276" class="Keyword">import</a> <a id="283" href="Agda.Builtin.Reflection.html" class="Module">Agda.Builtin.Reflection</a> <a id="307" class="Symbol">as</a> <a id="310" class="Module">Builtin</a>
 
-<a id="310" class="Comment">------------------------------------------------------------------------</a>
-<a id="383" class="Comment">-- Names, Metas, and Literals re-exported publicly</a>
+<a id="319" class="Comment">------------------------------------------------------------------------</a>
+<a id="392" class="Comment">-- Names, Metas, and Literals re-exported publicly</a>
 
-<a id="435" class="Keyword">open</a> <a id="440" class="Keyword">import</a> <a id="447" href="Reflection.Abstraction.html" class="Module">Reflection.Abstraction</a> <a id="470" class="Symbol">as</a> <a id="473" class="Module">Abstraction</a> <a id="485" class="Keyword">public</a>
-  <a id="494" class="Keyword">using</a> <a id="500" class="Symbol">(</a><a id="501" href="Agda.Builtin.Reflection.html#3475" class="Datatype">Abs</a><a id="504" class="Symbol">;</a> <a id="506" href="Agda.Builtin.Reflection.html#3511" class="InductiveConstructor">abs</a><a id="509" class="Symbol">)</a>
-<a id="511" class="Keyword">open</a> <a id="516" class="Keyword">import</a> <a id="523" href="Reflection.Argument.html" class="Module">Reflection.Argument</a> <a id="543" class="Symbol">as</a> <a id="546" class="Module">Argument</a> <a id="555" class="Keyword">public</a>
-  <a id="564" class="Keyword">using</a> <a id="570" class="Symbol">(</a><a id="571" href="Agda.Builtin.Reflection.html#3228" class="Datatype">Arg</a><a id="574" class="Symbol">;</a> <a id="576" href="Agda.Builtin.Reflection.html#3264" class="InductiveConstructor">arg</a><a id="579" class="Symbol">;</a> <a id="581" href="Reflection.Argument.html#1325" class="Function">Args</a><a id="585" class="Symbol">;</a> <a id="587" href="Reflection.Argument.html#1071" class="InductiveConstructor">vArg</a><a id="591" class="Symbol">;</a> <a id="593" href="Reflection.Argument.html#1126" class="InductiveConstructor">hArg</a><a id="597" class="Symbol">;</a> <a id="599" href="Reflection.Argument.html#1181" class="InductiveConstructor">iArg</a><a id="603" class="Symbol">)</a>
-<a id="605" class="Keyword">open</a> <a id="610" class="Keyword">import</a> <a id="617" href="Reflection.Definition.html" class="Module">Reflection.Definition</a> <a id="639" class="Symbol">as</a> <a id="642" class="Module">Definition</a>  <a id="654" class="Keyword">public</a>
-  <a id="663" class="Keyword">using</a> <a id="669" class="Symbol">(</a><a id="670" href="Agda.Builtin.Reflection.html#6317" class="Datatype">Definition</a><a id="680" class="Symbol">)</a>
-<a id="682" class="Keyword">open</a> <a id="687" class="Keyword">import</a> <a id="694" href="Reflection.Meta.html" class="Module">Reflection.Meta</a> <a id="710" class="Symbol">as</a> <a id="713" class="Module">Meta</a> <a id="718" class="Keyword">public</a>
-  <a id="727" class="Keyword">using</a> <a id="733" class="Symbol">(</a><a id="734" href="Agda.Builtin.Reflection.html#2431" class="Postulate">Meta</a><a id="738" class="Symbol">)</a>
-<a id="740" class="Keyword">open</a> <a id="745" class="Keyword">import</a> <a id="752" href="Reflection.Name.html" class="Module">Reflection.Name</a> <a id="768" class="Symbol">as</a> <a id="771" class="Module">Name</a> <a id="776" class="Keyword">public</a>
-  <a id="785" class="Keyword">using</a> <a id="791" class="Symbol">(</a><a id="792" href="Agda.Builtin.Reflection.html#462" class="Postulate">Name</a><a id="796" class="Symbol">;</a> <a id="798" href="Reflection.Name.html#1058" class="Function">Names</a><a id="803" class="Symbol">)</a>
-<a id="805" class="Keyword">open</a> <a id="810" class="Keyword">import</a> <a id="817" href="Reflection.Literal.html" class="Module">Reflection.Literal</a> <a id="836" class="Symbol">as</a> <a id="839" class="Module">Literal</a> <a id="847" class="Keyword">public</a>
-  <a id="856" class="Keyword">using</a> <a id="862" class="Symbol">(</a><a id="863" href="Agda.Builtin.Reflection.html#3623" class="Datatype">Literal</a><a id="870" class="Symbol">)</a>
-<a id="872" class="Keyword">open</a> <a id="877" class="Keyword">import</a> <a id="884" href="Reflection.Pattern.html" class="Module">Reflection.Pattern</a> <a id="903" class="Symbol">as</a> <a id="906" class="Module">Pattern</a> <a id="914" class="Keyword">public</a>
-  <a id="923" class="Keyword">using</a> <a id="929" class="Symbol">(</a><a id="930" href="Agda.Builtin.Reflection.html#4208" class="Datatype">Pattern</a><a id="937" class="Symbol">)</a>
-<a id="939" class="Keyword">open</a> <a id="944" class="Keyword">import</a> <a id="951" href="Reflection.Term.html" class="Module">Reflection.Term</a> <a id="967" class="Symbol">as</a> <a id="970" class="Module">Term</a> <a id="975" class="Keyword">public</a>
-  <a id="984" class="Keyword">using</a> <a id="990" class="Symbol">(</a><a id="991" href="Agda.Builtin.Reflection.html#4751" class="Datatype">Term</a><a id="995" class="Symbol">;</a> <a id="997" href="Agda.Builtin.Reflection.html#4764" class="Function">Type</a><a id="1001" class="Symbol">;</a> <a id="1003" href="Agda.Builtin.Reflection.html#4733" class="Datatype">Clause</a><a id="1009" class="Symbol">;</a> <a id="1011" href="Reflection.Term.html#1451" class="Function">Clauses</a><a id="1018" class="Symbol">;</a> <a id="1020" href="Agda.Builtin.Reflection.html#4715" class="Datatype">Sort</a><a id="1024" class="Symbol">)</a>
+<a id="444" class="Keyword">open</a> <a id="449" class="Keyword">import</a> <a id="456" href="Reflection.Abstraction.html" class="Module">Reflection.Abstraction</a> <a id="479" class="Symbol">as</a> <a id="482" class="Module">Abstraction</a> <a id="494" class="Keyword">public</a>
+  <a id="503" class="Keyword">using</a> <a id="509" class="Symbol">(</a><a id="510" href="Agda.Builtin.Reflection.html#3926" class="Datatype">Abs</a><a id="513" class="Symbol">;</a> <a id="515" href="Agda.Builtin.Reflection.html#3962" class="InductiveConstructor">abs</a><a id="518" class="Symbol">)</a>
+<a id="520" class="Keyword">open</a> <a id="525" class="Keyword">import</a> <a id="532" href="Reflection.Argument.html" class="Module">Reflection.Argument</a> <a id="552" class="Symbol">as</a> <a id="555" class="Module">Argument</a> <a id="564" class="Keyword">public</a>
+  <a id="573" class="Keyword">using</a> <a id="579" class="Symbol">(</a><a id="580" href="Agda.Builtin.Reflection.html#3679" class="Datatype">Arg</a><a id="583" class="Symbol">;</a> <a id="585" href="Agda.Builtin.Reflection.html#3715" class="InductiveConstructor">arg</a><a id="588" class="Symbol">;</a> <a id="590" href="Reflection.Argument.html#1493" class="Function">Args</a><a id="594" class="Symbol">;</a> <a id="596" href="Reflection.Argument.html#1218" class="InductiveConstructor">vArg</a><a id="600" class="Symbol">;</a> <a id="602" href="Reflection.Argument.html#1280" class="InductiveConstructor">hArg</a><a id="606" class="Symbol">;</a> <a id="608" href="Reflection.Argument.html#1342" class="InductiveConstructor">iArg</a><a id="612" class="Symbol">;</a> <a id="614" href="Reflection.Argument.html#1162" class="InductiveConstructor">defaultModality</a><a id="629" class="Symbol">)</a>
+<a id="631" class="Keyword">open</a> <a id="636" class="Keyword">import</a> <a id="643" href="Reflection.Definition.html" class="Module">Reflection.Definition</a> <a id="665" class="Symbol">as</a> <a id="668" class="Module">Definition</a>  <a id="680" class="Keyword">public</a>
+  <a id="689" class="Keyword">using</a> <a id="695" class="Symbol">(</a><a id="696" href="Agda.Builtin.Reflection.html#7162" class="Datatype">Definition</a><a id="706" class="Symbol">)</a>
+<a id="708" class="Keyword">open</a> <a id="713" class="Keyword">import</a> <a id="720" href="Reflection.Meta.html" class="Module">Reflection.Meta</a> <a id="736" class="Symbol">as</a> <a id="739" class="Module">Meta</a> <a id="744" class="Keyword">public</a>
+  <a id="753" class="Keyword">using</a> <a id="759" class="Symbol">(</a><a id="760" href="Agda.Builtin.Reflection.html#2440" class="Postulate">Meta</a><a id="764" class="Symbol">)</a>
+<a id="766" class="Keyword">open</a> <a id="771" class="Keyword">import</a> <a id="778" href="Reflection.Name.html" class="Module">Reflection.Name</a> <a id="794" class="Symbol">as</a> <a id="797" class="Module">Name</a> <a id="802" class="Keyword">public</a>
+  <a id="811" class="Keyword">using</a> <a id="817" class="Symbol">(</a><a id="818" href="Agda.Builtin.Reflection.html#471" class="Postulate">Name</a><a id="822" class="Symbol">;</a> <a id="824" href="Reflection.Name.html#1067" class="Function">Names</a><a id="829" class="Symbol">)</a>
+<a id="831" class="Keyword">open</a> <a id="836" class="Keyword">import</a> <a id="843" href="Reflection.Literal.html" class="Module">Reflection.Literal</a> <a id="862" class="Symbol">as</a> <a id="865" class="Module">Literal</a> <a id="873" class="Keyword">public</a>
+  <a id="882" class="Keyword">using</a> <a id="888" class="Symbol">(</a><a id="889" href="Agda.Builtin.Reflection.html#4074" class="Datatype">Literal</a><a id="896" class="Symbol">)</a>
+<a id="898" class="Keyword">open</a> <a id="903" class="Keyword">import</a> <a id="910" href="Reflection.Pattern.html" class="Module">Reflection.Pattern</a> <a id="929" class="Symbol">as</a> <a id="932" class="Module">Pattern</a> <a id="940" class="Keyword">public</a>
+  <a id="949" class="Keyword">using</a> <a id="955" class="Symbol">(</a><a id="956" href="Agda.Builtin.Reflection.html#4708" class="Datatype">Pattern</a><a id="963" class="Symbol">)</a>
+<a id="965" class="Keyword">open</a> <a id="970" class="Keyword">import</a> <a id="977" href="Reflection.Term.html" class="Module">Reflection.Term</a> <a id="993" class="Symbol">as</a> <a id="996" class="Module">Term</a> <a id="1001" class="Keyword">public</a>
+  <a id="1010" class="Keyword">using</a> <a id="1016" class="Symbol">(</a><a id="1017" href="Agda.Builtin.Reflection.html#4670" class="Datatype">Term</a><a id="1021" class="Symbol">;</a> <a id="1023" href="Agda.Builtin.Reflection.html#4741" class="Function">Type</a><a id="1027" class="Symbol">;</a> <a id="1029" href="Agda.Builtin.Reflection.html#4727" class="Datatype">Clause</a><a id="1035" class="Symbol">;</a> <a id="1037" href="Reflection.Term.html#1543" class="Function">Clauses</a><a id="1044" class="Symbol">;</a> <a id="1046" href="Agda.Builtin.Reflection.html#4689" class="Datatype">Sort</a><a id="1050" class="Symbol">)</a>
 
-<a id="1027" class="Keyword">import</a> <a id="1034" href="Reflection.Argument.Relevance.html" class="Module">Reflection.Argument.Relevance</a> <a id="1064" class="Symbol">as</a> <a id="1067" class="Module">Relevance</a>
-<a id="1077" class="Keyword">import</a> <a id="1084" href="Reflection.Argument.Visibility.html" class="Module">Reflection.Argument.Visibility</a> <a id="1115" class="Symbol">as</a> <a id="1118" class="Module">Visibility</a>
-<a id="1129" class="Keyword">import</a> <a id="1136" href="Reflection.Argument.Information.html" class="Module">Reflection.Argument.Information</a> <a id="1168" class="Symbol">as</a> <a id="1171" class="Module">Information</a>
+<a id="1053" class="Keyword">import</a> <a id="1060" href="Reflection.Argument.Modality.html" class="Module">Reflection.Argument.Modality</a> <a id="1089" class="Symbol">as</a> <a id="1092" class="Module">Modality</a>
+<a id="1101" class="Keyword">import</a> <a id="1108" href="Reflection.Argument.Quantity.html" class="Module">Reflection.Argument.Quantity</a> <a id="1137" class="Symbol">as</a> <a id="1140" class="Module">Quantity</a>
+<a id="1149" class="Keyword">import</a> <a id="1156" href="Reflection.Argument.Relevance.html" class="Module">Reflection.Argument.Relevance</a> <a id="1186" class="Symbol">as</a> <a id="1189" class="Module">Relevance</a>
+<a id="1199" class="Keyword">import</a> <a id="1206" href="Reflection.Argument.Visibility.html" class="Module">Reflection.Argument.Visibility</a> <a id="1237" class="Symbol">as</a> <a id="1240" class="Module">Visibility</a>
+<a id="1251" class="Keyword">import</a> <a id="1258" href="Reflection.Argument.Information.html" class="Module">Reflection.Argument.Information</a> <a id="1290" class="Symbol">as</a> <a id="1293" class="Module">Information</a>
 
-<a id="1184" class="Keyword">open</a> <a id="1189" href="Agda.Builtin.Reflection.html#6317" class="Module">Definition.Definition</a> <a id="1211" class="Keyword">public</a>
-<a id="1218" class="Keyword">open</a> <a id="1223" href="Agda.Builtin.Reflection.html#3146" class="Module">Information.ArgInfo</a> <a id="1243" class="Keyword">public</a>
-<a id="1250" class="Keyword">open</a> <a id="1255" href="Agda.Builtin.Reflection.html#3623" class="Module">Literal.Literal</a> <a id="1271" class="Keyword">public</a>
-<a id="1278" class="Keyword">open</a> <a id="1283" href="Agda.Builtin.Reflection.html#2969" class="Module">Relevance.Relevance</a> <a id="1303" class="Keyword">public</a>
-<a id="1310" class="Keyword">open</a> <a id="1315" href="Agda.Builtin.Reflection.html#4751" class="Module">Term.Term</a> <a id="1325" class="Keyword">public</a>
-<a id="1332" class="Keyword">open</a> <a id="1337" href="Agda.Builtin.Reflection.html#2711" class="Module">Visibility.Visibility</a> <a id="1359" class="Keyword">public</a>
+<a id="1306" class="Keyword">open</a> <a id="1311" href="Agda.Builtin.Reflection.html#7162" class="Module">Definition.Definition</a> <a id="1333" class="Keyword">public</a>
+<a id="1340" class="Keyword">open</a> <a id="1345" href="Agda.Builtin.Reflection.html#3598" class="Module">Information.ArgInfo</a> <a id="1365" class="Keyword">public</a>
+<a id="1372" class="Keyword">open</a> <a id="1377" href="Agda.Builtin.Reflection.html#4074" class="Module">Literal.Literal</a> <a id="1393" class="Keyword">public</a>
+<a id="1400" class="Keyword">open</a> <a id="1405" href="Agda.Builtin.Reflection.html#3423" class="Module">Modality.Modality</a> <a id="1423" class="Keyword">public</a>
+<a id="1430" class="Keyword">open</a> <a id="1435" href="Agda.Builtin.Reflection.html#3190" class="Module">Quantity.Quantity</a> <a id="1453" class="Keyword">public</a>
+<a id="1460" class="Keyword">open</a> <a id="1465" href="Agda.Builtin.Reflection.html#2978" class="Module">Relevance.Relevance</a> <a id="1485" class="Keyword">public</a>
+<a id="1492" class="Keyword">open</a> <a id="1497" href="Agda.Builtin.Reflection.html#4670" class="Module">Term.Term</a> <a id="1507" class="Keyword">public</a>
+<a id="1514" class="Keyword">open</a> <a id="1519" href="Agda.Builtin.Reflection.html#2720" class="Module">Visibility.Visibility</a> <a id="1541" class="Keyword">public</a>
 
-<a id="1367" class="Comment">------------------------------------------------------------------------</a>
-<a id="1440" class="Comment">-- Fixity</a>
+<a id="1549" class="Comment">------------------------------------------------------------------------</a>
+<a id="1622" class="Comment">-- Fixity</a>
 
-<a id="1451" class="Keyword">open</a> <a id="1456" href="Agda.Builtin.Reflection.html" class="Module">Builtin</a> <a id="1464" class="Keyword">public</a>
-  <a id="1473" class="Keyword">using</a> <a id="1479" class="Symbol">(</a><a id="1480" href="Agda.Builtin.Reflection.html#737" class="InductiveConstructor">non-assoc</a><a id="1489" class="Symbol">;</a> <a id="1491" href="Agda.Builtin.Reflection.html#796" class="InductiveConstructor">related</a><a id="1498" class="Symbol">;</a> <a id="1500" href="Agda.Builtin.Reflection.html#829" class="InductiveConstructor">unrelated</a><a id="1509" class="Symbol">;</a> <a id="1511" href="Agda.Builtin.Reflection.html#879" class="InductiveConstructor">fixity</a><a id="1517" class="Symbol">)</a>
-  <a id="1521" class="Keyword">renaming</a>
-  <a id="1532" class="Symbol">(</a> <a id="1534" href="Agda.Builtin.Reflection.html#677" class="InductiveConstructor">left-assoc</a>      <a id="1550" class="Symbol">to</a> <a id="Builtin.Reflection.Associativity.left-assoc"></a><a id="1553" href="Reflection.html#1553" class="InductiveConstructor">assocˡ</a>
-  <a id="1562" class="Symbol">;</a> <a id="1564" href="Agda.Builtin.Reflection.html#707" class="InductiveConstructor">right-assoc</a>     <a id="1580" class="Symbol">to</a> <a id="Builtin.Reflection.Associativity.right-assoc"></a><a id="1583" href="Reflection.html#1583" class="InductiveConstructor">assocʳ</a>
-  <a id="1592" class="Symbol">;</a> <a id="1594" href="Agda.Builtin.Reflection.html#2313" class="Primitive">primQNameFixity</a> <a id="1610" class="Symbol">to</a> <a id="Builtin.Reflection.primQNameFixity"></a><a id="1613" href="Reflection.html#1613" class="Primitive">getFixity</a>
-  <a id="1625" class="Symbol">)</a>
+<a id="1633" class="Keyword">open</a> <a id="1638" href="Agda.Builtin.Reflection.html" class="Module">Builtin</a> <a id="1646" class="Keyword">public</a>
+  <a id="1655" class="Keyword">using</a> <a id="1661" class="Symbol">(</a><a id="1662" href="Agda.Builtin.Reflection.html#746" class="InductiveConstructor">non-assoc</a><a id="1671" class="Symbol">;</a> <a id="1673" href="Agda.Builtin.Reflection.html#805" class="InductiveConstructor">related</a><a id="1680" class="Symbol">;</a> <a id="1682" href="Agda.Builtin.Reflection.html#838" class="InductiveConstructor">unrelated</a><a id="1691" class="Symbol">;</a> <a id="1693" href="Agda.Builtin.Reflection.html#888" class="InductiveConstructor">fixity</a><a id="1699" class="Symbol">)</a>
+  <a id="1703" class="Keyword">renaming</a>
+  <a id="1714" class="Symbol">(</a> <a id="1716" href="Agda.Builtin.Reflection.html#686" class="InductiveConstructor">left-assoc</a>      <a id="1732" class="Symbol">to</a> <a id="1735" class="InductiveConstructor">assocˡ</a>
+  <a id="1744" class="Symbol">;</a> <a id="1746" href="Agda.Builtin.Reflection.html#716" class="InductiveConstructor">right-assoc</a>     <a id="1762" class="Symbol">to</a> <a id="1765" class="InductiveConstructor">assocʳ</a>
+  <a id="1774" class="Symbol">;</a> <a id="1776" href="Agda.Builtin.Reflection.html#2322" class="Primitive">primQNameFixity</a> <a id="1792" class="Symbol">to</a> <a id="1795" class="Primitive">getFixity</a>
+  <a id="1807" class="Symbol">)</a>
 
-<a id="1628" class="Comment">------------------------------------------------------------------------</a>
-<a id="1701" class="Comment">-- Type checking monad</a>
+<a id="1810" class="Comment">------------------------------------------------------------------------</a>
+<a id="1883" class="Comment">-- Type checking monad</a>
 
-<a id="1725" class="Comment">-- Type errors</a>
-<a id="1740" class="Keyword">open</a> <a id="1745" href="Agda.Builtin.Reflection.html" class="Module">Builtin</a> <a id="1753" class="Keyword">public</a> <a id="1760" class="Keyword">using</a> <a id="1766" class="Symbol">(</a><a id="1767" href="Agda.Builtin.Reflection.html#7031" class="Datatype">ErrorPart</a><a id="1776" class="Symbol">;</a> <a id="1778" href="Agda.Builtin.Reflection.html#7055" class="InductiveConstructor">strErr</a><a id="1784" class="Symbol">;</a> <a id="1786" href="Agda.Builtin.Reflection.html#7086" class="InductiveConstructor">termErr</a><a id="1793" class="Symbol">;</a> <a id="1795" href="Agda.Builtin.Reflection.html#7115" class="InductiveConstructor">nameErr</a><a id="1802" class="Symbol">)</a>
+<a id="1907" class="Keyword">open</a> <a id="1912" class="Keyword">import</a> <a id="1919" href="Reflection.TypeChecking.Monad.html" class="Module">Reflection.TypeChecking.Monad</a> <a id="1949" class="Keyword">public</a>
 
-<a id="1805" class="Comment">-- The monad</a>
-<a id="1818" class="Keyword">open</a> <a id="1823" href="Agda.Builtin.Reflection.html" class="Module">Builtin</a> <a id="1831" class="Keyword">public</a>
-  <a id="1840" class="Keyword">using</a> <a id="1846" class="Symbol">(</a> <a id="1848" href="Agda.Builtin.Reflection.html#7356" class="Postulate">TC</a><a id="1850" class="Symbol">;</a> <a id="1852" href="Agda.Builtin.Reflection.html#7449" class="Postulate">bindTC</a><a id="1858" class="Symbol">;</a> <a id="1860" href="Agda.Builtin.Reflection.html#7529" class="Postulate">unify</a><a id="1865" class="Symbol">;</a> <a id="1867" href="Agda.Builtin.Reflection.html#7569" class="Postulate">typeError</a><a id="1876" class="Symbol">;</a> <a id="1878" href="Agda.Builtin.Reflection.html#7632" class="Postulate">inferType</a><a id="1887" class="Symbol">;</a> <a id="1889" href="Agda.Builtin.Reflection.html#7668" class="Postulate">checkType</a>
-        <a id="1907" class="Symbol">;</a> <a id="1909" href="Agda.Builtin.Reflection.html#7711" class="Postulate">normalise</a><a id="1918" class="Symbol">;</a> <a id="1920" href="Agda.Builtin.Reflection.html#7747" class="Postulate">reduce</a>
-        <a id="1935" class="Symbol">;</a> <a id="1937" href="Agda.Builtin.Reflection.html#7783" class="Postulate">catchTC</a><a id="1944" class="Symbol">;</a> <a id="1946" href="Agda.Builtin.Reflection.html#7843" class="Postulate">quoteTC</a><a id="1953" class="Symbol">;</a> <a id="1955" href="Agda.Builtin.Reflection.html#7896" class="Postulate">unquoteTC</a>
-        <a id="1973" class="Symbol">;</a> <a id="1975" href="Agda.Builtin.Reflection.html#7949" class="Postulate">getContext</a><a id="1985" class="Symbol">;</a> <a id="1987" href="Agda.Builtin.Reflection.html#7991" class="Postulate">extendContext</a><a id="2000" class="Symbol">;</a> <a id="2002" href="Agda.Builtin.Reflection.html#8055" class="Postulate">inContext</a><a id="2011" class="Symbol">;</a> <a id="2013" href="Agda.Builtin.Reflection.html#8126" class="Postulate">freshName</a>
-        <a id="2031" class="Symbol">;</a> <a id="2033" href="Agda.Builtin.Reflection.html#8164" class="Postulate">declareDef</a><a id="2043" class="Symbol">;</a> <a id="2045" href="Agda.Builtin.Reflection.html#8208" class="Postulate">declarePostulate</a><a id="2061" class="Symbol">;</a> <a id="2063" href="Agda.Builtin.Reflection.html#8252" class="Postulate">defineFun</a><a id="2072" class="Symbol">;</a> <a id="2074" href="Agda.Builtin.Reflection.html#8299" class="Postulate">getType</a><a id="2081" class="Symbol">;</a> <a id="2083" href="Agda.Builtin.Reflection.html#8335" class="Postulate">getDefinition</a>
-        <a id="2105" class="Symbol">;</a> <a id="2107" href="Agda.Builtin.Reflection.html#8377" class="Postulate">blockOnMeta</a><a id="2118" class="Symbol">;</a> <a id="2120" href="Agda.Builtin.Reflection.html#8430" class="Postulate">commitTC</a><a id="2128" class="Symbol">;</a> <a id="2130" href="Agda.Builtin.Reflection.html#8456" class="Postulate">isMacro</a><a id="2137" class="Symbol">;</a> <a id="2139" href="Agda.Builtin.Reflection.html#8645" class="Postulate">withNormalisation</a>
-        <a id="2165" class="Symbol">;</a> <a id="2167" href="Agda.Builtin.Reflection.html#8821" class="Postulate">debugPrint</a><a id="2177" class="Symbol">;</a> <a id="2179" href="Agda.Builtin.Reflection.html#8966" class="Postulate">noConstraints</a><a id="2192" class="Symbol">;</a> <a id="2194" href="Agda.Builtin.Reflection.html#9193" class="Postulate">runSpeculative</a><a id="2208" class="Symbol">)</a>
-  <a id="2212" class="Keyword">renaming</a> <a id="2221" class="Symbol">(</a><a id="2222" href="Agda.Builtin.Reflection.html#7399" class="Postulate">returnTC</a> <a id="2231" class="Symbol">to</a> <a id="Builtin.Reflection.returnTC"></a><a id="2234" href="Reflection.html#2234" class="Postulate">return</a><a id="2240" class="Symbol">)</a>
+<a id="1957" class="Comment">-- Standard monad operators</a>
 
-<a id="2243" class="Comment">-- Standard monad operators</a>
+<a id="1986" class="Keyword">open</a> <a id="1991" class="Keyword">import</a> <a id="1998" href="Reflection.TypeChecking.Monad.Syntax.html" class="Module">Reflection.TypeChecking.Monad.Syntax</a> <a id="2035" class="Keyword">public</a>
+  <a id="2044" class="Keyword">using</a> <a id="2050" class="Symbol">(</a><a id="2051" href="Reflection.TypeChecking.Monad.Syntax.html#691" class="Function Operator">_&gt;&gt;=_</a><a id="2056" class="Symbol">;</a> <a id="2058" href="Reflection.TypeChecking.Monad.Syntax.html#761" class="Function Operator">_&gt;&gt;_</a><a id="2062" class="Symbol">)</a>
 
-<a id="2272" class="Keyword">open</a> <a id="2277" class="Keyword">import</a> <a id="2284" href="Reflection.TypeChecking.MonadSyntax.html" class="Module">Reflection.TypeChecking.MonadSyntax</a> <a id="2320" class="Keyword">public</a>
-  <a id="2329" class="Keyword">using</a> <a id="2335" class="Symbol">(</a><a id="2336" href="Reflection.TypeChecking.MonadSyntax.html#681" class="Function Operator">_&gt;&gt;=_</a><a id="2341" class="Symbol">;</a> <a id="2343" href="Reflection.TypeChecking.MonadSyntax.html#751" class="Function Operator">_&gt;&gt;_</a><a id="2347" class="Symbol">)</a>
+<a id="2065" class="Comment">------------------------------------------------------------------------</a>
+<a id="2138" class="Comment">-- Show</a>
 
-<a id="newMeta"></a><a id="2350" href="Reflection.html#2350" class="Function">newMeta</a> <a id="2358" class="Symbol">:</a> <a id="2360" href="Agda.Builtin.Reflection.html#4764" class="Function">Type</a> <a id="2365" class="Symbol">→</a> <a id="2367" href="Agda.Builtin.Reflection.html#7356" class="Postulate">TC</a> <a id="2370" href="Agda.Builtin.Reflection.html#4751" class="Datatype">Term</a>
-<a id="2375" href="Reflection.html#2350" class="Function">newMeta</a> <a id="2383" class="Symbol">=</a> <a id="2385" href="Agda.Builtin.Reflection.html#7668" class="Postulate">checkType</a> <a id="2395" href="Agda.Builtin.Reflection.html#5251" class="InductiveConstructor">unknown</a>
-
-<a id="2404" class="Comment">------------------------------------------------------------------------</a>
-<a id="2477" class="Comment">-- Show</a>
-
-<a id="2486" class="Keyword">open</a> <a id="2491" class="Keyword">import</a> <a id="2498" href="Reflection.Show.html" class="Module">Reflection.Show</a> <a id="2514" class="Keyword">public</a>
+<a id="2147" class="Keyword">open</a> <a id="2152" class="Keyword">import</a> <a id="2159" href="Reflection.Show.html" class="Module">Reflection.Show</a> <a id="2175" class="Keyword">public</a>
 
 
 
-<a id="2524" class="Comment">------------------------------------------------------------------------</a>
-<a id="2597" class="Comment">-- DEPRECATED NAMES</a>
-<a id="2617" class="Comment">------------------------------------------------------------------------</a>
-<a id="2690" class="Comment">-- Please use the new names as continuing support for the old names is</a>
-<a id="2761" class="Comment">-- not guaranteed.</a>
+<a id="2185" class="Comment">------------------------------------------------------------------------</a>
+<a id="2258" class="Comment">-- DEPRECATED NAMES</a>
+<a id="2278" class="Comment">------------------------------------------------------------------------</a>
+<a id="2351" class="Comment">-- Please use the new names as continuing support for the old names is</a>
+<a id="2422" class="Comment">-- not guaranteed.</a>
 
-<a id="2781" class="Comment">-- Version 1.1</a>
+<a id="2442" class="Comment">-- Version 1.1</a>
 
-<a id="returnTC"></a><a id="2797" href="Reflection.html#2797" class="Function">returnTC</a> <a id="2806" class="Symbol">=</a> <a id="2808" href="Reflection.html#2234" class="Postulate">return</a>
-<a id="2815" class="Symbol">{-#</a> <a id="2819" class="Keyword">WARNING_ON_USAGE</a> <a id="2836" class="Pragma">returnTC</a>
-<a id="2845" class="String">&quot;Warning: returnTC was deprecated in v1.1.
+<a id="returnTC"></a><a id="2458" href="Reflection.html#2458" class="Function">returnTC</a> <a id="2467" class="Symbol">=</a> <a id="2469" href="Agda.Builtin.Reflection.html#8322" class="Postulate">return</a>
+<a id="2476" class="Symbol">{-#</a> <a id="2480" class="Keyword">WARNING_ON_USAGE</a> <a id="2497" class="Pragma">returnTC</a>
+<a id="2506" class="String">&quot;Warning: returnTC was deprecated in v1.1.
 Please use return instead.&quot;</a>
-<a id="2916" class="Symbol">#-}</a>
+<a id="2577" class="Symbol">#-}</a>
 
-<a id="2921" class="Comment">-- Version 1.3</a>
+<a id="2582" class="Comment">-- Version 1.3</a>
 
-<a id="Arg-info"></a><a id="2937" href="Reflection.html#2937" class="Function">Arg-info</a> <a id="2946" class="Symbol">=</a> <a id="2948" href="Agda.Builtin.Reflection.html#3146" class="Datatype">Information.ArgInfo</a>
-<a id="2968" class="Symbol">{-#</a> <a id="2972" class="Keyword">WARNING_ON_USAGE</a> <a id="2989" class="Pragma">Arg-info</a>
-<a id="2998" class="String">&quot;Warning: Arg-info was deprecated in v1.3.
+<a id="Arg-info"></a><a id="2598" href="Reflection.html#2598" class="Function">Arg-info</a> <a id="2607" class="Symbol">=</a> <a id="2609" href="Agda.Builtin.Reflection.html#3598" class="Datatype">Information.ArgInfo</a>
+<a id="2629" class="Symbol">{-#</a> <a id="2633" class="Keyword">WARNING_ON_USAGE</a> <a id="2650" class="Pragma">Arg-info</a>
+<a id="2659" class="String">&quot;Warning: Arg-info was deprecated in v1.3.
 Please use Reflection.Argument.Information&#39;s ArgInfo instead.&quot;</a>
-<a id="3104" class="Symbol">#-}</a>
+<a id="2765" class="Symbol">#-}</a>
 
-<a id="3109" class="Keyword">infix</a> <a id="3115" class="Number">4</a> <a id="3117" href="Reflection.html#3222" class="Function Operator">_≟-Lit_</a> <a id="3125" href="Reflection.html#3366" class="Function Operator">_≟-Name_</a> <a id="3134" href="Reflection.html#3507" class="Function Operator">_≟-Meta_</a> <a id="3143" href="Reflection.html#3648" class="Function Operator">_≟-Visibility_</a> <a id="3158" href="Reflection.html#3828" class="Function Operator">_≟-Relevance_</a> <a id="3172" href="Reflection.html#4003" class="Function Operator">_≟-Arg-info_</a>
-        <a id="3193" href="Reflection.html#4179" class="Function Operator">_≟-Pattern_</a> <a id="3205" href="Reflection.html#4335" class="Function Operator">_≟-ArgPatterns_</a>
+<a id="2770" class="Keyword">infix</a> <a id="2776" class="Number">4</a> <a id="2778" href="Reflection.html#2883" class="Function Operator">_≟-Lit_</a> <a id="2786" href="Reflection.html#3027" class="Function Operator">_≟-Name_</a> <a id="2795" href="Reflection.html#3168" class="Function Operator">_≟-Meta_</a> <a id="2804" href="Reflection.html#3309" class="Function Operator">_≟-Visibility_</a> <a id="2819" href="Reflection.html#3489" class="Function Operator">_≟-Relevance_</a> <a id="2833" href="Reflection.html#3664" class="Function Operator">_≟-Arg-info_</a>
+        <a id="2854" href="Reflection.html#3840" class="Function Operator">_≟-Pattern_</a> <a id="2866" href="Reflection.html#3996" class="Function Operator">_≟-ArgPatterns_</a>
 
-<a id="_≟-Lit_"></a><a id="3222" href="Reflection.html#3222" class="Function Operator">_≟-Lit_</a> <a id="3230" class="Symbol">=</a> <a id="3232" href="Reflection.Literal.html#1537" class="Function Operator">Literal._≟_</a>
-<a id="3244" class="Symbol">{-#</a> <a id="3248" class="Keyword">WARNING_ON_USAGE</a> <a id="3265" class="Pragma">_≟-Lit_</a>
-<a id="3273" class="String">&quot;Warning: _≟-Lit_ was deprecated in v1.3.
+<a id="_≟-Lit_"></a><a id="2883" href="Reflection.html#2883" class="Function Operator">_≟-Lit_</a> <a id="2891" class="Symbol">=</a> <a id="2893" href="Reflection.Literal.html#1546" class="Function Operator">Literal._≟_</a>
+<a id="2905" class="Symbol">{-#</a> <a id="2909" class="Keyword">WARNING_ON_USAGE</a> <a id="2926" class="Pragma">_≟-Lit_</a>
+<a id="2934" class="String">&quot;Warning: _≟-Lit_ was deprecated in v1.3.
 Please use Reflection.Literal&#39;s _≟_ instead.&quot;</a>
-<a id="3361" class="Symbol">#-}</a>
+<a id="3022" class="Symbol">#-}</a>
 
-<a id="_≟-Name_"></a><a id="3366" href="Reflection.html#3366" class="Function Operator">_≟-Name_</a> <a id="3375" class="Symbol">=</a> <a id="3377" href="Reflection.Name.html#1403" class="Function Operator">Name._≟_</a>
-<a id="3386" class="Symbol">{-#</a> <a id="3390" class="Keyword">WARNING_ON_USAGE</a> <a id="3407" class="Pragma">_≟-Name_</a>
-<a id="3416" class="String">&quot;Warning: _≟-Name_ was deprecated in v1.3.
+<a id="_≟-Name_"></a><a id="3027" href="Reflection.html#3027" class="Function Operator">_≟-Name_</a> <a id="3036" class="Symbol">=</a> <a id="3038" href="Reflection.Name.html#1412" class="Function Operator">Name._≟_</a>
+<a id="3047" class="Symbol">{-#</a> <a id="3051" class="Keyword">WARNING_ON_USAGE</a> <a id="3068" class="Pragma">_≟-Name_</a>
+<a id="3077" class="String">&quot;Warning: _≟-Name_ was deprecated in v1.3.
 Please use Reflection.Name&#39;s _≟_ instead.&quot;</a>
-<a id="3502" class="Symbol">#-}</a>
+<a id="3163" class="Symbol">#-}</a>
 
-<a id="_≟-Meta_"></a><a id="3507" href="Reflection.html#3507" class="Function Operator">_≟-Meta_</a> <a id="3516" class="Symbol">=</a> <a id="3518" href="Reflection.Meta.html#862" class="Function Operator">Meta._≟_</a>
-<a id="3527" class="Symbol">{-#</a> <a id="3531" class="Keyword">WARNING_ON_USAGE</a> <a id="3548" class="Pragma">_≟-Meta_</a>
-<a id="3557" class="String">&quot;Warning: _≟-Meta_ was deprecated in v1.3.
+<a id="_≟-Meta_"></a><a id="3168" href="Reflection.html#3168" class="Function Operator">_≟-Meta_</a> <a id="3177" class="Symbol">=</a> <a id="3179" href="Reflection.Meta.html#871" class="Function Operator">Meta._≟_</a>
+<a id="3188" class="Symbol">{-#</a> <a id="3192" class="Keyword">WARNING_ON_USAGE</a> <a id="3209" class="Pragma">_≟-Meta_</a>
+<a id="3218" class="String">&quot;Warning: _≟-Meta_ was deprecated in v1.3.
 Please use Reflection.Meta&#39;s _≟_ instead.&quot;</a>
-<a id="3643" class="Symbol">#-}</a>
+<a id="3304" class="Symbol">#-}</a>
 
-<a id="_≟-Visibility_"></a><a id="3648" href="Reflection.html#3648" class="Function Operator">_≟-Visibility_</a> <a id="3663" class="Symbol">=</a> <a id="3665" href="Reflection.Argument.Visibility.html#770" class="Function Operator">Visibility._≟_</a>
-<a id="3680" class="Symbol">{-#</a> <a id="3684" class="Keyword">WARNING_ON_USAGE</a> <a id="3701" class="Pragma">_≟-Visibility_</a>
-<a id="3716" class="String">&quot;Warning: _≟-Visibility_ was deprecated in v1.3.
+<a id="_≟-Visibility_"></a><a id="3309" href="Reflection.html#3309" class="Function Operator">_≟-Visibility_</a> <a id="3324" class="Symbol">=</a> <a id="3326" href="Reflection.Argument.Visibility.html#777" class="Function Operator">Visibility._≟_</a>
+<a id="3341" class="Symbol">{-#</a> <a id="3345" class="Keyword">WARNING_ON_USAGE</a> <a id="3362" class="Pragma">_≟-Visibility_</a>
+<a id="3377" class="String">&quot;Warning: _≟-Visibility_ was deprecated in v1.3.
 Please use Reflection.Argument.Visibility&#39;s _≟_ instead.&quot;</a>
-<a id="3823" class="Symbol">#-}</a>
+<a id="3484" class="Symbol">#-}</a>
 
-<a id="_≟-Relevance_"></a><a id="3828" href="Reflection.html#3828" class="Function Operator">_≟-Relevance_</a> <a id="3842" class="Symbol">=</a> <a id="3844" href="Reflection.Argument.Relevance.html#717" class="Function Operator">Relevance._≟_</a>
-<a id="3858" class="Symbol">{-#</a> <a id="3862" class="Keyword">WARNING_ON_USAGE</a> <a id="3879" class="Pragma">_≟-Relevance_</a>
-<a id="3893" class="String">&quot;Warning: _≟-Relevance_ was deprecated in v1.3.
+<a id="_≟-Relevance_"></a><a id="3489" href="Reflection.html#3489" class="Function Operator">_≟-Relevance_</a> <a id="3503" class="Symbol">=</a> <a id="3505" href="Reflection.Argument.Relevance.html#724" class="Function Operator">Relevance._≟_</a>
+<a id="3519" class="Symbol">{-#</a> <a id="3523" class="Keyword">WARNING_ON_USAGE</a> <a id="3540" class="Pragma">_≟-Relevance_</a>
+<a id="3554" class="String">&quot;Warning: _≟-Relevance_ was deprecated in v1.3.
 Please use Reflection.Argument.Relevance&#39;s _≟_ instead.&quot;</a>
-<a id="3998" class="Symbol">#-}</a>
+<a id="3659" class="Symbol">#-}</a>
 
-<a id="_≟-Arg-info_"></a><a id="4003" href="Reflection.html#4003" class="Function Operator">_≟-Arg-info_</a> <a id="4016" class="Symbol">=</a> <a id="4018" href="Reflection.Argument.Information.html#1574" class="Function Operator">Information._≟_</a>
-<a id="4034" class="Symbol">{-#</a> <a id="4038" class="Keyword">WARNING_ON_USAGE</a> <a id="4055" class="Pragma">_≟-Arg-info_</a>
-<a id="4068" class="String">&quot;Warning: _≟-Arg-info_ was deprecated in v1.3.
+<a id="_≟-Arg-info_"></a><a id="3664" href="Reflection.html#3664" class="Function Operator">_≟-Arg-info_</a> <a id="3677" class="Symbol">=</a> <a id="3679" href="Reflection.Argument.Information.html#1560" class="Function Operator">Information._≟_</a>
+<a id="3695" class="Symbol">{-#</a> <a id="3699" class="Keyword">WARNING_ON_USAGE</a> <a id="3716" class="Pragma">_≟-Arg-info_</a>
+<a id="3729" class="String">&quot;Warning: _≟-Arg-info_ was deprecated in v1.3.
 Please use Reflection.Argument.Information&#39;s _≟_ instead.&quot;</a>
-<a id="4174" class="Symbol">#-}</a>
+<a id="3835" class="Symbol">#-}</a>
 
-<a id="_≟-Pattern_"></a><a id="4179" href="Reflection.html#4179" class="Function Operator">_≟-Pattern_</a> <a id="4191" class="Symbol">=</a> <a id="4193" href="Reflection.Pattern.html#1938" class="Function Operator">Pattern._≟_</a>
-<a id="4205" class="Symbol">{-#</a> <a id="4209" class="Keyword">WARNING_ON_USAGE</a> <a id="4226" class="Pragma">_≟-Pattern_</a>
-<a id="4238" class="String">&quot;Warning: _≟-Pattern_ was deprecated in v1.3.
+<a id="_≟-Pattern_"></a><a id="3840" href="Reflection.html#3840" class="Function Operator">_≟-Pattern_</a> <a id="3852" class="Symbol">=</a> <a id="3854" href="Reflection.Term.html#4619" class="Function Operator">Pattern._≟_</a>
+<a id="3866" class="Symbol">{-#</a> <a id="3870" class="Keyword">WARNING_ON_USAGE</a> <a id="3887" class="Pragma">_≟-Pattern_</a>
+<a id="3899" class="String">&quot;Warning: _≟-Pattern_ was deprecated in v1.3.
 Please use Reflection.Pattern&#39;s _≟_ instead.&quot;</a>
-<a id="4330" class="Symbol">#-}</a>
+<a id="3991" class="Symbol">#-}</a>
 
-<a id="_≟-ArgPatterns_"></a><a id="4335" href="Reflection.html#4335" class="Function Operator">_≟-ArgPatterns_</a> <a id="4351" class="Symbol">=</a> <a id="4353" href="Reflection.Pattern.html#1896" class="Function Operator">Pattern._≟s_</a>
-<a id="4366" class="Symbol">{-#</a> <a id="4370" class="Keyword">WARNING_ON_USAGE</a> <a id="4387" class="Pragma">_≟-ArgPatterns_</a>
-<a id="4403" class="String">&quot;Warning: _≟-ArgPatterns_ was deprecated in v1.3.
+<a id="_≟-ArgPatterns_"></a><a id="3996" href="Reflection.html#3996" class="Function Operator">_≟-ArgPatterns_</a> <a id="4012" class="Symbol">=</a> <a id="4014" href="Reflection.Term.html#4569" class="Function Operator">Pattern._≟s_</a>
+<a id="4027" class="Symbol">{-#</a> <a id="4031" class="Keyword">WARNING_ON_USAGE</a> <a id="4048" class="Pragma">_≟-ArgPatterns_</a>
+<a id="4064" class="String">&quot;Warning: _≟-ArgPatterns_ was deprecated in v1.3.
 Please use Reflection.Pattern&#39;s _≟s_ instead.&quot;</a>
-<a id="4500" class="Symbol">#-}</a>
+<a id="4161" class="Symbol">#-}</a>
 
-<a id="map-Abs"></a><a id="4505" href="Reflection.html#4505" class="Function">map-Abs</a> <a id="4513" class="Symbol">=</a> <a id="4515" href="Reflection.Abstraction.html#968" class="Function">Abstraction.map</a>
-<a id="4531" class="Symbol">{-#</a> <a id="4535" class="Keyword">WARNING_ON_USAGE</a> <a id="4552" class="Pragma">map-Abs</a>
-<a id="4560" class="String">&quot;Warning: map-Abs was deprecated in v1.3.
+<a id="map-Abs"></a><a id="4166" href="Reflection.html#4166" class="Function">map-Abs</a> <a id="4174" class="Symbol">=</a> <a id="4176" href="Reflection.Abstraction.html#1013" class="Function">Abstraction.map</a>
+<a id="4192" class="Symbol">{-#</a> <a id="4196" class="Keyword">WARNING_ON_USAGE</a> <a id="4213" class="Pragma">map-Abs</a>
+<a id="4221" class="String">&quot;Warning: map-Abs was deprecated in v1.3.
 Please use Reflection.Abstraction&#39;s map instead.&quot;</a>
-<a id="4652" class="Symbol">#-}</a>
+<a id="4313" class="Symbol">#-}</a>
 
-<a id="map-Arg"></a><a id="4657" href="Reflection.html#4657" class="Function">map-Arg</a> <a id="4665" class="Symbol">=</a> <a id="4667" href="Reflection.Argument.html#1563" class="Function">Argument.map</a>
-<a id="4680" class="Symbol">{-#</a> <a id="4684" class="Keyword">WARNING_ON_USAGE</a> <a id="4701" class="Pragma">map-Arg</a>
-<a id="4709" class="String">&quot;Warning: map-Arg was deprecated in v1.3.
+<a id="map-Arg"></a><a id="4318" href="Reflection.html#4318" class="Function">map-Arg</a> <a id="4326" class="Symbol">=</a> <a id="4328" href="Reflection.Argument.html#1731" class="Function">Argument.map</a>
+<a id="4341" class="Symbol">{-#</a> <a id="4345" class="Keyword">WARNING_ON_USAGE</a> <a id="4362" class="Pragma">map-Arg</a>
+<a id="4370" class="String">&quot;Warning: map-Arg was deprecated in v1.3.
 Please use Reflection.Argument&#39;s map instead.&quot;</a>
-<a id="4798" class="Symbol">#-}</a>
+<a id="4459" class="Symbol">#-}</a>
 
-<a id="map-Args"></a><a id="4803" href="Reflection.html#4803" class="Function">map-Args</a> <a id="4812" class="Symbol">=</a> <a id="4814" href="Reflection.Argument.html#1624" class="Function">Argument.map-Args</a>
-<a id="4832" class="Symbol">{-#</a> <a id="4836" class="Keyword">WARNING_ON_USAGE</a> <a id="4853" class="Pragma">map-Args</a>
-<a id="4862" class="String">&quot;Warning: map-Args was deprecated in v1.3.
+<a id="map-Args"></a><a id="4464" href="Reflection.html#4464" class="Function">map-Args</a> <a id="4473" class="Symbol">=</a> <a id="4475" href="Reflection.Argument.html#1792" class="Function">Argument.map-Args</a>
+<a id="4493" class="Symbol">{-#</a> <a id="4497" class="Keyword">WARNING_ON_USAGE</a> <a id="4514" class="Pragma">map-Args</a>
+<a id="4523" class="String">&quot;Warning: map-Args was deprecated in v1.3.
 Please use Reflection.Argument&#39;s map-Args instead.&quot;</a>
-<a id="4957" class="Symbol">#-}</a>
+<a id="4618" class="Symbol">#-}</a>
 
-<a id="visibility"></a><a id="4962" href="Reflection.html#4962" class="Function">visibility</a> <a id="4973" class="Symbol">=</a> <a id="4975" href="Reflection.Argument.Information.html#978" class="Function">Information.visibility</a>
-<a id="4998" class="Symbol">{-#</a> <a id="5002" class="Keyword">WARNING_ON_USAGE</a> <a id="5019" class="Pragma">visibility</a>
-<a id="5030" class="String">&quot;Warning: visibility was deprecated in v1.3.
+<a id="visibility"></a><a id="4623" href="Reflection.html#4623" class="Function">visibility</a> <a id="4634" class="Symbol">=</a> <a id="4636" href="Reflection.Argument.Information.html#1015" class="Function">Information.visibility</a>
+<a id="4659" class="Symbol">{-#</a> <a id="4663" class="Keyword">WARNING_ON_USAGE</a> <a id="4680" class="Pragma">visibility</a>
+<a id="4691" class="String">&quot;Warning: visibility was deprecated in v1.3.
 Please use Reflection.Argument.Information&#39;s visibility instead.&quot;</a>
-<a id="5141" class="Symbol">#-}</a>
+<a id="4802" class="Symbol">#-}</a>
 
-<a id="relevance"></a><a id="5146" href="Reflection.html#5146" class="Function">relevance</a> <a id="5156" class="Symbol">=</a> <a id="5158" href="Reflection.Argument.Information.html#1043" class="Function">Information.relevance</a>
-<a id="5180" class="Symbol">{-#</a> <a id="5184" class="Keyword">WARNING_ON_USAGE</a> <a id="5201" class="Pragma">relevance</a>
-<a id="5211" class="String">&quot;Warning: relevance was deprecated in v1.3.
-Please use Reflection.Argument.Information&#39;s relevance instead.&quot;</a>
-<a id="5320" class="Symbol">#-}</a>
+<a id="relevance"></a><a id="4807" href="Reflection.html#4807" class="Function">relevance</a> <a id="4817" class="Symbol">=</a> <a id="4819" href="Reflection.Argument.Modality.html#1000" class="Function">Modality.relevance</a>
+<a id="4838" class="Symbol">{-#</a> <a id="4842" class="Keyword">WARNING_ON_USAGE</a> <a id="4859" class="Pragma">relevance</a>
+<a id="4869" class="String">&quot;Warning: relevance was deprecated in v1.3.
+Please use Reflection.Argument.Modality&#39;s relevance instead.&quot;</a>
+<a id="4975" class="Symbol">#-}</a>
 
-<a id="5325" class="Keyword">infix</a> <a id="5331" class="Number">4</a> <a id="5333" href="Reflection.html#5443" class="Function Operator">_≟-AbsTerm_</a> <a id="5345" href="Reflection.html#5609" class="Function Operator">_≟-AbsType_</a> <a id="5357" href="Reflection.html#5775" class="Function Operator">_≟-ArgTerm_</a> <a id="5369" href="Reflection.html#5941" class="Function Operator">_≟-ArgType_</a> <a id="5381" href="Reflection.html#6107" class="Function Operator">_≟-Args_</a>
-        <a id="5398" href="Reflection.html#6261" class="Function Operator">_≟-Clause_</a> <a id="5409" href="Reflection.html#6423" class="Function Operator">_≟-Clauses_</a> <a id="5421" href="Reflection.html#6589" class="Function Operator">_≟_</a>
-        <a id="5433" href="Reflection.html#6723" class="Function Operator">_≟-Sort_</a>
+<a id="4980" class="Keyword">infix</a> <a id="4986" class="Number">4</a> <a id="4988" href="Reflection.html#5098" class="Function Operator">_≟-AbsTerm_</a> <a id="5000" href="Reflection.html#5264" class="Function Operator">_≟-AbsType_</a> <a id="5012" href="Reflection.html#5430" class="Function Operator">_≟-ArgTerm_</a> <a id="5024" href="Reflection.html#5596" class="Function Operator">_≟-ArgType_</a> <a id="5036" href="Reflection.html#5762" class="Function Operator">_≟-Args_</a>
+        <a id="5053" href="Reflection.html#5916" class="Function Operator">_≟-Clause_</a> <a id="5064" href="Reflection.html#6078" class="Function Operator">_≟-Clauses_</a> <a id="5076" href="Reflection.html#6244" class="Function Operator">_≟_</a>
+        <a id="5088" href="Reflection.html#6378" class="Function Operator">_≟-Sort_</a>
 
-<a id="_≟-AbsTerm_"></a><a id="5443" href="Reflection.html#5443" class="Function Operator">_≟-AbsTerm_</a> <a id="5455" class="Symbol">=</a> <a id="5457" href="Reflection.Term.html#3434" class="Function Operator">Term._≟-AbsTerm_</a>
-<a id="5474" class="Symbol">{-#</a> <a id="5478" class="Keyword">WARNING_ON_USAGE</a> <a id="5495" class="Pragma">_≟-AbsTerm_</a>
-<a id="5507" class="String">&quot;Warning: _≟-AbsTerm_ was deprecated in v1.3.
+<a id="_≟-AbsTerm_"></a><a id="5098" href="Reflection.html#5098" class="Function Operator">_≟-AbsTerm_</a> <a id="5110" class="Symbol">=</a> <a id="5112" href="Reflection.Term.html#4191" class="Function Operator">Term._≟-AbsTerm_</a>
+<a id="5129" class="Symbol">{-#</a> <a id="5133" class="Keyword">WARNING_ON_USAGE</a> <a id="5150" class="Pragma">_≟-AbsTerm_</a>
+<a id="5162" class="String">&quot;Warning: _≟-AbsTerm_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-AbsTerm_ instead.&quot;</a>
-<a id="5604" class="Symbol">#-}</a>
+<a id="5259" class="Symbol">#-}</a>
 
-<a id="_≟-AbsType_"></a><a id="5609" href="Reflection.html#5609" class="Function Operator">_≟-AbsType_</a> <a id="5621" class="Symbol">=</a> <a id="5623" href="Reflection.Term.html#3477" class="Function Operator">Term._≟-AbsType_</a>
-<a id="5640" class="Symbol">{-#</a> <a id="5644" class="Keyword">WARNING_ON_USAGE</a> <a id="5661" class="Pragma">_≟-AbsType_</a>
-<a id="5673" class="String">&quot;Warning: _≟-AbsType_ was deprecated in v1.3.
+<a id="_≟-AbsType_"></a><a id="5264" href="Reflection.html#5264" class="Function Operator">_≟-AbsType_</a> <a id="5276" class="Symbol">=</a> <a id="5278" href="Reflection.Term.html#4235" class="Function Operator">Term._≟-AbsType_</a>
+<a id="5295" class="Symbol">{-#</a> <a id="5299" class="Keyword">WARNING_ON_USAGE</a> <a id="5316" class="Pragma">_≟-AbsType_</a>
+<a id="5328" class="String">&quot;Warning: _≟-AbsType_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-AbsType_ instead.&quot;</a>
-<a id="5770" class="Symbol">#-}</a>
+<a id="5425" class="Symbol">#-}</a>
 
-<a id="_≟-ArgTerm_"></a><a id="5775" href="Reflection.html#5775" class="Function Operator">_≟-ArgTerm_</a> <a id="5787" class="Symbol">=</a> <a id="5789" href="Reflection.Term.html#3520" class="Function Operator">Term._≟-ArgTerm_</a>
-<a id="5806" class="Symbol">{-#</a> <a id="5810" class="Keyword">WARNING_ON_USAGE</a> <a id="5827" class="Pragma">_≟-ArgTerm_</a>
-<a id="5839" class="String">&quot;Warning: _≟-ArgTerm_ was deprecated in v1.3.
+<a id="_≟-ArgTerm_"></a><a id="5430" href="Reflection.html#5430" class="Function Operator">_≟-ArgTerm_</a> <a id="5442" class="Symbol">=</a> <a id="5444" href="Reflection.Term.html#4279" class="Function Operator">Term._≟-ArgTerm_</a>
+<a id="5461" class="Symbol">{-#</a> <a id="5465" class="Keyword">WARNING_ON_USAGE</a> <a id="5482" class="Pragma">_≟-ArgTerm_</a>
+<a id="5494" class="String">&quot;Warning: _≟-ArgTerm_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-ArgTerm_ instead.&quot;</a>
-<a id="5936" class="Symbol">#-}</a>
+<a id="5591" class="Symbol">#-}</a>
 
-<a id="_≟-ArgType_"></a><a id="5941" href="Reflection.html#5941" class="Function Operator">_≟-ArgType_</a> <a id="5953" class="Symbol">=</a> <a id="5955" href="Reflection.Term.html#3563" class="Function Operator">Term._≟-ArgType_</a>
-<a id="5972" class="Symbol">{-#</a> <a id="5976" class="Keyword">WARNING_ON_USAGE</a> <a id="5993" class="Pragma">_≟-ArgType_</a>
-<a id="6005" class="String">&quot;Warning: _≟-ArgType_ was deprecated in v1.3.
+<a id="_≟-ArgType_"></a><a id="5596" href="Reflection.html#5596" class="Function Operator">_≟-ArgType_</a> <a id="5608" class="Symbol">=</a> <a id="5610" href="Reflection.Term.html#4323" class="Function Operator">Term._≟-ArgType_</a>
+<a id="5627" class="Symbol">{-#</a> <a id="5631" class="Keyword">WARNING_ON_USAGE</a> <a id="5648" class="Pragma">_≟-ArgType_</a>
+<a id="5660" class="String">&quot;Warning: _≟-ArgType_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-ArgType_ instead.&quot;</a>
-<a id="6102" class="Symbol">#-}</a>
+<a id="5757" class="Symbol">#-}</a>
 
-<a id="_≟-Args_"></a><a id="6107" href="Reflection.html#6107" class="Function Operator">_≟-Args_</a>    <a id="6119" class="Symbol">=</a> <a id="6121" href="Reflection.Term.html#3606" class="Function Operator">Term._≟-Args_</a>
-<a id="6135" class="Symbol">{-#</a> <a id="6139" class="Keyword">WARNING_ON_USAGE</a> <a id="6156" class="Pragma">_≟-Args_</a>
-<a id="6165" class="String">&quot;Warning: _≟-Args_ was deprecated in v1.3.
+<a id="_≟-Args_"></a><a id="5762" href="Reflection.html#5762" class="Function Operator">_≟-Args_</a>    <a id="5774" class="Symbol">=</a> <a id="5776" href="Reflection.Term.html#4367" class="Function Operator">Term._≟-Args_</a>
+<a id="5790" class="Symbol">{-#</a> <a id="5794" class="Keyword">WARNING_ON_USAGE</a> <a id="5811" class="Pragma">_≟-Args_</a>
+<a id="5820" class="String">&quot;Warning: _≟-Args_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-Args_ instead.&quot;</a>
-<a id="6256" class="Symbol">#-}</a>
+<a id="5911" class="Symbol">#-}</a>
 
-<a id="_≟-Clause_"></a><a id="6261" href="Reflection.html#6261" class="Function Operator">_≟-Clause_</a>  <a id="6273" class="Symbol">=</a> <a id="6275" href="Reflection.Term.html#3650" class="Function Operator">Term._≟-Clause_</a>
-<a id="6291" class="Symbol">{-#</a> <a id="6295" class="Keyword">WARNING_ON_USAGE</a> <a id="6312" class="Pragma">_≟-Clause_</a>
-<a id="6323" class="String">&quot;Warning: _≟-Clause_ was deprecated in v1.3.
+<a id="_≟-Clause_"></a><a id="5916" href="Reflection.html#5916" class="Function Operator">_≟-Clause_</a>  <a id="5928" class="Symbol">=</a> <a id="5930" href="Reflection.Term.html#4412" class="Function Operator">Term._≟-Clause_</a>
+<a id="5946" class="Symbol">{-#</a> <a id="5950" class="Keyword">WARNING_ON_USAGE</a> <a id="5967" class="Pragma">_≟-Clause_</a>
+<a id="5978" class="String">&quot;Warning: _≟-Clause_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-Clause_ instead.&quot;</a>
-<a id="6418" class="Symbol">#-}</a>
+<a id="6073" class="Symbol">#-}</a>
 
-<a id="_≟-Clauses_"></a><a id="6423" href="Reflection.html#6423" class="Function Operator">_≟-Clauses_</a> <a id="6435" class="Symbol">=</a> <a id="6437" href="Reflection.Term.html#3689" class="Function Operator">Term._≟-Clauses_</a>
-<a id="6454" class="Symbol">{-#</a> <a id="6458" class="Keyword">WARNING_ON_USAGE</a> <a id="6475" class="Pragma">_≟-Clauses_</a>
-<a id="6487" class="String">&quot;Warning: _≟-Clauses_ was deprecated in v1.3.
+<a id="_≟-Clauses_"></a><a id="6078" href="Reflection.html#6078" class="Function Operator">_≟-Clauses_</a> <a id="6090" class="Symbol">=</a> <a id="6092" href="Reflection.Term.html#4452" class="Function Operator">Term._≟-Clauses_</a>
+<a id="6109" class="Symbol">{-#</a> <a id="6113" class="Keyword">WARNING_ON_USAGE</a> <a id="6130" class="Pragma">_≟-Clauses_</a>
+<a id="6142" class="String">&quot;Warning: _≟-Clauses_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-Clauses_ instead.&quot;</a>
-<a id="6584" class="Symbol">#-}</a>
+<a id="6239" class="Symbol">#-}</a>
 
-<a id="_≟_"></a><a id="6589" href="Reflection.html#6589" class="Function Operator">_≟_</a>         <a id="6601" class="Symbol">=</a> <a id="6603" href="Reflection.Term.html#3729" class="Function Operator">Term._≟_</a>
-<a id="6612" class="Symbol">{-#</a> <a id="6616" class="Keyword">WARNING_ON_USAGE</a> <a id="6633" class="Pragma">_≟_</a>
-<a id="6637" class="String">&quot;Warning: _≟_ was deprecated in v1.3.
+<a id="_≟_"></a><a id="6244" href="Reflection.html#6244" class="Function Operator">_≟_</a>         <a id="6256" class="Symbol">=</a> <a id="6258" href="Reflection.Term.html#4493" class="Function Operator">Term._≟_</a>
+<a id="6267" class="Symbol">{-#</a> <a id="6271" class="Keyword">WARNING_ON_USAGE</a> <a id="6288" class="Pragma">_≟_</a>
+<a id="6292" class="String">&quot;Warning: _≟_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟_ instead.&quot;</a>
-<a id="6718" class="Symbol">#-}</a>
+<a id="6373" class="Symbol">#-}</a>
 
-<a id="_≟-Sort_"></a><a id="6723" href="Reflection.html#6723" class="Function Operator">_≟-Sort_</a>    <a id="6735" class="Symbol">=</a> <a id="6737" href="Reflection.Term.html#3766" class="Function Operator">Term._≟-Sort_</a>
-<a id="6751" class="Symbol">{-#</a> <a id="6755" class="Keyword">WARNING_ON_USAGE</a> <a id="6772" class="Pragma">_≟-Sort_</a>
-<a id="6781" class="String">&quot;Warning: _≟-Sort_ was deprecated in v1.3.
+<a id="_≟-Sort_"></a><a id="6378" href="Reflection.html#6378" class="Function Operator">_≟-Sort_</a>    <a id="6390" class="Symbol">=</a> <a id="6392" href="Reflection.Term.html#4531" class="Function Operator">Term._≟-Sort_</a>
+<a id="6406" class="Symbol">{-#</a> <a id="6410" class="Keyword">WARNING_ON_USAGE</a> <a id="6427" class="Pragma">_≟-Sort_</a>
+<a id="6436" class="String">&quot;Warning: _≟-Sort_ was deprecated in v1.3.
 Please use Reflection.Term&#39;s _≟-Sort_ instead.&quot;</a>
-<a id="6872" class="Symbol">#-}</a>
+<a id="6527" class="Symbol">#-}</a>
 </pre></body></html>

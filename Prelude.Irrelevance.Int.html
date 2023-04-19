@@ -1,0 +1,15 @@
+<!DOCTYPE HTML>
+<html><head><meta charset="utf-8"><title>Prelude.Irrelevance.Int</title><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css'/><style>.github-fork-ribbon:before { background-color: #333; }</style><link rel="stylesheet" href="css/Agda.css"></head><body><a class='github-fork-ribbon'href='https://github.com/omelkonian/formal-utxo/tree/master/'data-ribbon='Source code on Github' title='Source code on Github'>Source code on Github</a><pre class="Agda"><a id="1" class="Symbol">{-#</a> <a id="5" class="Keyword">OPTIONS</a> <a id="13" class="Pragma">--safe</a> <a id="20" class="Symbol">#-}</a>
+<a id="24" class="Keyword">module</a> <a id="31" href="Prelude.Irrelevance.Int.html" class="Module">Prelude.Irrelevance.Int</a> <a id="55" class="Keyword">where</a>
+
+<a id="62" class="Keyword">open</a> <a id="67" class="Keyword">import</a> <a id="74" href="Prelude.Init.html" class="Module">Prelude.Init</a>
+<a id="87" class="Keyword">open</a> <a id="92" href="Prelude.Init.html#3642" class="Module">Integer</a>
+<a id="100" class="Keyword">open</a> <a id="105" class="Keyword">import</a> <a id="112" href="Prelude.Irrelevance.Core.html" class="Module">Prelude.Irrelevance.Core</a>
+
+<a id="138" class="Keyword">instance</a>
+  <a id="·-≤ℤ"></a><a id="149" href="Prelude.Irrelevance.Int.html#149" class="Function">·-≤ℤ</a> <a id="154" class="Symbol">:</a> <a id="156" href="Prelude.Irrelevance.Core.html#762" class="Function Operator">·²</a> <a id="159" href="Data.Integer.Base.html#2033" class="Datatype Operator">_≤_</a>
+  <a id="165" href="Prelude.Irrelevance.Int.html#149" class="Function">·-≤ℤ</a> <a id="170" class="Symbol">=</a> <a id="172" class="Symbol">λ</a> <a id="174" class="Keyword">where</a> <a id="180" class="Symbol">.</a><a id="181" href="Prelude.Irrelevance.Core.html#254" class="Field">∀≡</a> <a id="184" class="Symbol">→</a> <a id="186" href="Data.Integer.Properties.html#3829" class="Function">≤-irrelevant</a>
+
+  <a id="·-&lt;ℤ"></a><a id="202" href="Prelude.Irrelevance.Int.html#202" class="Function">·-&lt;ℤ</a> <a id="207" class="Symbol">:</a> <a id="209" href="Prelude.Irrelevance.Core.html#762" class="Function Operator">·²</a> <a id="212" href="Data.Integer.Base.html#2198" class="Datatype Operator">_&lt;_</a>
+  <a id="218" href="Prelude.Irrelevance.Int.html#202" class="Function">·-&lt;ℤ</a> <a id="223" class="Symbol">=</a> <a id="225" class="Symbol">λ</a> <a id="227" class="Keyword">where</a> <a id="233" class="Symbol">.</a><a id="234" href="Prelude.Irrelevance.Core.html#254" class="Field">∀≡</a> <a id="237" class="Symbol">→</a> <a id="239" href="Data.Integer.Properties.html#9571" class="Function">&lt;-irrelevant</a>
+</pre></body></html>

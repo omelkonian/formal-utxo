@@ -1,44 +1,45 @@
 <!DOCTYPE HTML>
-<html><head><meta charset="utf-8"><title>Main</title><link rel="stylesheet" href="css/Agda.css"></head><body><pre class="Agda"><a id="1" class="Keyword">module</a> <a id="8" href="Main.html" class="Module">Main</a> <a id="13" class="Keyword">where</a>
+<html><head><meta charset="utf-8"><title>Main</title><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css'/><style>.github-fork-ribbon:before { background-color: #333; }</style><link rel="stylesheet" href="css/Agda.css"></head><body><a class='github-fork-ribbon'href='https://github.com/omelkonian/formal-utxo/tree/master/Main.agda'data-ribbon='Source code on Github' title='Source code on Github'>Source code on Github</a><pre class="Agda"><a id="1" class="Symbol">{-#</a> <a id="5" class="Keyword">OPTIONS</a> <a id="13" class="Pragma">--rewriting</a> <a id="25" class="Symbol">#-}</a>
+<a id="29" class="Keyword">module</a> <a id="36" href="Main.html" class="Module">Main</a> <a id="41" class="Keyword">where</a>
 
-<a id="20" class="Comment">-- ** Basic UTxO definitions</a>
-<a id="49" class="Keyword">open</a> <a id="54" class="Keyword">import</a> <a id="61" href="UTxO.Hashing.Base.html" class="Module">UTxO.Hashing.Base</a>
-<a id="79" class="Keyword">open</a> <a id="84" class="Keyword">import</a> <a id="91" href="UTxO.Value.html" class="Module">UTxO.Value</a>
-<a id="102" class="Keyword">open</a> <a id="107" class="Keyword">import</a> <a id="114" href="UTxO.Types.html" class="Module">UTxO.Types</a>
-<a id="125" class="Keyword">open</a> <a id="130" class="Keyword">import</a> <a id="137" href="UTxO.Hashing.Types.html" class="Module">UTxO.Hashing.Types</a>
-<a id="156" class="Keyword">open</a> <a id="161" class="Keyword">import</a> <a id="168" href="UTxO.TxUtilities.html" class="Module">UTxO.TxUtilities</a>
-<a id="185" class="Keyword">open</a> <a id="190" class="Keyword">import</a> <a id="197" href="UTxO.Validity.html" class="Module">UTxO.Validity</a>
+<a id="48" class="Comment">-- ** Basic UTxO definitions</a>
+<a id="77" class="Keyword">open</a> <a id="82" class="Keyword">import</a> <a id="89" href="UTxO.Hashing.Base.html" class="Module">UTxO.Hashing.Base</a>
+<a id="107" class="Keyword">open</a> <a id="112" class="Keyword">import</a> <a id="119" href="UTxO.Value.html" class="Module">UTxO.Value</a>
+<a id="130" class="Keyword">open</a> <a id="135" class="Keyword">import</a> <a id="142" href="UTxO.Types.html" class="Module">UTxO.Types</a>
+<a id="153" class="Keyword">open</a> <a id="158" class="Keyword">import</a> <a id="165" href="UTxO.Hashing.Types.html" class="Module">UTxO.Hashing.Types</a>
+<a id="184" class="Keyword">open</a> <a id="189" class="Keyword">import</a> <a id="196" href="UTxO.TxUtilities.html" class="Module">UTxO.TxUtilities</a>
+<a id="213" class="Keyword">open</a> <a id="218" class="Keyword">import</a> <a id="225" href="UTxO.Validity.html" class="Module">UTxO.Validity</a>
 
-<a id="212" class="Comment">-- ** An example of a (correct-by-construction) ledger</a>
-<a id="267" class="Keyword">open</a> <a id="272" class="Keyword">import</a> <a id="279" href="UTxO.ExampleLedger.html" class="Module">UTxO.ExampleLedger</a>
+<a id="240" class="Comment">-- ** An example of a (correct-by-construction) ledger</a>
+<a id="295" class="Keyword">open</a> <a id="300" class="Keyword">import</a> <a id="307" href="UTxO.ExampleLedger.html" class="Module">UTxO.ExampleLedger</a>
 
-<a id="299" class="Comment">-- ** UTxO meta-theory</a>
-<a id="322" class="Keyword">open</a> <a id="327" class="Keyword">import</a> <a id="334" href="UTxO.Uniqueness.html" class="Module">UTxO.Uniqueness</a>
-<a id="350" class="Keyword">open</a> <a id="355" class="Keyword">import</a> <a id="362" href="UTxO.GlobalPreservation.html" class="Module">UTxO.GlobalPreservation</a>
+<a id="327" class="Comment">-- ** UTxO meta-theory</a>
+<a id="350" class="Keyword">open</a> <a id="355" class="Keyword">import</a> <a id="362" href="UTxO.Uniqueness.html" class="Module">UTxO.Uniqueness</a>
+<a id="378" class="Keyword">open</a> <a id="383" class="Keyword">import</a> <a id="390" href="UTxO.GlobalPreservation.html" class="Module">UTxO.GlobalPreservation</a>
 
-<a id="387" class="Comment">-- ** Provenance</a>
-<a id="404" class="Keyword">open</a> <a id="409" class="Keyword">import</a> <a id="416" href="UTxO.TokenProvenance.html" class="Module">UTxO.TokenProvenance</a>
-<a id="437" class="Keyword">open</a> <a id="442" class="Keyword">import</a> <a id="449" href="UTxO.TokenProvenanceNF.html" class="Module">UTxO.TokenProvenanceNF</a>
+<a id="415" class="Comment">-- ** Provenance</a>
+<a id="432" class="Keyword">open</a> <a id="437" class="Keyword">import</a> <a id="444" href="UTxO.TokenProvenance.html" class="Module">UTxO.TokenProvenance</a>
+<a id="465" class="Keyword">open</a> <a id="470" class="Keyword">import</a> <a id="477" href="UTxO.TokenProvenanceNF.html" class="Module">UTxO.TokenProvenanceNF</a>
 
-<a id="473" class="Comment">-- ** Constraint-emitting Machines</a>
-<a id="508" class="Keyword">open</a> <a id="513" class="Keyword">import</a> <a id="520" href="StateMachine.Base.html" class="Module">StateMachine.Base</a>
-<a id="538" class="Keyword">open</a> <a id="543" class="Keyword">import</a> <a id="550" href="StateMachine.Properties.html" class="Module">StateMachine.Properties</a>
+<a id="501" class="Comment">-- ** Constraint-emitting Machines</a>
+<a id="536" class="Keyword">open</a> <a id="541" class="Keyword">import</a> <a id="548" href="StateMachine.Base.html" class="Module">StateMachine.Base</a>
+<a id="566" class="Keyword">open</a> <a id="571" class="Keyword">import</a> <a id="578" href="StateMachine.Properties.html" class="Module">StateMachine.Properties</a>
 
-<a id="575" class="Comment">-- ** Bisimulation between CEMs and UTxO ledgers</a>
-<a id="624" class="Keyword">open</a> <a id="629" class="Keyword">import</a> <a id="636" href="Bisimulation.Base.html" class="Module">Bisimulation.Base</a>
-<a id="654" class="Keyword">open</a> <a id="659" class="Keyword">import</a> <a id="666" href="Bisimulation.Soundness.html" class="Module">Bisimulation.Soundness</a>
-<a id="689" class="Keyword">open</a> <a id="694" class="Keyword">import</a> <a id="701" href="Bisimulation.Completeness.html" class="Module">Bisimulation.Completeness</a>
-<a id="727" class="Keyword">open</a> <a id="732" class="Keyword">import</a> <a id="739" href="Bisimulation.html" class="Module">Bisimulation</a>
+<a id="603" class="Comment">-- ** Bisimulation between CEMs and UTxO ledgers</a>
+<a id="652" class="Keyword">open</a> <a id="657" class="Keyword">import</a> <a id="664" href="Bisimulation.Base.html" class="Module">Bisimulation.Base</a>
+<a id="682" class="Keyword">open</a> <a id="687" class="Keyword">import</a> <a id="694" href="Bisimulation.Soundness.html" class="Module">Bisimulation.Soundness</a>
+<a id="717" class="Keyword">open</a> <a id="722" class="Keyword">import</a> <a id="729" href="Bisimulation.Completeness.html" class="Module">Bisimulation.Completeness</a>
+<a id="755" class="Keyword">open</a> <a id="760" class="Keyword">import</a> <a id="767" href="Bisimulation.html" class="Module">Bisimulation</a>
 
-<a id="753" class="Comment">-- ** StateMachine examples</a>
-<a id="781" class="Keyword">open</a> <a id="786" class="Keyword">import</a> <a id="793" href="StateMachine.Examples.GuessingGame.html" class="Module">StateMachine.Examples.GuessingGame</a>
-<a id="828" class="Keyword">open</a> <a id="833" class="Keyword">import</a> <a id="840" href="StateMachine.Examples.MultiSig.html" class="Module">StateMachine.Examples.MultiSig</a>
-<a id="871" class="Keyword">open</a> <a id="876" class="Keyword">import</a> <a id="883" href="StateMachine.Examples.Counter.html" class="Module">StateMachine.Examples.Counter</a>
-<a id="913" class="Comment">-- open import StateMachine.Examples.TeaCoffee</a>
-<a id="960" class="Comment">-- open import StateMachine.Examples.Timer</a>
+<a id="781" class="Comment">-- ** StateMachine examples</a>
+<a id="809" class="Keyword">open</a> <a id="814" class="Keyword">import</a> <a id="821" href="StateMachine.Examples.GuessingGame.html" class="Module">StateMachine.Examples.GuessingGame</a>
+<a id="856" class="Keyword">open</a> <a id="861" class="Keyword">import</a> <a id="868" href="StateMachine.Examples.MultiSig.html" class="Module">StateMachine.Examples.MultiSig</a>
+<a id="899" class="Keyword">open</a> <a id="904" class="Keyword">import</a> <a id="911" href="StateMachine.Examples.Counter.html" class="Module">StateMachine.Examples.Counter</a>
+<a id="941" class="Comment">-- open import StateMachine.Examples.TeaCoffee</a>
+<a id="988" class="Comment">-- open import StateMachine.Examples.Timer</a>
 
-<a id="1004" class="Comment">-- ** Transfering CEM properties</a>
-<a id="1037" class="Keyword">open</a> <a id="1042" class="Keyword">import</a> <a id="1049" href="StateMachine.Inductive.html" class="Module">StateMachine.Inductive</a>
-<a id="1072" class="Keyword">open</a> <a id="1077" class="Keyword">import</a> <a id="1084" href="StateMachine.Initiality.html" class="Module">StateMachine.Initiality</a>
-<a id="1108" class="Keyword">open</a> <a id="1113" class="Keyword">import</a> <a id="1120" href="StateMachine.Extract.html" class="Module">StateMachine.Extract</a>
+<a id="1032" class="Comment">-- ** Transfering CEM properties</a>
+<a id="1065" class="Keyword">open</a> <a id="1070" class="Keyword">import</a> <a id="1077" href="StateMachine.Inductive.html" class="Module">StateMachine.Inductive</a>
+<a id="1100" class="Keyword">open</a> <a id="1105" class="Keyword">import</a> <a id="1112" href="StateMachine.Initiality.html" class="Module">StateMachine.Initiality</a>
+<a id="1136" class="Keyword">open</a> <a id="1141" class="Keyword">import</a> <a id="1148" href="StateMachine.Extract.html" class="Module">StateMachine.Extract</a>
 </pre></body></html>
