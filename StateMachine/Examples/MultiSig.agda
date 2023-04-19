@@ -1,13 +1,12 @@
-open import Data.Maybe.Properties using (just-injective)
-open import Relation.Binary.PropositionalEquality using (cong₂)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties using (⊆-refl)
-
 open import Prelude.Init
 open import Prelude.Lists
 open import Prelude.DecEq
--- open import Prelude.Functor
+open import Prelude.Membership
+open import Prelude.Functor
 open import Prelude.Applicative
 open import Prelude.Default
+open import Prelude.Ord
+
 open import UTxO.Hashing
 open import UTxO.Value
 open import UTxO.Types
@@ -41,7 +40,7 @@ map-just' : {A B : Set}(ma : Maybe A)(a : A)
   → (∀{a a'} → f a ≡ f a' → a ≡ a')
   → (f <$> ma) ≡ just (f a)
   → ma ≡ just a
-map-just' (just _) a f p q = cong just (p (just-injective q))
+map-just' (just _) a f p q = cong just (p (M.just-injective q))
 
 map-nothing' : {A B : Set}(ma : Maybe A)
   → (f : A → B)
@@ -56,7 +55,7 @@ ap-map-just : {A B C : Set}(ma : Maybe A)(a : A)(mb : Maybe B)(b : B)
   → ma ≡ just a × mb ≡ just b
 ap-map-just (just _) a (just _) b f p q =
  let
-   r , r' = p (just-injective q)
+   r , r' = p (M.just-injective q)
  in
   cong just r , cong just r'
 
@@ -70,7 +69,7 @@ ap-ap-map-just : {A B C D : Set}
   → ma ≡ just a × mb ≡ just b × mc ≡ just c
 ap-ap-map-just (just _) a (just _) b (just _) c f p q =
  let
-   r , r' , r'' = p (just-injective q)
+   r , r' , r'' = p (M.just-injective q)
  in
   cong just r , cong just r' , cong just r''
 
@@ -338,7 +337,7 @@ temp : ∀ {sigs₀} →
 -- temp {sigs₀} (Collecting _ sigs) ps s′ s↝s′ = {!!}
 temp {sigs₀} (Collecting _ .sigs₀) refl .(Collecting _ sigs₀)
   base⁇
-  = ⊆-refl
+  = L.SubS.⊆-refl
 temp {sigs₀} (Collecting _ .sigs₀) refl s″
   (step⁇ {s′ = s′} {i = AddSignature sig } s↝s′ (_ , eq) p)
   with s′ | temp _ refl _ s↝s′

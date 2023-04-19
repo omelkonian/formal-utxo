@@ -5,9 +5,12 @@ open import Data.List.Membership.Propositional.Properties                  using
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (map⁺)
 
 open import Prelude.Init
-open import Prelude.Lists using (mapWith∈↭filter; ↭⇒≡)
+open import Prelude.Lists.Postulates using (mapWith∈↭filter; ↭⇒≡)
 open import Prelude.DecEq
 open import Prelude.Sets
+open import Prelude.Membership using (_∈?_; _∉?_)
+open L.Mem
+open import Prelude.Applicative
 open import Prelude.Monad
 
 open import UTxO.Hashing

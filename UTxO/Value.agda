@@ -1,12 +1,18 @@
-{-# OPTIONS --allow-unsolved-metas #-}
+-- {-# OPTIONS --allow-unsolved-metas #-}
 module UTxO.Value where
 
 open import Prelude.Init
 open import Prelude.Lists
+open import Prelude.Lists.Dec
 open import Prelude.DecEq
 open import Prelude.Sets
-open import Prelude.Monad
+-- open import Prelude.Membership
+open L.Mem
+open import Prelude.Functor
 open import Prelude.Bifunctor
+open import Prelude.Applicative
+open import Prelude.Monad
+open import Prelude.Ord
 
 open import UTxO.Hashing.Base
 
@@ -47,7 +53,7 @@ ex-map = (1 , (0 , 50) ∷ [])
 --------------------------
 -- Implementation
 
-open import Data.AVL.Map Nat.<-strictTotalOrder
+open import Data.Tree.AVL.Map Nat.<-strictTotalOrder
   using    (Map; empty; unionWith; lookup)
   renaming (map to mapᵛ; fromList to fromListᵛ; toList to toListᵛ)
 

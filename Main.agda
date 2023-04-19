@@ -1,3 +1,4 @@
+{-# OPTIONS --rewriting #-}
 module Main where
 
 -- ** Basic UTxO definitions

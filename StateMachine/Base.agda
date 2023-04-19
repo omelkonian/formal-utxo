@@ -1,3 +1,4 @@
+{-# OPTIONS --auto-inline #-}
 {-
 A State Machine library for smart contracts, based on very similar
 library for Plutus Smart contracts
@@ -16,10 +17,15 @@ open import Data.Nat.Properties using (+-identityˡ; <⇒≢; ≤⇒pred≤)
 open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
+open import Prelude.Maybes
+open import Prelude.Nats.Postulates
 open import Prelude.Default
 open import Prelude.DecEq
 open import Prelude.Sets
+open import Prelude.Membership
+open import Prelude.Applicative
 open import Prelude.Monad
+open import Prelude.Ord
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -87,45 +93,45 @@ module CEM
   spentsOrigin txi =
     originₛₘ >>=ₜ λ o → ⌊ o ∈? map InputInfo.outputRef (TxInfo.inputInfo txi) ⌋
 
-  𝕍 : HashId
+  {-# TERMINATING #-}
+  mutual
+    policyₛₘ : MonetaryPolicy
+    policyₛₘ pti@(record {thisTx = c; txInfo = txi}) =
+      let 𝕋 = fromMaybe c ⦇ originₛₘ ♯ₒᵣ ⦈ in
+        ⌊ lookupQuantity (c , 𝕋) (TxInfo.forge txi) ≟ 1 ⌋
+      ∧ spentsOrigin txi
+      ∧ (case outputsOf (c , 𝕋) pti of λ where
+          (record {value = v; address = v♯; datumHash = d♯} ∷ [])
+            → ⌊ v♯ ≟ 𝕍 ⌋
+            ∧ (fromMaybe false $ lookupDatumPtx d♯ pti >>= fromData >>= pure ∘ initₛₘ)
+          _ → false)
 
-  policyₛₘ : MonetaryPolicy
-  policyₛₘ pti@(record {this = c; txInfo = txi})
-    = ⌊ lookupQuantity (c , 𝕋) (TxInfo.forge txi) ≟ 1 ⌋
-    ∧ spentsOrigin txi
-    ∧ (case outputsOf (c , 𝕋) pti of λ
-        { (record {value = v; address = v♯; datumHash = d♯} ∷ [])
-          → ⌊ v♯ ≟ 𝕍 ⌋
-          ∧ (fromMaybe false $ lookupDatumPtx d♯ pti >>= fromData >>= pure ∘ initₛₘ)
-        ; _ → false })
-    where
-      𝕋 = fromMaybe c ⦇ originₛₘ ♯ₒᵣ ⦈
+    ℂ : CurrencySymbol
+    ℂ = policyₛₘ ♯
 
-  ℂ : CurrencySymbol
-  ℂ = policyₛₘ ♯
+    𝕋 : TokenName
+    𝕋 = fromMaybe ℂ ⦇ originₛₘ ♯ₒᵣ ⦈
 
-  𝕋 : TokenName
-  𝕋 = fromMaybe ℂ ⦇ originₛₘ ♯ₒᵣ ⦈
+    nftₛₘ : TokenClass
+    nftₛₘ = ℂ , 𝕋
 
-  nftₛₘ : TokenClass
-  nftₛₘ = ℂ , 𝕋
+    threadₛₘ : Value
+    threadₛₘ = [ ℂ , [ 𝕋 , 1 ] ]
 
-  threadₛₘ : Value
-  threadₛₘ = [ ℂ , [ 𝕋 , 1 ] ]
+    validatorₛₘ : Validator
+    validatorₛₘ ptx di ds
+      = fromMaybe false do (s′ , tx≡) ← join ⦇ stepₛₘ (fromData ds) (fromData di) ⦈
+                           pure $ outputsOK s′
+                                ∧ verifyTxInfo (txInfo ptx) tx≡
+                                ∧ propagates threadₛₘ ptx
+      module _ where
+        outputsOK : S → Bool
+        outputsOK st = case getContinuingOutputs ptx of λ where
+          (o ∷ []) → ⌊ datumHash o ≟ toData st ♯ᵈ ⌋
+          _        → false
 
-  validatorₛₘ : Validator
-  validatorₛₘ ptx di ds
-    = fromMaybe false do (s′ , tx≡) ← join ⦇ stepₛₘ (fromData ds) (fromData di) ⦈
-                         pure $ outputsOK s′
-                              ∧ verifyTxInfo (txInfo ptx) tx≡
-                              ∧ propagates threadₛₘ ptx
-    module _ where
-      outputsOK : S → Bool
-      outputsOK st = case getContinuingOutputs ptx of λ
-        { (o ∷ []) → ⌊ datumHash o ≟ toData st ♯ᵈ ⌋
-        ; _        → false }
-
-  𝕍 = validatorₛₘ ♯
+    𝕍 : HashId
+    𝕍 = validatorₛₘ ♯
 
   -- Create a transaction input.
   infix 5 _←—_
@@ -163,14 +169,14 @@ module CEM
        = y , refl , true⇒T g≡
 
   Tpolicy⇒ : ∀ {tx l pti}
-    → this pti ≡ ℂ
+    → thisTx pti ≡ ℂ
     → txInfo pti ≡ mkTxInfo l tx
     → T (policyₛₘ pti)
     → ∃ λ v → ∃ λ s →
           (forge tx ◆ ≡ 1)
         × outputsOf nftₛₘ pti ≡ [ record {value = v; address = 𝕍; datumHash = toData s ♯ᵈ} ]
         × Init s
-  Tpolicy⇒ {tx = tx}{l}{pti@(record {this = .ℂ; txInfo = txi})} refl refl h₀
+  Tpolicy⇒ {tx = tx}{l}{pti@(record {thisTx = .ℂ; txInfo = txi})} refl refl h₀
     with forge tx ◆ ≟ 1 | h₀
   ... | no  _    | ()
   ... | yes frg≡ | h₁
@@ -218,7 +224,7 @@ module CEM
     frg◆≤1 {tx} {l} vtx = ¬>⇒≤ ¬frg◆>1
       where
         ¬frg◆>1 : ¬ (forge tx ◆ > 1)
-        ¬frg◆>1 frg◆>1 = <⇒≢ frg◆>1 (sym frg≡1)
+        ¬frg◆>1 frg◆>1 = Nat.<⇒≢ frg◆>1 (sym frg≡1)
           where
             ◆∈frg : ◆∈ forge tx
             ◆∈frg = ≤⇒pred≤ frg◆>1

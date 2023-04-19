@@ -1,12 +1,13 @@
-open import Data.List.Properties
-open import Data.Nat.Properties
-
-open import Prelude.Init renaming (sum to ∑ℕ)
+open import Prelude.Init
 open L.NE using (head; last)
 open import Prelude.General
+open import Prelude.Nats.Postulates
 open import Prelude.Lists
+open import Prelude.Lists.Postulates
+open import Prelude.Membership
 open import Prelude.ToN
 open import Prelude.Bifunctor
+open import Prelude.Ord
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -148,7 +149,6 @@ provenance {tx}{l} vl = go vl (≺′-wf (_ , vl))
         fromForge
           with ◆∈? forge tx
         ... | yes _ = [ _ , singleton-Provenance {tx = tx}{l}{vl₀} ]
-          where
         ... | no  _ = []
 
         res→traces : Res vl vtx → Maybe (∃ $ Provenance L₀ tx)
@@ -199,7 +199,7 @@ provenance {tx}{l} vl = go vl (≺′-wf (_ , vl))
 
         ∑forge≡ : ∑₁ fromForge ≡ forge tx ◆
         ∑forge≡ with ◆∈? forge tx
-        ... | yes _ = +-identityʳ (forge tx ◆)
+        ... | yes _ = Nat.+-identityʳ (forge tx ◆)
         ... | no ¬p = sym $ ¬x>0⇒x≡0 ¬p
 
         ∑-helper : ∑ℕ (map (_◆ ∘ resValue) rs) ≡ ∑₁ (mapMaybe res→traces rs)

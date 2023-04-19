@@ -6,8 +6,13 @@ import Data.List.Relation.Unary.AllPairs as AllPairs
 
 open import Prelude.Init
 open import Prelude.Lists
+open import Prelude.Lists.Postulates
 open import Prelude.DecEq
+open import Prelude.Decidable hiding (DecEq⇒Dec)
+open import Prelude.Null
 open import Prelude.Sets
+open import Prelude.Membership using (_∉?_)
+open L.Mem
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -15,6 +20,11 @@ open import UTxO.Value
 open import UTxO.Types hiding (I)
 open import UTxO.TxUtilities
 open import UTxO.Validity
+
+null? : ∀ {A : Set ℓ} → Decidable¹ (Null {A = List A})
+null? = λ where
+  [] → yes refl
+  (_ ∷ _) → no λ ()
 
 postulate
   genesis : ∀ {l} → ValidLedger l → ¬Null l → count (null? ∘ inputs) l ≡ 1
@@ -24,7 +34,7 @@ Unique-ledger {.[]}     ∙                    = []
 Unique-ledger {.tx ∷ l} vl₀@(vl ⊕ tx ∶- vtx)
   with null? (inputs tx)
 ... | yes px
-    = count-single {P? = null? ∘ inputs} (genesis vl₀ λ ()) px ∷ Unique-ledger vl
+    = count-single (null? ∘ inputs) (genesis vl₀ λ ()) px ∷ Unique-ledger vl
 ... | no ¬px
     = L.All.¬Any⇒All¬ l tx∉ ∷ Unique-ledger vl
     where

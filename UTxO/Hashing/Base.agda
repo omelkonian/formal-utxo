@@ -1,8 +1,7 @@
 module UTxO.Hashing.Base where
 
-import Data.List.Relation.Unary.Any as Any
-
 open import Prelude.Init
+open import Prelude.Membership
 
 --------------------------------------------------------------------------------
 -- Types for hash functions.
@@ -50,4 +49,4 @@ postulate
 ∈♯ : ∀ {A : Set} {x : A} {xs : List A}
   → Any ((x ♯ ≡_) ∘  _♯) xs
   → x ∈ xs
-∈♯ = Any.map ♯-injective
+∈♯ = L.Any.map ♯-injective

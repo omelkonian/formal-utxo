@@ -5,8 +5,10 @@ open import Prelude.General
 open import Prelude.Lists
 open import Prelude.DecEq
 open import Prelude.Sets
+open import Prelude.Membership
 open import Prelude.ToN
 open import Prelude.Bifunctor
+open import Prelude.Applicative
 open import Prelude.Monad
 
 open import UTxO.Hashing
@@ -108,10 +110,10 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
         thisVal≡ = cong InputInfo.validatorHash (ptx-‼ {l} {tx} {txIn} {here refl})
 
         inputs≡ : inputsAt 𝕍 txi ≡ [ ptxIn ]
-        inputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ InputInfo.validatorHash} (≟-refl _≟_ 𝕍)
+        inputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ InputInfo.validatorHash} (≟-refl 𝕍)
 
         outputs≡ : outputsAt 𝕍 txi ≡ [ txOut ]
-        outputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ address} (≟-refl _≟_ 𝕍)
+        outputs≡ = filter-singleton {P? = (𝕍 ≟_) ∘ address} (≟-refl 𝕍)
 
         getCont≡ : getContinuingOutputs ptx ≡ [ txOut ]
         getCont≡ =
@@ -127,11 +129,11 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
           ∎
 
         outputsOK≡ : outputsOK ptx di ds s′ ≡ true
-        outputsOK≡ rewrite {- final≡ | -} getCont≡ | ≟-refl _≟_ (ds′ ♯ᵈ) = refl
+        outputsOK≡ rewrite {- final≡ | -} getCont≡ | ≟-refl (ds′ ♯ᵈ) = refl
 
         valueAtⁱ≡ : valueAtⁱ 𝕍 txi ≡ v
         valueAtⁱ≡ =
-          -- rewrite ≟-refl _≟_ 𝕍 | getSpent≡ = sum-single {v = v}
+          -- rewrite ≟-refl 𝕍 | getSpent≡ = sum-single {v = v}
           begin
             valueAtⁱ 𝕍 txi
           ≡⟨⟩
@@ -146,7 +148,7 @@ soundness {s} {i} {s′} {tx≡} {l} {vl} {- final≡ -} s→s′ vl~s sat@(rang
 
         valueAtᵒ≡ : valueAtᵒ 𝕍 txi ≡ forge′ +ᶜ v
         valueAtᵒ≡ =
-          -- rewrite ≟-refl _≟_ 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
+          -- rewrite ≟-refl 𝕍 | getSpent≡ = sum-single {v = forge′ +ᶜ v}
           begin
             (sumᶜ ∘ map value ∘ outputsAt 𝕍) txi
           ≡⟨ cong (sumᶜ ∘ map value) outputs≡ ⟩

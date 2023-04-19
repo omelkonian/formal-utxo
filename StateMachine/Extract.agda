@@ -1,10 +1,15 @@
-open import Data.Nat.Properties
 open import Data.Nat.Induction using (<-wellFounded)
 open import Data.List.Membership.Propositional.Properties using (∈-filter⁺)
 
-open import Prelude.Init renaming (sum to ∑ℕ)
+open import Prelude.Init
 open import Prelude.General
+open import Prelude.Maybes
 open import Prelude.Lists
+open import Prelude.Lists.Postulates
+-- open import Prelude.Membership
+open L.Mem
+open import Prelude.Nats.Postulates
+open import Prelude.Ord
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -71,12 +76,18 @@ ams-outputs◆ {tx} tx∈
         ⊆-helper (there (there ()))
 
         i≥x+y : ∑ l forge ◆ ≥ value x ◆ + value y ◆
-        i≥x+y = begin value x ◆ + value y ◆                            ≡⟨ cong (value x ◆ +_)
-                                                                               (sym $ +-identityʳ (value y ◆)) ⟩
-                      ∑ℕ (value x ◆ ∷ value y ◆ ∷ [])                  ≤⟨ ∑ℕ-⊆ ⊆-helper ⟩
-                      ∑ℕ (value x ◆ ∷ value y ◆ ∷ map (_◆ ∘ value) os) ≡⟨ sym $ ∑-◆ {xs = x ∷ y ∷ os} {f = value} ⟩
-                      ∑ (x ∷ y ∷ os) value ◆                           ≤⟨ ∑≥′ ⟩
-                      ∑ l forge ◆                                      ∎
+        i≥x+y =
+          begin
+            value x ◆ + value y ◆
+          ≡⟨ cong (value x ◆ +_) $ sym $ Nat.+-identityʳ (value y ◆) ⟩
+            ∑ℕ (value x ◆ ∷ value y ◆ ∷ [])
+          ≤⟨ ∑ℕ-⊆ ⊆-helper ⟩
+            ∑ℕ (value x ◆ ∷ value y ◆ ∷ map (_◆ ∘ value) os)
+          ≡⟨ sym $ ∑-◆ {xs = x ∷ y ∷ os} {f = value} ⟩
+            ∑ (x ∷ y ∷ os) value ◆
+          ≤⟨ ∑≥′ ⟩
+            ∑ l forge ◆
+          ∎
 
 data X¹ : Tx → Tx → Set where
 
@@ -84,7 +95,7 @@ data X¹ : Tx → Tx → Set where
 
       (tx : Tx)
     → (tx∈ : tx ∈′ L)
-    → T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx})
+    → T (policyₛₘ $ record {thisTx = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx})
       -----------------------------------------------------------------------------
     → X¹ tx tx
 
@@ -136,7 +147,7 @@ record TxS (tx : Tx) (s : S) : Set where
 
 h₀ : ∀ {tx}
   → (tx∈ : tx ∈′ L)
-  → T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx})
+  → T (policyₛₘ $ record {thisTx = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx})
   → ∃ λ s → Init s × TxS tx s
 h₀ {tx = tx} tx∈ p≡
   with v , s , _ , outs≡ , init-s
@@ -272,7 +283,7 @@ data Xˢ : ∃TxS → ∃TxS → Set where
   root : ∀ {tx}
 
     → (tx∈ : tx ∈′ L)
-    → (p≡ : T (policyₛₘ $ record {this = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx}))
+    → (p≡ : T (policyₛₘ $ record {thisTx = ℂ; txInfo = mkTxInfo (proj₁ $ ∈⇒Suffix tx∈) tx}))
       --------------------------------------------------------
     → let s , _ , txs = h₀ tx∈ p≡
       in  Xˢ (tx , s , txs) (tx , s , txs)

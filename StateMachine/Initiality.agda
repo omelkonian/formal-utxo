@@ -1,8 +1,8 @@
-open import Data.Nat.Properties using (+-identityʳ; ≤-trans)
-
 open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.Membership
+open import Prelude.Ord
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -42,15 +42,15 @@ initiality {tx}{l} vl {o} o∈ ◆∈v jo
 
     v≤ : value o ◆ ≤ n
     v≤ = begin value o ◆ ≤⟨ ∑≥ ⟩
-               n + 0     ≡⟨ +-identityʳ n ⟩
+               n + 0     ≡⟨ Nat.+-identityʳ n ⟩
                n ∎
          where open ≤-Reasoning
 
     n>0 : n > 0
-    n>0 = ≤-trans ◆∈v v≤
+    n>0 = Nat.≤-trans ◆∈v v≤
 
     frg≥ : forge tx₀ ◆ ≥ value o ◆
-    frg≥ = ≤-trans v≤ (forge◆≥ $ linked tr)
+    frg≥ = Nat.≤-trans v≤ (forge◆≥ $ linked tr)
 
     ◆∈frg : ◆∈ forge tx₀
     ◆∈frg = ◆-≥ {v = forge tx₀} {v′ = value o} frg≥ ◆∈v

@@ -1,11 +1,13 @@
-open import Data.Nat.Properties
-open import Data.List.Properties
-open import Data.List.Membership.Propositional.Properties using (∈-++⁻)
-
 open import Prelude.Init
 open import Prelude.General
+open import Prelude.Nats.Postulates
 open import Prelude.Lists
+open import Prelude.Lists.Postulates
+open import Prelude.Null
 open import Prelude.ToN
+open import Prelude.Ord
+-- open import Prelude.Membership
+open L.Mem
 
 open import UTxO.Hashing.Base
 open import UTxO.Hashing.Types
@@ -50,8 +52,8 @@ nf-prevs {tx} {l} {vl} {vtx} nf
     qed
       with ◆∈? forge tx
     ... | no ¬p
-        rewrite ¬x>0⇒x≡0 ¬p | +-identityʳ $ count (◆∈?_ ∘ resValue) rs
-        = subst (_≤ 1) (sym $ count-map⁺ {xs = rs} {f = resValue} {P? = ◆∈?_}) qed′
+        rewrite ¬x>0⇒x≡0 ¬p | Nat.+-identityʳ $ count (◆∈?_ ∘ resValue) rs
+        = subst (_≤ 1) (sym $ count-map⁺ ◆∈?_ {xs = rs} {resValue}) qed′
       where
         lookup≤ᵣ : ∑frg ◆ ≤ 1
         lookup≤ᵣ = subst (_≤ 1) (◆-+ᶜ-reject {v = forge tx} {vs = ∑frg} ¬p) nf
@@ -80,10 +82,10 @@ nf-prevs {tx} {l} {vl} {vtx} nf
         count≡0′ = x≤0⇒x≡0′ count≡0″ count≤ₗ
 
         count≡0 : count (◆∈?_ ∘ resValue) rs ≡ 0
-        count≡0 = subst (_≡ 0) (sym $ count-map⁺ {xs = rs} {f = resValue} {P? = ◆∈?_}) count≡0′
+        count≡0 = subst (_≡ 0) (sym $ count-map⁺ ◆∈?_ {xs = rs} {resValue}) count≡0′
 
         qed′ : count (◆∈?_ ∘ resValue) rs + forge tx ◆ ≤ 1
-        qed′ rewrite count≡0 | +-identityˡ (forge tx ◆) = frg≤1
+        qed′ rewrite count≡0 | Nat.+-identityˡ (forge tx ◆) = frg≤1
 
 private
   variable
@@ -102,7 +104,7 @@ singleton-combine : ∀ {xs : List (∃ $ Provenance L tx)} {∑≥ : ∑₁ xs 
   → Singletonᵖ (combine xs ∑≥)
 singleton-combine {xs = []}            (() , _)
 singleton-combine {xs = (n , pr) ∷ []} (tt , s-pr ∷ [])
-  rewrite ++-identityʳ (traces pr)
+  rewrite L.++-identityʳ (traces pr)
         = s-pr
 singleton-combine {xs = _ ∷ _ ∷ _}     (() , _)
 
@@ -175,7 +177,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
                               $ subst (λ x → count (◆∈?_ ∘ resValue) rs + x ≤ 1) frg≡1 nf′
 
             p₁ : All (¬_ ∘ ◆∈_ ∘ resValue) rs
-            p₁ = count≡0⇒All¬ {xs = rs} (◆∈?_ ∘ resValue) count≡0
+            p₁ = count≡0⇒All¬ (◆∈?_ ∘ resValue) {xs = rs} count≡0
 
             p₂ : All Is-nothing (map res→traces rs)
             p₂ = L.All.map⁺ $ All-map {P = ¬_ ∘ ◆∈_ ∘ resValue} {Q = Is-nothing ∘ res→traces} P⇒Q p₁
@@ -186,12 +188,12 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
                 ... | no  _   = M.All.nothing
 
             fromPrevs≡[] : Null fromPrevs
-            fromPrevs≡[] = All-nothing⇒mapMaybe≡[] p₂
+            fromPrevs≡[] = All-nothing⇒mapMaybe≡[] res→traces p₂
 
             fin : Singleton $ fromForge′ ++ fromPrevs
-            fin rewrite fromPrevs≡[] | ++-identityʳ fromForge′ = tt
+            fin rewrite fromPrevs≡[] | L.++-identityʳ fromForge′ = tt
 
-        ... | no ¬p | ¬n rewrite ++-identityˡ fromPrevs = s-fromPrevs
+        ... | no ¬p | ¬n rewrite L.++-identityˡ fromPrevs = s-fromPrevs
           where
             count≤ : count (◆∈?_ ∘ resValue) rs ≤ 1
             count≤ = ≤-+ˡ {y = forge tx ◆} {z = 1} nf′
@@ -202,7 +204,7 @@ provenanceNF vl = go′ vl (≺′-wf (_ , vl))
             ... | no ¬r>0 = ⊥-elim $ ¬r>0 r>0
 
             ams-fromPrevs : AtMostSingleton fromPrevs
-            ams-fromPrevs = ams-count {P? = ◆∈?_ ∘ resValue} {xs = rs} {f = res→traces}
+            ams-fromPrevs = ams-count (◆∈?_ ∘ resValue) {xs = rs} {f = res→traces}
                                       r>0⇒just count≤
 
             s-fromPrevs : Singleton fromPrevs

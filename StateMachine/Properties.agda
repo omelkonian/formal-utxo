@@ -1,10 +1,15 @@
+{-# OPTIONS --auto-inline #-}
+{-# OPTIONS --allow-unsolved-metas #-}
 open import Data.List.Membership.Propositional.Properties using (∈-filter⁻)
 
 open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists using (enumerate)
+open import Prelude.Maybes
 open import Prelude.DecEq
+open import Prelude.Membership
 open import Prelude.Bifunctor
+open import Prelude.Applicative
 open import Prelude.Monad
 
 open import UTxO.Hashing
@@ -83,10 +88,12 @@ T-validator {di} {s} {ptx} eq
 ... | true  | ≡[ outsOK≡ ] | _
   rewrite outsOK≡
   with verifyTxInfo (txInfo ptx) tx≡ | inspect (verifyTxInfo (txInfo ptx)) tx≡ | eq
-... | false | _            | ()
+-- ... | false | _            | ()
+... | false | ≡[ verify≡ ] | absurd
+  = {!!}
 ... | true  | ≡[ verify≡ ] | _
   rewrite verify≡
   with propagates threadₛₘ ptx | eq
 ... | false | ()
 ... | true  | _
-    = i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , refl
+    = i , s′ , tx≡ , step≡ , outsOK≡ , verify≡ , {!refl!} -- refl

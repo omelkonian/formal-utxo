@@ -4,8 +4,10 @@ open import Data.List.Membership.Propositional.Properties
 open import Prelude.Init
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.Maybes
 open import Prelude.DecEq
 open import Prelude.Sets
+open import Prelude.Membership
 open import Prelude.ToN
 open import Prelude.Bifunctor
 open import Prelude.Applicative

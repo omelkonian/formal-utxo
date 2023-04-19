@@ -5,10 +5,13 @@ open import Data.List.Membership.Propositional.Properties using (∈-++⁻; ∈-
 
 open import Prelude.Init
 open import Prelude.Lists
+open import Prelude.Lists.Postulates
 open import Prelude.DecEq
 open import Prelude.Sets
+open import Prelude.Membership hiding (_∈_)
+open L.Mem using (_∈_)
 open import Prelude.ToN
--- open import Prelude.Functor
+open import Prelude.Functor
 open import Prelude.Bifunctor
 open import Prelude.Monad
 
@@ -38,7 +41,7 @@ open ≡-Reasoning
 
 map-out≡ : ∀ tx → map out (mapWith∈ (outputs tx) (mkUtxo tx)) ≡ outputs tx
 map-out≡ tx =
-  begin map out (mapWith∈ (outputs tx) (mkUtxo tx)) ≡⟨ map∘mapWith∈ {xs = outputs tx} {f = out} {g = mkUtxo tx} ⟩
+  begin map out (mapWith∈ (outputs tx) (mkUtxo tx)) ≡⟨ map∘mapWith∈ out (outputs tx) (mkUtxo tx) ⟩
         mapWith∈ (outputs tx) (out ∘ mkUtxo tx)     ≡⟨⟩
         mapWith∈ (outputs tx) (λ {o} _ → o)         ≡⟨ mapWith∈-id {xs = outputs tx} ⟩
         outputs tx                                  ∎
@@ -47,12 +50,12 @@ map-out≡ tx =
 ∑utxo≥∑out tx l
   rewrite ∑-++ {xs = filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)}
                {ys = mapWith∈ (outputs tx) (mkUtxo tx)} {fv = value ∘ out}
-        = ≥ᶜ-+ᶜ {x = ∑ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)}
-                {y = ∑ (mapWith∈ (outputs tx) (mkUtxo tx)) (value ∘ out)}
-                {z = ∑ (outputs tx) value}
-                (≥ᶜ-refl′ ∑≡)
+        = ≥ᶜ-+ᶜ {x = x} {y = y} {z = z} (≥ᶜ-refl′ ∑≡)
   where
-    ∑≡ : ∑ (mapWith∈ (outputs tx) (mkUtxo tx)) (value ∘ out) ≡ ∑ (outputs tx) value
+    x = ∑ (filter ((_∉? outputRefs tx) ∘ outRef) (utxo l)) (value ∘ out)
+    y = ∑ (mapWith∈ (outputs tx) (mkUtxo tx)) (value ∘ out)
+    z = ∑ (outputs tx) value
+    ∑≡ : y ≡ z
     ∑≡ rewrite map-compose {g = value} {f = out} (mapWith∈ (outputs tx) (mkUtxo tx))
              | map-out≡ tx
              = refl
@@ -183,19 +186,19 @@ mkTxInfo l tx = record
 
 toPendingTx : Ledger → (tx : Tx) → Index (inputs tx) → PendingTx
 toPendingTx l tx i = record
-  { this   = ‼-map {xs = inputs tx} {f = mkInputInfo l} i
+  { thisTx = ‼-map {xs = inputs tx} {f = mkInputInfo l} i
   ; txInfo = mkTxInfo l tx }
 
 toPendingMPS : Ledger → Tx → HashId → PendingMPS
 toPendingMPS l tx i = record
-  { this   = i
+  { thisTx = i
   ; txInfo = mkTxInfo l tx }
 
 --
 
 ptx-‼ : ∀ {l tx i} {i∈ : i ∈ inputs tx} →
   let ptx = toPendingTx l tx (L.Any.index i∈)
-  in  (TxInfo.inputInfo (txInfo ptx) ‼ this ptx) ≡ mkInputInfo l i
+  in  (TxInfo.inputInfo (txInfo ptx) ‼ thisTx ptx) ≡ mkInputInfo l i
 ptx-‼ {l = l} {i∈ = i∈} rewrite map-‼ {f = mkInputInfo l} i∈ = refl
 
 ∑₁ᶜ : ∀ {H : Value → Set} → List (∃ H) → Value

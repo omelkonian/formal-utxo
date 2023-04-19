@@ -5,6 +5,7 @@ open import Prelude.General
 open import Prelude.Lists
 open import Prelude.DecEq
 open import Prelude.ToN
+open import Prelude.Membership
 
 open import UTxO.Hashing
 open import UTxO.Value
@@ -41,7 +42,7 @@ _~_ {l} _ s = (toData s) ♯ᵈ ∈ ( map (datumHash ∘ out)
 
 view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
   → vl ~ s
-  → ∃[ prevTx ] ∃[ v ] (Σ[ prevOut∈ ∈ (s —→ v ∈ outputs prevTx) ]
+  → ∃ λ prevTx → ∃ λ v → Σ (s —→ v ∈ outputs prevTx) λ prevOut∈ →
       let
         oRef = (prevTx ♯ₜₓ) indexed-at toℕ (L.Any.index prevOut∈)
         out  = record { address = 𝕍; datumHash = toData s ♯ᵈ; value = v }
@@ -51,7 +52,7 @@ view-~ : ∀ {l} {s : S} {vl : ValidLedger l}
          × oRef ∈ map outRef (utxo l)
          × (getSpentOutputRef l oRef ≡ just out)
          × ((v ≥ᶜ threadₛₘ) ≡ true)
-         ))
+         )
 view-~ {l} {s} vl~s
   with ∈-map⁻ (datumHash ∘ out) vl~s
 ... | u@(record {prevTx = prevTx; out = record {value = v}}) , out∈ , refl
@@ -111,12 +112,12 @@ mkTx {l} {s} {s′} {i} {vl} {vl~s} tx≡ (r≡ , s≥ , _)
       frgT : (forge≡ tx≡ >>=ₜ λ v → ⌊ TxInfo.forge txi ≟ toValue v ⌋) ≡ true
       frgT with forge≡ tx≡
       ... | nothing = refl
-      ... | just v  rewrite ≟-refl _≟_ (toValue v) = refl
+      ... | just v  rewrite ≟-refl (toValue v) = refl
 
       rngT : (range≡ tx≡ >>=ₜ λ r → ⌊ TxInfo.range txi ≟ r ⌋) ≡ true
       rngT with range≡ tx≡
       ... | nothing = refl
-      ... | just v  rewrite ≟-refl _≟_ v = refl
+      ... | just v  rewrite ≟-refl v = refl
 
       v≡ : valueSpent txi ≡ v
       v≡ rewrite sum-single {v = InputInfo.value (mkInputInfo l i₀)}

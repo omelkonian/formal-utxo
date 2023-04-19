@@ -7,9 +7,15 @@ import Data.Maybe.Relation.Unary.Any as M
 
 open import Prelude.Init hiding (module M; _∋_)
 open import Prelude.Lists
+open import Prelude.Lists.Dec
+open import Prelude.Lists.Postulates
+open import Prelude.Decidable
 open import Prelude.DecEq
 open import Prelude.Functor
 open import Prelude.Sets
+-- open import Prelude.Membership
+open L.Mem
+open import Prelude.Ord
 
 open import UTxO.Hashing
 open import UTxO.Value

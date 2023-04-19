@@ -1,4 +1,4 @@
-## A formal model of the ExtendedUTxO model [![Build Status](https://travis-ci.com/omelkonian/formal-utxo.svg?branch=master)](https://travis-ci.com/omelkonian/formal-utxo)
+## A formal model of the Extended UTxO model in Agda [![CI](https://github.com/omelkonian/formal-utxo/workflows/CI/badge.svg)](https://github.com/omelkonian/formal-utxo/actions)
 
 Based on:
 > Joachim Zahnentferner, 2018, May.

@@ -1,14 +1,20 @@
 ------------------------------------------------------------------------
 -- Basic UTxO types.
 ------------------------------------------------------------------------
+{-# OPTIONS --auto-inline #-}
 module UTxO.Types where
 
 open import Prelude.Init hiding (_∋_)
 open import Prelude.General
 open import Prelude.Lists
+open import Prelude.Maybes
 open import Prelude.Functor
 open import Prelude.Bifunctor
+open import Prelude.Applicative
+open import Prelude.Foldable
+open import Prelude.Traversable
 open import Prelude.DecEq
+open import Prelude.Ord
 open import Prelude.Unsafe using (fromℕ∘toℕ; toℕ∘fromℕ; fromList∘toList; toList∘fromList)
 
 open import UTxO.Hashing.Base
@@ -44,13 +50,13 @@ record IsData (A : Set) : Set where
 open IsData {{...}} public
 
 from-injs : ∀ {A : Set} {{_ : IsData A}} ds xs
-          → sequence (map (fromData {A}) ds) ≡ just xs → ds ≡ map (toData {A}) xs
+          → sequenceA (map (fromData {A}) ds) ≡ just xs → ds ≡ map (toData {A}) xs
 from-injs {_} []       .[] refl = refl
 from-injs {A} (d ∷ ds) xs₀ eq
   with fromData {A} d | inspect (fromData {A}) d
 ... | nothing | _ = case eq of λ()
 ... | just y  | ≡[ from≡ ]
-  with sequence (map (fromData {A}) ds) | inspect sequence (map (fromData {A}) ds)
+  with sequenceA (map (fromData {A}) ds) | inspect sequenceA (map (fromData {A}) ds)
 ... | nothing  | _         = case eq of λ()
 ... | just xs′ | ≡[ seq≡ ]
   rewrite sym (M.just-injective eq)
@@ -62,7 +68,7 @@ instance
   IsDataˡ : ∀ {A : Set} → {{_ : IsData A}} → IsData (List A)
   toData   {{IsDataˡ}} = LIST ∘ map toData
 
-  fromData {{IsDataˡ}} = λ{ (LIST xs) → sequence (map fromData xs) ; _ → nothing }
+  fromData {{IsDataˡ}} = λ{ (LIST xs) → sequenceA (map fromData xs) ; _ → nothing }
 
   from∘to  {{IsDataˡ}} []       = refl
   from∘to  {{IsDataˡ}} (x ∷ xs) rewrite from∘to x | from∘to xs = refl
@@ -82,12 +88,12 @@ instance
   IsDataˢ : IsData String
   toData   {{IsDataˢ}} = toData ∘ Str.toList
 
-  fromData {{IsDataˢ}} = (Str.fromList <$>_) ∘ fromData
+  fromData {{IsDataˢ}} = fmap Str.fromList ∘ fromData
 
   from∘to  {{IsDataˢ}} xs rewrite from∘to (Str.toList xs) | fromList∘toList xs = refl
 
   from-inj {{IsDataˢ}} (LIST ds) xs p
-    with sequence (map (fromData {Char}) ds) | inspect sequence (map (fromData {Char}) ds)
+    with sequenceA (map (fromData {Char}) ds) | inspect sequenceA (map (fromData {Char}) ds)
   ... | nothing  | _         = case p of λ()
   ... | just xs′ | ≡[ seq≡ ]
     with cong Str.toList (M.just-injective p)
@@ -164,7 +170,7 @@ record TxInfo : Set where
 record Pending (I : TxInfo → Set) : Set where
   field
     txInfo : TxInfo
-    this   : I txInfo
+    thisTx : I txInfo
 
 open Pending public
 
@@ -178,7 +184,7 @@ lookupDatumPtx : ∀ {I} → HashId → Pending I → Maybe DATA
 lookupDatumPtx h = lookupDatum h ∘ TxInfo.datumWitnesses ∘ txInfo
 
 thisValidator : PendingTx → HashId
-thisValidator record {this = i; txInfo = record {inputInfo = is}} = InputInfo.validatorHash (is ‼ i)
+thisValidator record {thisTx = i; txInfo = record {inputInfo = is}} = InputInfo.validatorHash (is ‼ i)
 
 valueSpent : TxInfo → Value
 valueSpent = sumᶜ ∘ map InputInfo.value ∘ TxInfo.inputInfo
