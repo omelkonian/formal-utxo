@@ -1,4 +1,4 @@
-TOTAL: 4m5s
+TOTAL: 4m6s
 UTxO/Hashing/Base: 0m9s
 UTxO/Value: 0m8s
 UTxO/Types: 0m2s
@@ -10,8 +10,8 @@ UTxO/Defaults: 0m1s
 UTxO/ExampleLedger: 0m1s
 UTxO/Uniqueness: 0m1s
 UTxO/GlobalPreservation: 0m8s
-UTxO/TokenProvenance: 0m3s
-UTxO/TokenProvenanceNF: 0m10s
+UTxO/TokenProvenance: 0m2s
+UTxO/TokenProvenanceNF: 0m11s
 StateMachine/Base: 0m8s
 StateMachine/Properties: 0m43s
 Bisimulation/Base: 0m11s
@@ -27,4 +27,4 @@ StateMachine/Properties/Ledger: 0m7s
 StateMachine/Examples/Counter: 0m1s
 StateMachine/Initiality: 0m1s
 StateMachine/Extract: 0m43s
-Main: 0m0s
+Main: 0m1s
